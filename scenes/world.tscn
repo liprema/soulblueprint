@@ -1,0 +1,154 @@
+[gd_scene load_steps=8 format=3]
+
+[ext_resource type="Script" path="res://scripts/world.gd" id="1_world_script"]
+[ext_resource type="Texture2D" path="res://assets/sprites/world_backdrop.png" id="2_backdrop"]
+[ext_resource type="Texture2D" path="res://assets/sprites/custom_platform.png" id="3_platform_tex"]
+[ext_resource type="PackedScene" path="res://scenes/player.tscn" id="4_player_scene"]
+[ext_resource type="Script" path="res://scripts/intro_cutscene.gd" id="5_cutscene_script"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_ground"]
+size = Vector2(520, 32)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_small_plat"]
+size = Vector2(240, 20)
+
+[node name="World" type="Node2D"]
+script = ExtResource("1_world_script")
+
+[node name="ParallaxBackground" type="ParallaxBackground" parent="."]
+
+[node name="ParallaxLayer" type="ParallaxLayer" parent="ParallaxBackground"]
+motion_scale = Vector2(0.2, 0.2)
+
+[node name="BackdropSprite" type="Sprite2D" parent="ParallaxBackground/ParallaxLayer"]
+position = Vector2(512, 288)
+texture = ExtResource("2_backdrop")
+
+[node name="EnvironmentLines" type="Node2D" parent="."]
+
+[node name="Thread1" type="Line2D" parent="EnvironmentLines"]
+points = PackedVector2Array(150, 230, 350, 270, 512, 160, 680, 270, 870, 230)
+width = 2.0
+default_color = Color(0.96, 0.83, 0.42, 0.85)
+
+[node name="LevelGeometry" type="Node2D" parent="."]
+
+[node name="MainRoad" type="StaticBody2D" parent="LevelGeometry"]
+position = Vector2(512, 450)
+
+[node name="PlatformSprite" type="Sprite2D" parent="LevelGeometry/MainRoad"]
+position = Vector2(0, 40)
+texture = ExtResource("3_platform_tex")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="LevelGeometry/MainRoad"]
+position = Vector2(0, -6)
+shape = SubResource("RectangleShape2D_ground")
+
+[node name="LeftArchivePlatform" type="StaticBody2D" parent="LevelGeometry"]
+position = Vector2(130, 370)
+
+[node name="PlatformSprite" type="Sprite2D" parent="LevelGeometry/LeftArchivePlatform"]
+position = Vector2(0, 20)
+scale = Vector2(0.5, 0.5)
+texture = ExtResource("3_platform_tex")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="LevelGeometry/LeftArchivePlatform"]
+position = Vector2(0, -3)
+shape = SubResource("RectangleShape2D_small_plat")
+
+[node name="RightArchivePlatform" type="StaticBody2D" parent="LevelGeometry"]
+position = Vector2(890, 370)
+
+[node name="PlatformSprite" type="Sprite2D" parent="LevelGeometry/RightArchivePlatform"]
+position = Vector2(0, 20)
+scale = Vector2(0.5, 0.5)
+texture = ExtResource("3_platform_tex")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="LevelGeometry/RightArchivePlatform"]
+position = Vector2(0, -3)
+shape = SubResource("RectangleShape2D_small_plat")
+
+[node name="Player" parent="." instance=ExtResource("4_player_scene")]
+position = Vector2(512, 428)
+
+[node name="Camera2D" type="Camera2D" parent="."]
+position = Vector2(512, 288)
+position_smoothing_enabled = true
+
+[node name="IntroCutscene" type="CanvasLayer" parent="."]
+script = ExtResource("5_cutscene_script")
+
+[node name="DarkOverlay" type="ColorRect" parent="IntroCutscene"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.015, 0.05, 0.1, 1)
+
+[node name="GodDialogBox" type="PanelContainer" parent="IntroCutscene"]
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 120.0
+offset_top = -140.0
+offset_right = -120.0
+offset_bottom = -30.0
+grow_horizontal = 2
+grow_vertical = 0
+
+[node name="MarginContainer" type="MarginContainer" parent="IntroCutscene/GodDialogBox"]
+layout_mode = 2
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_bottom = 12
+
+[node name="VBoxContainer" type="VBoxContainer" parent="IntroCutscene/GodDialogBox/MarginContainer"]
+layout_mode = 2
+
+[node name="SpeakerName" type="Label" parent="IntroCutscene/GodDialogBox/MarginContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.96, 0.83, 0.42, 1)
+text = "БОГ"
+
+[node name="DialogueText" type="Label" parent="IntroCutscene/GodDialogBox/MarginContainer/VBoxContainer"]
+layout_mode = 2
+text = "Реплика..."
+
+[node name="QuestTracker" type="VBoxContainer" parent="IntroCutscene"]
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -260.0
+offset_top = 24.0
+offset_right = -24.0
+offset_bottom = 90.0
+grow_horizontal = 0
+
+[node name="QuestTitle" type="Label" parent="IntroCutscene/QuestTracker"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.96, 0.83, 0.42, 1)
+text = "! The Divine Archive"
+
+[node name="QuestObjective" type="Label" parent="IntroCutscene/QuestTracker"]
+layout_mode = 2
+text = "◇ Follow the Thread of Fate"
+
+[node name="HUDControls" type="Control" parent="IntroCutscene"]
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 24.0
+offset_top = -90.0
+offset_right = 200.0
+offset_bottom = -20.0
+grow_vertical = 0
+
+[node name="SkillsLabel" type="Label" parent="IntroCutscene/HUDControls"]
+layout_mode = 0
+offset_right = 180.0
+offset_bottom = 60.0
+theme_override_colors/font_color = Color(0.85, 0.9, 1, 0.9)
+text = "[Q] Soul Spark\n[E] Blink\n[Space] Glide"
