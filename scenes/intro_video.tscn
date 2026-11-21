@@ -1,0 +1,47 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scripts/intro_video_player.gd" id="1_intro_script"]
+[ext_resource type="VideoStreamTheora" path="res://assets/videos/intro.ogv" id="2_video_stream"]
+
+[sub_resource type="VideoStreamTheora" id="VideoStreamTheora_intro"]
+file = "res://assets/videos/intro.ogv"
+
+[node name="IntroVideo" type="CanvasLayer"]
+layer = 50
+script = ExtResource("1_intro_script")
+
+[node name="VideoStreamPlayer" type="VideoStreamPlayer" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+stream = SubResource("VideoStreamTheora_intro")
+autoplay = true
+expand = true
+
+[node name="SkipHint" type="Label" parent="."]
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -220.0
+offset_top = -45.0
+offset_right = -20.0
+offset_bottom = -15.0
+grow_horizontal = 0
+grow_vertical = 0
+theme_override_colors/font_color = Color(0.96, 0.83, 0.42, 0.7)
+theme_override_font_sizes/font_size = 14
+text = "[Space / Esc] Пропустить"
+horizontal_alignment = 2
+
+[node name="FadeRect" type="ColorRect" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.02, 0.047, 0.11, 1)
