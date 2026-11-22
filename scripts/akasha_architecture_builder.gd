@@ -43,16 +43,22 @@ const PLAZA_LANTERN_COORDS := [
 @export var mentor_bob_amplitude: float = 0.85
 @export var mentor_bob_speed: float = 0.55
 
+const MARBLE_SHADER: Shader = preload("res://shaders/akasha_marble.gdshader")
+const GOD_RAYS_SHADER: Shader = preload("res://shaders/god_rays.gdshader")
+const MENTOR_SHADER: Shader = preload("res://shaders/ethereal_mentor.gdshader")
+
 var _mat_indigo_stone: StandardMaterial3D
-var _mat_dark_obsidian: StandardMaterial3D
-var _mat_polished_marble: StandardMaterial3D
+var _mat_dark_obsidian: Material
+var _mat_polished_marble: Material
 var _mat_cobalt_trim: StandardMaterial3D
 var _mat_gold_filigree: StandardMaterial3D
 var _mat_gold_brass: StandardMaterial3D
 var _mat_gold_thread: StandardMaterial3D
 var _mat_light_core: StandardMaterial3D
-var _mat_mentor_body: StandardMaterial3D
+var _mat_mentor_body: Material
 var _mat_mentor_halo: StandardMaterial3D
+var _mat_god_rays: ShaderMaterial
+var _mat_island_rays: ShaderMaterial
 
 var _astrolabe_rings: Array[Node3D] = []
 var _mentor_nodes: Array[Node3D] = []
@@ -142,76 +148,106 @@ func get_cathedral_position() -> Vector3:
 func _init_materials() -> void:
 	_mat_indigo_stone = StandardMaterial3D.new()
 	_mat_indigo_stone.albedo_color = COLOR_INDIGO_STONE
-	_mat_indigo_stone.roughness = 0.58
-	_mat_indigo_stone.metallic = 0.14
+	_mat_indigo_stone.roughness = 0.48
+	_mat_indigo_stone.metallic = 0.16
+	_mat_indigo_stone.clearcoat_enabled = true
+	_mat_indigo_stone.clearcoat = 0.22
+	_mat_indigo_stone.clearcoat_roughness = 0.35
 
-	_mat_dark_obsidian = StandardMaterial3D.new()
-	_mat_dark_obsidian.albedo_color = COLOR_DEEP_NAVY
-	_mat_dark_obsidian.roughness = 0.34
-	_mat_dark_obsidian.metallic = 0.28
+	var obsidian_mat: ShaderMaterial = ShaderMaterial.new()
+	obsidian_mat.shader = MARBLE_SHADER
+	obsidian_mat.set_shader_parameter("dark_marble_color", Color(0.028, 0.088, 0.215))
+	obsidian_mat.set_shader_parameter("mid_marble_color", COLOR_DEEP_NAVY)
+	obsidian_mat.set_shader_parameter("accent_blue_color", COLOR_MID_INDIGO)
+	obsidian_mat.set_shader_parameter("vein_intensity", 0.78)
+	obsidian_mat.set_shader_parameter("vein_emission_strength", 0.38)
+	obsidian_mat.set_shader_parameter("art_deco_inlay_strength", 0.34)
+	obsidian_mat.set_shader_parameter("base_roughness", 0.18)
+	obsidian_mat.set_shader_parameter("clearcoat_amount", 0.62)
+	obsidian_mat.set_shader_parameter("rim_glow_strength", 0.18)
+	_mat_dark_obsidian = obsidian_mat
 
-	_mat_polished_marble = StandardMaterial3D.new()
-	_mat_polished_marble.albedo_color = COLOR_MID_INDIGO
-	_mat_polished_marble.roughness = 0.24
-	_mat_polished_marble.metallic = 0.18
+	var marble_mat: ShaderMaterial = ShaderMaterial.new()
+	marble_mat.shader = MARBLE_SHADER
+	marble_mat.set_shader_parameter("dark_marble_color", COLOR_DEEP_NAVY)
+	marble_mat.set_shader_parameter("mid_marble_color", COLOR_MID_INDIGO)
+	marble_mat.set_shader_parameter("accent_blue_color", COLOR_COBALT_ACCENT)
+	marble_mat.set_shader_parameter("vein_intensity", 0.96)
+	marble_mat.set_shader_parameter("vein_emission_strength", 0.46)
+	marble_mat.set_shader_parameter("art_deco_inlay_strength", 0.42)
+	marble_mat.set_shader_parameter("base_roughness", 0.16)
+	marble_mat.set_shader_parameter("clearcoat_amount", 0.72)
+	marble_mat.set_shader_parameter("rim_glow_strength", 0.20)
+	_mat_polished_marble = marble_mat
 
 	_mat_cobalt_trim = StandardMaterial3D.new()
 	_mat_cobalt_trim.albedo_color = COLOR_COBALT_ACCENT
-	_mat_cobalt_trim.roughness = 0.38
-	_mat_cobalt_trim.metallic = 0.25
+	_mat_cobalt_trim.roughness = 0.30
+	_mat_cobalt_trim.metallic = 0.32
+	_mat_cobalt_trim.clearcoat_enabled = true
+	_mat_cobalt_trim.clearcoat = 0.35
 
 	_mat_gold_filigree = StandardMaterial3D.new()
 	_mat_gold_filigree.albedo_color = COLOR_GOLD_FILIGREE
-	_mat_gold_filigree.roughness = 0.22
-	_mat_gold_filigree.metallic = 0.85
+	_mat_gold_filigree.roughness = 0.18
+	_mat_gold_filigree.metallic = 0.88
 	_mat_gold_filigree.emission_enabled = true
 	_mat_gold_filigree.emission = COLOR_GOLD_FILIGREE
-	_mat_gold_filigree.emission_energy_multiplier = 1.6
+	_mat_gold_filigree.emission_energy_multiplier = 1.75
 
 	_mat_gold_brass = StandardMaterial3D.new()
 	_mat_gold_brass.albedo_color = COLOR_GOLD_BRASS
-	_mat_gold_brass.roughness = 0.28
-	_mat_gold_brass.metallic = 0.90
+	_mat_gold_brass.roughness = 0.24
+	_mat_gold_brass.metallic = 0.92
 	_mat_gold_brass.emission_enabled = true
 	_mat_gold_brass.emission = COLOR_GOLD_FILIGREE
-	_mat_gold_brass.emission_energy_multiplier = 0.45
+	_mat_gold_brass.emission_energy_multiplier = 0.55
 
 	_mat_gold_thread = StandardMaterial3D.new()
 	_mat_gold_thread.albedo_color = COLOR_GOLD_FILIGREE
-	_mat_gold_thread.roughness = 0.15
-	_mat_gold_thread.metallic = 0.4
+	_mat_gold_thread.roughness = 0.12
+	_mat_gold_thread.metallic = 0.45
 	_mat_gold_thread.cull_mode = BaseMaterial3D.CULL_DISABLED
 	_mat_gold_thread.emission_enabled = true
 	_mat_gold_thread.emission = COLOR_GOLD_FILIGREE
-	_mat_gold_thread.emission_energy_multiplier = 2.0
+	_mat_gold_thread.emission_energy_multiplier = 2.25
 
 	_mat_light_core = StandardMaterial3D.new()
-	_mat_light_core.albedo_color = Color("#FFF4C2")
-	_mat_light_core.roughness = 0.1
+	_mat_light_core.albedo_color = Color("#FFF6D4")
+	_mat_light_core.roughness = 0.08
 	_mat_light_core.emission_enabled = true
 	_mat_light_core.emission = COLOR_GOLD_FILIGREE
-	_mat_light_core.emission_energy_multiplier = 3.2
+	_mat_light_core.emission_energy_multiplier = 3.6
 
-	_mat_mentor_body = StandardMaterial3D.new()
-	_mat_mentor_body.albedo_color = Color(COLOR_MENTOR_CYAN.r, COLOR_MENTOR_CYAN.g, COLOR_MENTOR_CYAN.b, 0.26)
-	_mat_mentor_body.roughness = 0.2
-	_mat_mentor_body.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	_mat_mentor_body.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
-	_mat_mentor_body.cull_mode = BaseMaterial3D.CULL_DISABLED
-	_mat_mentor_body.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED
-	_mat_mentor_body.emission_enabled = true
-	_mat_mentor_body.emission = COLOR_MENTOR_CYAN
-	_mat_mentor_body.emission_energy_multiplier = 1.35
+	var mentor_mat: ShaderMaterial = ShaderMaterial.new()
+	mentor_mat.shader = MENTOR_SHADER
+	_mat_mentor_body = mentor_mat
 
 	_mat_mentor_halo = StandardMaterial3D.new()
-	_mat_mentor_halo.albedo_color = Color(COLOR_MENTOR_CYAN.r, COLOR_MENTOR_CYAN.g, COLOR_MENTOR_CYAN.b, 0.55)
+	_mat_mentor_halo.albedo_color = Color(COLOR_MENTOR_CYAN.r, COLOR_MENTOR_CYAN.g, COLOR_MENTOR_CYAN.b, 0.62)
 	_mat_mentor_halo.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	_mat_mentor_halo.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
 	_mat_mentor_halo.cull_mode = BaseMaterial3D.CULL_DISABLED
 	_mat_mentor_halo.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED
 	_mat_mentor_halo.emission_enabled = true
 	_mat_mentor_halo.emission = Color("#8CE0FF")
-	_mat_mentor_halo.emission_energy_multiplier = 1.8
+	_mat_mentor_halo.emission_energy_multiplier = 2.0
+
+	_mat_god_rays = ShaderMaterial.new()
+	_mat_god_rays.shader = GOD_RAYS_SHADER
+	_mat_god_rays.set_shader_parameter("intensity", 0.54)
+	_mat_god_rays.set_shader_parameter("edge_falloff", 2.0)
+	_mat_god_rays.set_shader_parameter("shimmer_strength", 0.34)
+	_mat_god_rays.set_shader_parameter("near_fade_min", 6.0)
+	_mat_god_rays.set_shader_parameter("near_fade_max", 24.0)
+
+	_mat_island_rays = ShaderMaterial.new()
+	_mat_island_rays.shader = GOD_RAYS_SHADER
+	_mat_island_rays.set_shader_parameter("intensity", 0.28)
+	_mat_island_rays.set_shader_parameter("edge_falloff", 2.35)
+	_mat_island_rays.set_shader_parameter("shimmer_strength", 0.28)
+	_mat_island_rays.set_shader_parameter("near_fade_min", 3.0)
+	_mat_island_rays.set_shader_parameter("near_fade_max", 14.0)
 
 
 # ---------------------------------------------------------------------------
@@ -606,13 +642,21 @@ func _build_floating_temple_islands() -> void:
 		_add_box_mesh(island, "GoldRoofTrimW", Vector3(0.28, 0.26, beam_span + 0.5), Vector3(-col_offset - 0.68, roof_y + 0.58, 0.0), _mat_gold_filigree)
 		_add_box_mesh(island, "GoldRoofTrimE", Vector3(0.28, 0.26, beam_span + 0.5), Vector3(col_offset + 0.68, roof_y + 0.58, 0.0), _mat_gold_filigree)
 
-		var crown := _add_torus_mesh(
+		var crown: MeshInstance3D = _add_torus_mesh(
 			island, "TempleCrownRing",
 			col_offset * 0.72, col_offset * 0.78, 32, 10,
 			Vector3(0.0, roof_y + 1.5, 0.0),
 			_mat_gold_filigree
 		)
 		crown.scale = Vector3(1.0, 0.45, 1.0)
+
+		# Ethereal upward golden god-ray shaft marking each floating sanctuary from afar
+		_add_cylinder_mesh(
+			island, "IslandGodRayShaft",
+			4.6 * radius_scale, 2.2 * radius_scale, 34.0, 16,
+			Vector3(0.0, roof_y + 14.0, 0.0),
+			_mat_island_rays, false
+		)
 
 
 # ---------------------------------------------------------------------------
@@ -724,41 +768,61 @@ func _build_colossal_cathedral() -> void:
 		_add_box_mesh(flank, "TowerGoldStripe", Vector3(0.65, sh * 0.9, 0.65), Vector3(0.0, sh * 0.5, sw * 0.5 + 0.15), _mat_gold_filigree)
 		_add_box_mesh(flank, "TowerGoldCollar", Vector3(sw + 0.8, 0.7, sw + 0.8), Vector3(0.0, sh - 2.0, 0.0), _mat_gold_filigree)
 
-	# 3 Giant Counter-Rotating Golden 3D Astrolabe Rings
+	# 3 Giant Counter-Rotating Golden 3D Astrolabe Rings + 8-Point Compass Starburst
 	_build_cathedral_astrolabe_rings(root, Vector3(0.0, 62.0, 12.0))
+
+	# Dramatic fanned-out golden volumetric god-ray shafts radiating from the Cathedral core
+	_build_cathedral_god_rays(root, Vector3(0.0, 66.0, 6.0))
 
 
 func _build_cathedral_astrolabe_rings(parent: Node3D, center: Vector3) -> void:
-	var astrolabe_root := Node3D.new()
+	var astrolabe_root: Node3D = Node3D.new()
 	astrolabe_root.name = "AstrolabeRings"
 	astrolabe_root.position = center
 	parent.add_child(astrolabe_root)
 
-	var ring_configs := [
+	# Iconic 8-point Art Deco Compass Starburst behind the counter-rotating rings
+	var compass_root: Node3D = Node3D.new()
+	compass_root.name = "CompassStarburst"
+	astrolabe_root.add_child(compass_root)
+	for ray_idx: int in range(4):
+		var is_cardinal: bool = (ray_idx % 2 == 0)
+		var ray_len: float = 54.0 if is_cardinal else 36.0
+		var ray_thick: float = 1.05 if is_cardinal else 0.65
+		var spoke: MeshInstance3D = _add_box_mesh(
+			compass_root, "CompassRay_%d" % ray_idx,
+			Vector3(ray_thick, ray_len, 0.75),
+			Vector3.ZERO,
+			_mat_gold_filigree, false
+		)
+		spoke.rotation.z = deg_to_rad(float(ray_idx) * 45.0)
+	_add_sphere_mesh(compass_root, "CompassHeart", 3.6, 20, 14, Vector3.ZERO, _mat_light_core, false)
+
+	var ring_configs: Array[Dictionary] = [
 		{"name": "OuterAstrolabeRing", "inner": 33.2, "outer": 35.0, "rot": Vector3(78.0, 0.0, 12.0), "nodes": 8},
 		{"name": "MiddleAstrolabeRing", "inner": 25.0, "outer": 26.5, "rot": Vector3(54.0, 32.0, -24.0), "nodes": 6},
 		{"name": "InnerAstrolabeRing", "inner": 17.5, "outer": 18.8, "rot": Vector3(112.0, -26.0, 42.0), "nodes": 4},
 	]
 
-	for cfg in ring_configs:
-		var pivot := Node3D.new()
-		pivot.name = cfg["name"]
-		pivot.rotation_degrees = cfg["rot"]
+	for cfg: Dictionary in ring_configs:
+		var pivot: Node3D = Node3D.new()
+		pivot.name = String(cfg["name"])
+		pivot.rotation_degrees = cfg["rot"] as Vector3
 		astrolabe_root.add_child(pivot)
 
-		var inner_r: float = cfg["inner"]
-		var outer_r: float = cfg["outer"]
-		var mid_r := (inner_r + outer_r) * 0.5
+		var inner_r: float = float(cfg["inner"])
+		var outer_r: float = float(cfg["outer"])
+		var mid_r: float = (inner_r + outer_r) * 0.5
 
 		_add_torus_mesh(pivot, "MainRing", inner_r, outer_r, 64, 16, Vector3.ZERO, _mat_gold_filigree)
 		# Delicate secondary parallel filigree wire
 		_add_torus_mesh(pivot, "InnerWire", inner_r - 1.4, inner_r - 1.05, 48, 10, Vector3.ZERO, _mat_gold_brass)
 
 		# Art Deco celestial cardinal markers around each ring
-		var count: int = cfg["nodes"]
-		for k in range(count):
-			var a := (TAU / float(count)) * float(k)
-			var marker := _add_box_mesh(
+		var count: int = int(cfg["nodes"])
+		for k: int in range(count):
+			var a: float = (TAU / float(count)) * float(k)
+			var marker: MeshInstance3D = _add_box_mesh(
 				pivot, "CardinalNode_%d" % k,
 				Vector3(1.6, 1.6, 3.6),
 				Vector3(cos(a) * mid_r, 0.0, sin(a) * mid_r),
@@ -767,6 +831,34 @@ func _build_cathedral_astrolabe_rings(parent: Node3D, center: Vector3) -> void:
 			marker.rotation.y = -a
 
 		_astrolabe_rings.append(pivot)
+
+
+func _build_cathedral_god_rays(parent: Node3D, origin: Vector3) -> void:
+	var rays_root: Node3D = Node3D.new()
+	rays_root.name = "CathedralGodRays"
+	rays_root.position = origin
+	parent.add_child(rays_root)
+
+	# 7 fanned-out volumetric golden light shafts matching the AAA flight & sanctuary references
+	var shaft_angles_deg: Array[float] = [-46.0, -30.0, -15.0, 0.0, 15.0, 30.0, 46.0]
+	for idx: int in range(shaft_angles_deg.size()):
+		var deg: float = shaft_angles_deg[idx]
+		var is_center: bool = absf(deg) < 1.0
+		var shaft_len: float = 210.0 if is_center else lerpf(195.0, 155.0, absf(deg) / 46.0)
+		var top_r: float = 24.0 if is_center else 18.0
+		var bot_r: float = 6.5 if is_center else 4.2
+
+		var pivot: Node3D = Node3D.new()
+		pivot.name = "GodRayFan_%d" % idx
+		pivot.rotation_degrees = Vector3(14.0, 0.0, deg)
+		rays_root.add_child(pivot)
+
+		_add_cylinder_mesh(
+			pivot, "ShaftMesh",
+			top_r, bot_r, shaft_len, 18,
+			Vector3(0.0, shaft_len * 0.42, 0.0),
+			_mat_god_rays, false
+		)
 
 
 # ---------------------------------------------------------------------------

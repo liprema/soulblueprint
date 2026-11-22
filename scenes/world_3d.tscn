@@ -1,4 +1,4 @@
-[gd_scene load_steps=10 format=3]
+[gd_scene load_steps=11 format=3]
 
 [ext_resource type="Script" path="res://scripts/world_3d.gd" id="1_world_script"]
 [ext_resource type="Environment" path="res://resources/world_env_akasha.tres" id="2_world_env"]
@@ -9,6 +9,7 @@
 [ext_resource type="PackedScene" path="res://scenes/vfx/soul_call_3d.tscn" id="7_soul_call"]
 [ext_resource type="PackedScene" path="res://scenes/ui/sky_hud.tscn" id="8_sky_hud"]
 [ext_resource type="PackedScene" path="res://scenes/audio/akasha_audio_manager.tscn" id="9_audio"]
+[ext_resource type="PackedScene" path="res://scenes/intro_video.tscn" id="10_intro_video"]
 
 [node name="World3D" type="Node3D"]
 script = ExtResource("1_world_script")
@@ -38,3 +39,5 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.3, 36)
 [node name="SkyHUD" parent="." instance=ExtResource("8_sky_hud")]
 
 [node name="AkashaAudioManager" parent="." instance=ExtResource("9_audio")]
+
+[node name="IntroVideo" parent="." instance=ExtResource("10_intro_video")]

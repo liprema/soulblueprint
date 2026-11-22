@@ -1,88 +1,118 @@
-[gd_scene load_steps=16 format=3]
+[gd_scene load_steps=23 format=3]
 
 [ext_resource type="Script" path="res://scripts/player_3d.gd" id="1_player3d_script"]
+[ext_resource type="Shader" path="res://shaders/spark_flame.gdshader" id="2_spark_flame"]
+[ext_resource type="Shader" path="res://shaders/spark_cape.gdshader" id="3_spark_cape"]
+[ext_resource type="Shader" path="res://shaders/soul_call_sphere.gdshader" id="4_soul_call_sphere"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_body"]
 radius = 0.42
 height = 1.8
 
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_core"]
-albedo_color = Color(1, 0.9, 0.62, 1)
-roughness = 0.2
-emission_enabled = true
-emission = Color(1, 0.72, 0.24, 1)
-emission_energy_multiplier = 2.4
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_flame"]
+shader = ExtResource("2_spark_flame")
+shader_parameter/core_color = Color(1, 0.985, 0.86, 1)
+shader_parameter/mid_color = Color(0.98, 0.85, 0.44, 1)
+shader_parameter/rim_color = Color(1, 0.62, 0.16, 1)
+shader_parameter/emission_strength = 2.05
+shader_parameter/flare_intensity = 0.0
+shader_parameter/flicker_speed = 4.2
+shader_parameter/sway_amplitude = 0.032
 
 [sub_resource type="CapsuleMesh" id="CapsuleMesh_core"]
-radius = 0.25
-height = 0.92
-
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_head"]
-albedo_color = Color(1, 0.96, 0.82, 1)
-roughness = 0.15
-emission_enabled = true
-emission = Color(1, 0.86, 0.48, 1)
-emission_energy_multiplier = 2.8
+radius = 0.23
+height = 0.88
 
 [sub_resource type="SphereMesh" id="SphereMesh_head"]
-radius = 0.22
-height = 0.44
+radius = 0.23
+height = 0.52
 
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_mantle"]
-albedo_color = Color(0.95, 0.68, 0.28, 1)
-roughness = 0.35
-emission_enabled = true
-emission = Color(0.95, 0.56, 0.16, 1)
-emission_energy_multiplier = 1.25
+[sub_resource type="PrismMesh" id="PrismMesh_crest"]
+left_to_right = 0.68
+size = Vector3(0.26, 0.42, 0.14)
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_tail"]
+top_radius = 0.19
+bottom_radius = 0.015
+height = 0.72
+radial_segments = 14
+
+[sub_resource type="TorusMesh" id="TorusMesh_collar"]
+inner_radius = 0.18
+outer_radius = 0.25
+rings = 20
+ring_segments = 10
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_cape"]
+shader = ExtResource("3_spark_cape")
+shader_parameter/base_color = Color(0.98, 0.68, 0.2, 1)
+shader_parameter/tip_color = Color(1, 0.9, 0.52, 1)
+shader_parameter/edge_glow_color = Color(1, 0.96, 0.78, 1)
+shader_parameter/wind_speed = 3.2
+shader_parameter/wave_amplitude = 0.085
+shader_parameter/flap_burst = 0.0
+shader_parameter/opacity = 0.92
+shader_parameter/emission_strength = 1.55
 
 [sub_resource type="CylinderMesh" id="CylinderMesh_mantle"]
 top_radius = 0.2
-bottom_radius = 0.42
-height = 0.7
+bottom_radius = 0.44
+height = 0.68
+radial_segments = 16
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_halo"]
-albedo_color = Color(1, 0.92, 0.6, 1)
-metallic = 0.3
-roughness = 0.15
+albedo_color = Color(1, 0.95, 0.68, 1)
+metallic = 0.4
+roughness = 0.12
 emission_enabled = true
-emission = Color(1, 0.82, 0.32, 1)
-emission_energy_multiplier = 2.6
+emission = Color(1, 0.84, 0.36, 1)
+emission_energy_multiplier = 2.8
 
 [sub_resource type="TorusMesh" id="TorusMesh_halo"]
-inner_radius = 0.28
-outer_radius = 0.35
-rings = 24
+inner_radius = 0.27
+outer_radius = 0.33
+rings = 28
 ring_segments = 12
 
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_cape"]
-transparency = 1
-cull_mode = 2
-albedo_color = Color(1, 0.74, 0.26, 0.88)
-roughness = 0.25
-emission_enabled = true
-emission = Color(1, 0.64, 0.18, 1)
-emission_energy_multiplier = 1.9
+[sub_resource type="PrismMesh" id="PrismMesh_star_diamond"]
+left_to_right = 0.5
+size = Vector3(0.14, 0.26, 0.04)
 
 [sub_resource type="PrismMesh" id="PrismMesh_cape_left"]
-left_to_right = 0.15
-size = Vector3(1.25, 0.78, 0.06)
+left_to_right = 0.12
+size = Vector3(1.36, 0.84, 0.05)
 
 [sub_resource type="PrismMesh" id="PrismMesh_cape_right"]
-left_to_right = 0.85
-size = Vector3(1.25, 0.78, 0.06)
+left_to_right = 0.88
+size = Vector3(1.36, 0.84, 0.05)
 
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_call_pulse"]
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_wing_flare"]
 transparency = 1
 blend_mode = 1
 cull_mode = 2
+depth_draw_mode = 2
 shading_mode = 0
-albedo_color = Color(1, 0.86, 0.42, 0.4)
+albedo_color = Color(1, 0.92, 0.58, 0.0)
+
+[sub_resource type="PrismMesh" id="PrismMesh_flare"]
+left_to_right = 0.5
+size = Vector3(1.85, 0.95, 0.04)
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_call_pulse"]
+shader = ExtResource("4_soul_call_sphere")
+shader_parameter/rim_color = Color(1, 0.975, 0.84, 1)
+shader_parameter/core_color = Color(0.965, 0.827, 0.42, 1)
+shader_parameter/alpha_fade = 0.0
+shader_parameter/fresnel_power = 2.4
+shader_parameter/emission_strength = 2.7
+shader_parameter/ripple_speed = 2.6
+shader_parameter/ripple_density = 11.0
 
 [sub_resource type="SphereMesh" id="SphereMesh_call_pulse"]
 radius = 1.0
 height = 2.0
-radial_segments = 24
-rings = 16
+radial_segments = 28
+rings = 18
 
 [node name="Player3D" type="CharacterBody3D"]
 collision_layer = 2
@@ -98,57 +128,94 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 0)
 
 [node name="CoreFlame" type="MeshInstance3D" parent="VisualPivot"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.04, 0)
-material_override = SubResource("StandardMaterial3D_core")
+material_override = SubResource("ShaderMaterial_flame")
 mesh = SubResource("CapsuleMesh_core")
 
 [node name="HeadCrown" type="MeshInstance3D" parent="VisualPivot"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.62, 0)
-material_override = SubResource("StandardMaterial3D_head")
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.6, 0)
+material_override = SubResource("ShaderMaterial_flame")
 mesh = SubResource("SphereMesh_head")
 
+[node name="FlameCrest" type="MeshInstance3D" parent="VisualPivot"]
+transform = Transform3D(0.965926, -0.258819, 0, 0.258819, 0.965926, 0, 0, 0, 1, 0.06, 0.92, 0.02)
+material_override = SubResource("ShaderMaterial_flame")
+mesh = SubResource("PrismMesh_crest")
+
+[node name="FlameTail" type="MeshInstance3D" parent="VisualPivot"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.64, 0.02)
+material_override = SubResource("ShaderMaterial_flame")
+mesh = SubResource("CylinderMesh_tail")
+
+[node name="CollarRing" type="MeshInstance3D" parent="VisualPivot"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.24, 0.02)
+material_override = SubResource("StandardMaterial3D_halo")
+mesh = SubResource("TorusMesh_collar")
+
 [node name="InnerMantle" type="MeshInstance3D" parent="VisualPivot"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.35, 0.04)
-material_override = SubResource("StandardMaterial3D_mantle")
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.3, 0.04)
+material_override = SubResource("ShaderMaterial_cape")
 mesh = SubResource("CylinderMesh_mantle")
 
 [node name="StarHalo" type="MeshInstance3D" parent="VisualPivot"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.04, 0)
+transform = Transform3D(1, 0, 0, 0, 0, -1, 0, 1, 0, 0, 1.18, 0)
 material_override = SubResource("StandardMaterial3D_halo")
 mesh = SubResource("TorusMesh_halo")
+
+[node name="StarDiamondTop" type="MeshInstance3D" parent="VisualPivot/StarHalo"]
+transform = Transform3D(1, 0, 0, 0, 0, 1, 0, -1, 0, 0, 0, -0.1)
+material_override = SubResource("StandardMaterial3D_halo")
+mesh = SubResource("PrismMesh_star_diamond")
+
+[node name="StarDiamondBot" type="MeshInstance3D" parent="VisualPivot/StarHalo"]
+transform = Transform3D(-1, 0, 0, 0, 0, -1, 0, -1, 0, 0, 0, 0.1)
+material_override = SubResource("StandardMaterial3D_halo")
+mesh = SubResource("PrismMesh_star_diamond")
 
 [node name="CapeLeft" type="Node3D" parent="VisualPivot"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.22, 0.34, 0.14)
 
 [node name="WingMesh" type="MeshInstance3D" parent="VisualPivot/CapeLeft"]
-transform = Transform3D(1, 0, 0, 0, 0, -1, 0, 1, 0, -0.58, -0.14, 0.28)
-material_override = SubResource("StandardMaterial3D_cape")
+transform = Transform3D(1, 0, 0, 0, 0, -1, 0, 1, 0, -0.62, -0.14, 0.28)
+material_override = SubResource("ShaderMaterial_cape")
 mesh = SubResource("PrismMesh_cape_left")
 
+[node name="WingFlare" type="MeshInstance3D" parent="VisualPivot/CapeLeft"]
+transform = Transform3D(1, 0, 0, 0, 0, -1, 0, 1, 0, -0.92, -0.1, 0.22)
+cast_shadow = 0
+material_override = SubResource("StandardMaterial3D_wing_flare")
+mesh = SubResource("PrismMesh_flare")
+
 [node name="WingTipLeft" type="Marker3D" parent="VisualPivot/CapeLeft"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.16, -0.14, 0.62)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.24, -0.14, 0.64)
 
 [node name="CapeRight" type="Node3D" parent="VisualPivot"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.22, 0.34, 0.14)
 
 [node name="WingMesh" type="MeshInstance3D" parent="VisualPivot/CapeRight"]
-transform = Transform3D(1, 0, 0, 0, 0, -1, 0, 1, 0, 0.58, -0.14, 0.28)
-material_override = SubResource("StandardMaterial3D_cape")
+transform = Transform3D(1, 0, 0, 0, 0, -1, 0, 1, 0, 0.62, -0.14, 0.28)
+material_override = SubResource("ShaderMaterial_cape")
 mesh = SubResource("PrismMesh_cape_right")
 
+[node name="WingFlare" type="MeshInstance3D" parent="VisualPivot/CapeRight"]
+transform = Transform3D(1, 0, 0, 0, 0, -1, 0, 1, 0, 0.92, -0.1, 0.22)
+cast_shadow = 0
+material_override = SubResource("StandardMaterial3D_wing_flare")
+mesh = SubResource("PrismMesh_flare")
+
 [node name="WingTipRight" type="Marker3D" parent="VisualPivot/CapeRight"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.16, -0.14, 0.62)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.24, -0.14, 0.64)
 
 [node name="SparkLight" type="OmniLight3D" parent="VisualPivot"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.25, 0)
-light_color = Color(1, 0.82, 0.45, 1)
-light_energy = 2.2
-omni_range = 12.0
-omni_attenuation = 1.4
+light_color = Color(1, 0.84, 0.48, 1)
+light_energy = 2.4
+omni_range = 14.0
+omni_attenuation = 1.35
 
 [node name="CallPulseMesh" type="MeshInstance3D" parent="VisualPivot"]
 visible = false
 cast_shadow = 0
-material_override = SubResource("StandardMaterial3D_call_pulse")
+material_override = SubResource("ShaderMaterial_call_pulse")
 mesh = SubResource("SphereMesh_call_pulse")
 
 [node name="CameraRig" type="Node3D" parent="."]

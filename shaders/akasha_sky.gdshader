@@ -1,33 +1,35 @@
 shader_type sky;
 
-// Akasha Celestial Sky Dome — Sky: Children of the Light inspired
-// Approved palette: #0A1F44 (Deep Space Blue), #122D6B (Indigo),
-// #1E4B9A (Rich Blue), #F6D36B (Soft Gold)
+// Akasha Celestial Sky Dome — Sky: Children of the Light / Journey inspired
+// Calibrated palette: #0A1F44 (Deep Space Blue), #122D6B (Indigo),
+// #1E4B9A (Rich Blue), #58C4FF (Ethereal Cyan), #F6D36B (Warm Radiant Gold)
 
 group_uniforms sky_palette;
 uniform vec3 zenith_color : source_color = vec3(0.039, 0.122, 0.267);      // #0A1F44 Deep Space Blue
 uniform vec3 upper_indigo_color : source_color = vec3(0.071, 0.176, 0.420); // #122D6B Indigo
 uniform vec3 mid_sky_color : source_color = vec3(0.118, 0.294, 0.604);      // #1E4B9A Rich Blue
+uniform vec3 cyan_mist_color : source_color = vec3(0.345, 0.769, 1.000);    // #58C4FF Ethereal Cyan
 uniform vec3 horizon_color : source_color = vec3(0.965, 0.827, 0.420);      // #F6D36B Soft Gold
-uniform vec3 horizon_amber : source_color = vec3(0.910, 0.640, 0.300);      // Warm golden-amber band
-uniform vec3 nadir_color : source_color = vec3(0.045, 0.115, 0.255);        // Deep abyss below clouds
+uniform vec3 horizon_amber : source_color = vec3(0.940, 0.675, 0.310);      // Warm golden-amber band
+uniform vec3 nadir_color : source_color = vec3(0.032, 0.088, 0.215);        // Deep abyss below clouds
 
 group_uniforms sun_and_halo;
-uniform vec3 sun_direction = vec3(0.0, 0.14, -1.0);                         // -Z toward the Astrolabe Cathedral
-uniform vec3 sun_color : source_color = vec3(1.0, 0.92, 0.68);              // Warm luminous gold-white
-uniform float sun_disk_size : hint_range(0.005, 0.15) = 0.032;
-uniform float sun_halo_intensity : hint_range(0.0, 4.0) = 1.35;
-uniform float sun_halo_spread : hint_range(1.0, 32.0) = 6.5;
-uniform float horizon_glow_strength : hint_range(0.0, 2.0) = 0.85;
+uniform vec3 sun_direction = vec3(0.0, 0.15, -1.0);                         // -Z toward the Astrolabe Cathedral
+uniform vec3 sun_color : source_color = vec3(1.0, 0.945, 0.74);             // Luminous gold-white
+uniform float sun_disk_size : hint_range(0.005, 0.15) = 0.036;
+uniform float sun_halo_intensity : hint_range(0.0, 4.0) = 1.55;
+uniform float sun_halo_spread : hint_range(1.0, 32.0) = 5.2;
+uniform float horizon_glow_strength : hint_range(0.0, 2.5) = 1.05;
 
 group_uniforms celestial_stars;
-uniform float star_density : hint_range(0.0, 1.0) = 0.68;
-uniform float star_brightness : hint_range(0.0, 3.0) = 1.25;
-uniform float star_twinkle_speed : hint_range(0.0, 5.0) = 1.6;
-uniform float star_scale : hint_range(40.0, 300.0) = 155.0;
+uniform float star_density : hint_range(0.0, 1.0) = 0.72;
+uniform float star_brightness : hint_range(0.0, 3.0) = 1.35;
+uniform float star_twinkle_speed : hint_range(0.0, 5.0) = 1.5;
+uniform float star_scale : hint_range(40.0, 300.0) = 148.0;
 
-group_uniforms nebula_mist;
-uniform float nebula_strength : hint_range(0.0, 1.0) = 0.22;
+group_uniforms aurora_and_nebula;
+uniform float nebula_strength : hint_range(0.0, 1.0) = 0.26;
+uniform float aurora_strength : hint_range(0.0, 1.0) = 0.22;
 
 float hash31(vec3 p) {
 	p = fract(p * vec3(443.8975, 397.2973, 491.1871));
@@ -77,7 +79,7 @@ float fbm_sky(vec3 p) {
 	return v;
 }
 
-float star_layer(vec3 dir, float scale, float threshold, float time_val) {
+float star_layer(vec3 dir, float scale, float threshold, float time_val, bool with_glint) {
 	vec3 p = dir * scale;
 	vec3 cell = floor(p);
 	vec3 local = fract(p) - 0.5;
@@ -87,16 +89,24 @@ float star_layer(vec3 dir, float scale, float threshold, float time_val) {
 		return 0.0;
 	}
 
-	vec3 star_offset = (rnd - 0.5) * 0.65;
-	float dist = length(local - star_offset);
-	float size = mix(0.035, 0.095, rnd.y);
+	vec3 star_offset = (rnd - 0.5) * 0.62;
+	vec3 delta = local - star_offset;
+	float dist = length(delta);
+	float size = mix(0.032, 0.092, rnd.y);
 	float core = smoothstep(size, 0.0, dist);
 	core = pow(core, 2.2);
 
-	float twinkle_phase = rnd.z * 6.2831853 + time_val * (star_twinkle_speed * mix(0.6, 1.6, rnd.y));
-	float twinkle = 0.58 + 0.42 * sin(twinkle_phase);
+	float glint = 0.0;
+	if (with_glint && rnd.y > 0.72) {
+		float cross_a = exp(-abs(delta.x) * 42.0) * smoothstep(size * 2.6, 0.0, abs(delta.y));
+		float cross_b = exp(-abs(delta.y) * 42.0) * smoothstep(size * 2.6, 0.0, abs(delta.x));
+		glint = (cross_a + cross_b) * 0.35;
+	}
 
-	return core * twinkle;
+	float twinkle_phase = rnd.z * 6.2831853 + time_val * (star_twinkle_speed * mix(0.55, 1.55, rnd.y));
+	float twinkle = 0.56 + 0.44 * sin(twinkle_phase);
+
+	return (core + glint) * twinkle;
 }
 
 void sky() {
@@ -104,53 +114,77 @@ void sky() {
 	vec3 sun_dir = normalize(sun_direction);
 	float elev = dir.y;
 
-	// Vertical sky gradient: golden-amber horizon -> rich blue -> deep indigo -> deep space zenith
-	float h_band = smoothstep(-0.08, 0.14, elev);
-	float mid_band = smoothstep(0.04, 0.42, elev);
-	float upper_band = smoothstep(0.28, 0.72, elev);
-	float zenith_band = smoothstep(0.55, 0.96, elev);
+	// Multi-stop vertical gradient: golden-amber horizon -> rich blue -> deep indigo -> cosmic zenith
+	float mid_band = smoothstep(0.03, 0.38, elev);
+	float upper_band = smoothstep(0.24, 0.68, elev);
+	float zenith_band = smoothstep(0.52, 0.94, elev);
 
-	vec3 sky_col = mix(horizon_amber, horizon_color, smoothstep(-0.04, 0.05, elev));
+	vec3 sky_col = mix(horizon_amber, horizon_color, smoothstep(-0.05, 0.06, elev));
 	sky_col = mix(sky_col, mid_sky_color, mid_band);
 	sky_col = mix(sky_col, upper_indigo_color, upper_band);
 	sky_col = mix(sky_col, zenith_color, zenith_band);
 
-	// Blend smoothly into deep nadir below the horizon
-	float below_horizon = smoothstep(0.02, -0.35, elev);
+	// Subtle ethereal cyan atmospheric wash along the mid-horizon
+	float cyan_band = exp(-pow((elev - 0.14) * 6.5, 2.0));
+	sky_col += cyan_mist_color * cyan_band * 0.085;
+
+	// Smooth blend into deep cosmic nadir beneath the cloud sea
+	float below_horizon = smoothstep(0.01, -0.34, elev);
 	sky_col = mix(sky_col, nadir_color, below_horizon);
 
-	// Subtle painterly celestial nebula wisps in the upper sky
-	float nebula_n = fbm_sky(dir * 3.2 + vec3(0.0, TIME * 0.004, 0.0));
-	float nebula_mask = smoothstep(0.38, 0.78, nebula_n) * smoothstep(0.08, 0.45, elev);
-	vec3 nebula_tint = mix(mid_sky_color * 1.35, horizon_color * 0.7, 0.22);
+	// Painterly celestial nebula wisps in the upper dome
+	float nebula_n = fbm_sky(dir * 3.1 + vec3(0.0, TIME * 0.0035, 0.0));
+	float nebula_detail = fbm_sky(dir * 6.4 - vec3(TIME * 0.002, 0.0, TIME * 0.003));
+	float nebula_mask = smoothstep(0.36, 0.78, nebula_n * 0.7 + nebula_detail * 0.3) * smoothstep(0.08, 0.44, elev);
+	vec3 nebula_tint = mix(mid_sky_color * 1.4, cyan_mist_color * 0.65, nebula_detail);
+	nebula_tint = mix(nebula_tint, horizon_color * 0.65, 0.22);
 	sky_col += nebula_tint * nebula_mask * nebula_strength;
 
-	// Warm horizon glow concentrated toward the -Z sun / Cathedral axis
+	// Soft celestial aurora light ribbons sweeping gently across the high indigo vault
+	float aurora_coord = dir.x * 2.4 + sin(dir.z * 2.8 + TIME * 0.05) * 0.65;
+	float aurora_wave = fbm_sky(vec3(aurora_coord, dir.y * 1.8, dir.z * 1.6 + TIME * 0.012));
+	float aurora_ribbon = exp(-pow((aurora_wave - 0.56) * 8.5, 2.0));
+	float aurora_elev = smoothstep(0.16, 0.42, elev) * smoothstep(0.88, 0.48, elev);
+	vec3 aurora_col = mix(cyan_mist_color * 0.85, horizon_color * 0.9, smoothstep(0.25, 0.72, dir.y));
+	sky_col += aurora_col * aurora_ribbon * aurora_elev * aurora_strength;
+
+	// Warm luminous golden-amber horizon bloom concentrated toward the -Z Cathedral axis
 	float sun_dot = max(dot(dir, sun_dir), 0.0);
-	float horizon_proximity = exp(-abs(elev) * 7.5);
-	float sun_azimuth_glow = pow(sun_dot, 2.5) * horizon_proximity;
-	sky_col += mix(horizon_amber, horizon_color, 0.6) * sun_azimuth_glow * horizon_glow_strength;
+	float horizon_proximity = exp(-abs(elev - 0.02) * 6.2);
+	float sun_azimuth_glow = pow(sun_dot, 2.1) * horizon_proximity;
+	sky_col += mix(horizon_amber, horizon_color, 0.68) * sun_azimuth_glow * horizon_glow_strength;
 
-	// Soft celestial sun halo and luminous core
+	// Stylized radiant sun / Cathedral corona & soft crepuscular rays
 	float sun_angle = acos(clamp(dot(dir, sun_dir), -1.0, 1.0));
-	float sun_disk = smoothstep(sun_disk_size * 1.45, sun_disk_size * 0.25, sun_angle);
-	float inner_halo = pow(sun_dot, sun_halo_spread * 3.2) * 0.95;
-	float outer_halo = pow(sun_dot, sun_halo_spread) * 0.48;
-	vec3 sun_contrib = sun_color * (sun_disk * 2.2 + inner_halo * sun_halo_intensity)
-		+ horizon_color * (outer_halo * sun_halo_intensity);
-	sky_col += sun_contrib * smoothstep(-0.18, 0.02, elev);
+	float sun_disk = smoothstep(sun_disk_size * 1.5, sun_disk_size * 0.22, sun_angle);
+	float inner_halo = pow(sun_dot, sun_halo_spread * 3.0) * 1.05;
+	float mid_halo = pow(sun_dot, sun_halo_spread) * 0.52;
+	float wide_bloom = pow(sun_dot, 2.2) * 0.16;
 
-	// Twinkling stars in the upper indigo/zenith dome (fading near horizon & sun halo)
-	float star_visibility = smoothstep(0.06, 0.38, elev) * (1.0 - smoothstep(0.75, 0.98, sun_dot));
+	// Subtle radial light rays emanating around the Cathedral sun axis
+	float ray_angle = atan(dir.y - sun_dir.y, dir.x - sun_dir.x);
+	float radial_rays = 0.5 + 0.5 * sin(ray_angle * 7.0 + TIME * 0.08) * cos(ray_angle * 4.0 - TIME * 0.05);
+	float ray_glow = pow(sun_dot, 6.0) * radial_rays * 0.24;
+
+	vec3 sun_contrib = sun_color * (sun_disk * 2.4 + inner_halo * sun_halo_intensity + ray_glow)
+		+ horizon_color * ((mid_halo + wide_bloom) * sun_halo_intensity);
+	sky_col += sun_contrib * smoothstep(-0.20, 0.03, elev);
+
+	// Multi-scale twinkling starfield in the indigo/zenith dome
+	float star_visibility = smoothstep(0.05, 0.36, elev) * (1.0 - smoothstep(0.72, 0.97, sun_dot));
 	if (star_visibility > 0.001 && star_density > 0.001) {
-		float thresh_primary = mix(0.985, 0.915, star_density);
-		float thresh_fine = mix(0.992, 0.945, star_density);
-		float s1 = star_layer(dir, star_scale, thresh_primary, TIME);
-		float s2 = star_layer(dir + vec3(0.37, 0.19, -0.53), star_scale * 1.65, thresh_fine, TIME * 1.25);
+		float thresh_hero = mix(0.992, 0.945, star_density);
+		float thresh_mid = mix(0.985, 0.918, star_density);
+		float thresh_fine = mix(0.992, 0.940, star_density);
 
-		// Subtle warm gold & pale ice-blue star color variation
-		vec3 star_tint = mix(vec3(0.84, 0.92, 1.0), horizon_color, smoothstep(0.2, 0.8, s1));
-		sky_col += star_tint * (s1 + s2 * 0.65) * star_brightness * star_visibility;
+		float s_hero = star_layer(dir, star_scale * 0.62, thresh_hero, TIME * 0.85, true);
+		float s_mid = star_layer(dir + vec3(0.37, 0.19, -0.53), star_scale * 1.15, thresh_mid, TIME * 1.1, false);
+		float s_fine = star_layer(dir + vec3(-0.61, 0.41, 0.27), star_scale * 1.95, thresh_fine, TIME * 1.4, false);
+
+		vec3 hero_tint = mix(vec3(0.86, 0.94, 1.0), horizon_color, 0.58);
+		vec3 mid_tint = mix(vec3(0.76, 0.88, 1.0), cyan_mist_color, 0.25);
+		sky_col += (hero_tint * s_hero * 1.35 + mid_tint * s_mid * 0.85 + vec3(0.85, 0.92, 1.0) * s_fine * 0.5)
+			* star_brightness * star_visibility;
 	}
 
 	COLOR = sky_col;

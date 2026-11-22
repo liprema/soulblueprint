@@ -3,7 +3,8 @@ extends CharacterBody3D
 ## Sky: Children of the Light-inspired 3D protagonist controller (Spark).
 ## Supports smooth ground movement, mid-air flight entry, free 3D flight with
 ## banking/diving/climbing, wing flap boosts, golden forward surge, resonance call,
-## procedural cape/halo animation, dual ImmediateMesh wingtip trails, and dynamic camera.
+## shader-driven flame & wind-wave cape animation, radiant light-wing flares,
+## dual ImmediateMesh wingtip trails, and silky dynamic camera easing.
 
 signal soul_call_triggered(origin: Vector3)
 signal wing_energy_changed(current: float, max_energy: float)
@@ -50,24 +51,28 @@ signal flight_mode_changed(is_flying: bool)
 @export var surge_duration: float = 0.34
 @export var surge_cooldown: float = 1.6
 @export var call_cooldown: float = 1.4
-@export var call_pulse_duration: float = 0.75
+@export var call_pulse_duration: float = 0.78
 
 # --- Camera ---
 @export_group("Camera")
 @export var base_fov: float = 60.0
 @export var max_fov: float = 80.0
-@export var fov_lerp_speed: float = 5.5
+@export var fov_lerp_speed: float = 5.2
 @export var camera_follow_speed: float = 6.0
-@export var camera_roll_factor: float = 0.22
+@export var camera_roll_factor: float = 0.25
+@export var spring_length_ground: float = 9.4
+@export var spring_length_flight: float = 11.6
+@export var spring_length_surge_bonus: float = 1.8
+@export var spring_arm_lerp_speed: float = 4.2
 @export var mouse_look_sensitivity: float = 0.0035
 
 # --- Trails ---
 @export_group("Wingtip Trails")
-@export var trail_lifetime_flight: float = 0.62
-@export var trail_lifetime_ground: float = 0.26
-@export var trail_base_width: float = 0.14
-@export var trail_max_points: int = 44
-@export var trail_min_sample_dist: float = 0.12
+@export var trail_lifetime_flight: float = 0.74
+@export var trail_lifetime_ground: float = 0.28
+@export var trail_base_width: float = 0.16
+@export var trail_max_points: int = 56
+@export var trail_min_sample_dist: float = 0.09
 
 # --- Runtime State ---
 var is_flying: bool = false
@@ -98,9 +103,13 @@ var _anim_time: float = 0.0
 
 # --- Node References ---
 @onready var visual_pivot: Node3D = $VisualPivot
+@onready var core_flame: MeshInstance3D = get_node_or_null("VisualPivot/CoreFlame") as MeshInstance3D
 @onready var star_halo: MeshInstance3D = $VisualPivot/StarHalo
 @onready var cape_left: Node3D = $VisualPivot/CapeLeft
 @onready var cape_right: Node3D = $VisualPivot/CapeRight
+@onready var cape_left_mesh: MeshInstance3D = get_node_or_null("VisualPivot/CapeLeft/WingMesh") as MeshInstance3D
+@onready var wing_flare_left: MeshInstance3D = get_node_or_null("VisualPivot/CapeLeft/WingFlare") as MeshInstance3D
+@onready var wing_flare_right: MeshInstance3D = get_node_or_null("VisualPivot/CapeRight/WingFlare") as MeshInstance3D
 @onready var wing_tip_left: Marker3D = get_node_or_null("VisualPivot/CapeLeft/WingTipLeft") as Marker3D
 @onready var wing_tip_right: Marker3D = get_node_or_null("VisualPivot/CapeRight/WingTipRight") as Marker3D
 @onready var spark_light: OmniLight3D = $VisualPivot/SparkLight
@@ -120,9 +129,12 @@ var _trail_left_ages: Array[float] = []
 var _trail_right_points: Array[Vector3] = []
 var _trail_right_ages: Array[float] = []
 
-var _base_halo_y: float = 1.02
-var _base_light_energy: float = 2.2
-var _call_pulse_mat: StandardMaterial3D = null
+var _base_halo_y: float = 1.18
+var _base_light_energy: float = 2.4
+var _call_pulse_shader_mat: ShaderMaterial = null
+var _flame_shader_mat: ShaderMaterial = null
+var _cape_shader_mat: ShaderMaterial = null
+var _wing_flare_mat: StandardMaterial3D = null
 
 
 func _ready() -> void:
@@ -133,6 +145,7 @@ func _ready() -> void:
 
 	if spring_arm:
 		spring_arm.add_excluded_object(get_rid())
+		spring_arm.spring_length = spring_length_ground
 
 	if camera:
 		camera.fov = base_fov
@@ -144,11 +157,23 @@ func _ready() -> void:
 	if spark_light:
 		_base_light_energy = spark_light.light_energy
 
+	if core_flame and core_flame.material_override is ShaderMaterial:
+		_flame_shader_mat = core_flame.material_override as ShaderMaterial
+
+	if cape_left_mesh and cape_left_mesh.material_override is ShaderMaterial:
+		_cape_shader_mat = cape_left_mesh.material_override as ShaderMaterial
+
+	if wing_flare_left and wing_flare_left.material_override is StandardMaterial3D:
+		_wing_flare_mat = (wing_flare_left.material_override as StandardMaterial3D).duplicate() as StandardMaterial3D
+		wing_flare_left.material_override = _wing_flare_mat
+		if wing_flare_right:
+			wing_flare_right.material_override = _wing_flare_mat
+
 	if call_pulse_mesh:
 		call_pulse_mesh.visible = false
-		if call_pulse_mesh.material_override is StandardMaterial3D:
-			_call_pulse_mat = (call_pulse_mesh.material_override as StandardMaterial3D).duplicate() as StandardMaterial3D
-			call_pulse_mesh.material_override = _call_pulse_mat
+		if call_pulse_mesh.material_override is ShaderMaterial:
+			_call_pulse_shader_mat = (call_pulse_mesh.material_override as ShaderMaterial).duplicate() as ShaderMaterial
+			call_pulse_mesh.material_override = _call_pulse_shader_mat
 
 	_setup_wingtip_trails()
 
@@ -211,7 +236,7 @@ func recharge_wing_energy(amount: float) -> void:
 		return
 	var previous: float = wing_energy
 	wing_energy = clampf(wing_energy + amount, 0.0, max_wing_energy)
-	_energy_flare = maxf(_energy_flare, 0.9)
+	_energy_flare = maxf(_energy_flare, 0.95)
 	if not is_equal_approx(wing_energy, previous):
 		wing_energy_changed.emit(wing_energy, max_wing_energy)
 
@@ -234,7 +259,7 @@ func _update_timers_and_regen(delta: float) -> void:
 	if _manual_cam_timer > 0.0:
 		_manual_cam_timer = maxf(0.0, _manual_cam_timer - delta)
 	if _energy_flare > 0.0:
-		_energy_flare = maxf(0.0, _energy_flare - delta * 2.2)
+		_energy_flare = maxf(0.0, _energy_flare - delta * 2.1)
 
 	# Decay boost impulse smoothly
 	_boost_velocity = _boost_velocity.lerp(Vector3.ZERO, 1.0 - exp(-4.8 * delta))
@@ -368,7 +393,7 @@ func _enter_flight() -> void:
 	flight_speed = maxf(horiz_speed, flight_cruise_speed)
 	velocity.y = maxf(velocity.y, 5.0)
 	_flap_anim_timer = 0.45
-	_energy_flare = maxf(_energy_flare, 0.65)
+	_energy_flare = maxf(_energy_flare, 0.72)
 	flight_mode_changed.emit(true)
 
 
@@ -393,14 +418,14 @@ func _perform_wing_flap_boost() -> void:
 	_boost_velocity += Vector3.UP * flap_upward_boost + forward_dir * (flap_forward_boost * 0.55)
 	flight_pitch = maxf(flight_pitch, deg_to_rad(14.0))
 	_flap_anim_timer = 0.55
-	_energy_flare = 1.1
+	_energy_flare = 1.15
 
 
 func _trigger_golden_surge(steer_x: float, move_z: float) -> void:
 	_surge_timer = surge_duration
 	_surge_cooldown_timer = surge_cooldown
 	_flap_anim_timer = maxf(_flap_anim_timer, 0.35)
-	_energy_flare = 1.25
+	_energy_flare = 1.3
 
 	if is_flying:
 		_surge_dir = _get_flight_forward()
@@ -420,7 +445,7 @@ func _trigger_golden_surge(steer_x: float, move_z: float) -> void:
 func _trigger_soul_call() -> void:
 	_call_cooldown_timer = call_cooldown
 	_call_pulse_timer = call_pulse_duration
-	_energy_flare = 1.35
+	_energy_flare = 1.4
 	soul_call_triggered.emit(global_position)
 
 
@@ -430,7 +455,7 @@ func _get_flight_forward() -> Vector3:
 
 
 # ==============================================================================
-# VISUAL POLISH: CAPE BILLOWING, HALO, LIGHT, CALL PULSE, CAMERA, RIBBON TRAILS
+# VISUAL POLISH: SHADER-DRIVEN FLAME & CAPE, WING FLARES, HALO, CAMERA, TRAILS
 # ==============================================================================
 
 func _update_visual_rig(delta: float) -> void:
@@ -442,50 +467,72 @@ func _update_visual_rig(delta: float) -> void:
 	visual_pivot.basis = visual_pivot.basis.slerp(target_basis, 1.0 - exp(-12.0 * delta))
 
 	# Gentle breathing float on VisualPivot when flying or idling
-	var hover_bob: float = sin(_anim_time * (3.2 if is_flying else 2.4)) * (0.07 if is_flying else 0.03)
+	var hover_bob: float = sin(_anim_time * (3.2 if is_flying else 2.4)) * (0.07 if is_flying else 0.032)
 	visual_pivot.position.y = 0.9 + hover_bob
 
-	# Rotating golden star halo above Spark's head
+	# Orbiting celestial star-halo ring above Spark's head
 	if star_halo:
-		var halo_spin: float = 1.6 + (_energy_flare * 4.5) + (1.2 if is_flying else 0.0)
-		star_halo.rotate_y(halo_spin * delta)
-		star_halo.position.y = _base_halo_y + sin(_anim_time * 3.6) * 0.045
-		var halo_scale: float = 1.0 + _energy_flare * 0.18
+		var halo_spin: float = 1.5 + (_energy_flare * 4.2) + (1.1 if is_flying else 0.0)
+		star_halo.rotate_z(halo_spin * delta)
+		star_halo.position.y = _base_halo_y + sin(_anim_time * 3.4) * 0.045
+		var halo_scale: float = 1.0 + _energy_flare * 0.2
 		star_halo.scale = Vector3.ONE * halo_scale
 
-	# Procedural billowing animation on left & right 3D cape wings
+	var speed_ratio: float = clampf(velocity.length() / maxf(flight_max_speed, 1.0), 0.0, 1.25)
+
+	# Drive Spark's living flame core shader & flowing wind-wave cape shader
+	var flap_burst: float = 0.0
+	if _flap_anim_timer > 0.0:
+		var ft: float = 1.0 - clampf(_flap_anim_timer / 0.55, 0.0, 1.0)
+		flap_burst = sin(ft * PI)
+	if _surge_timer > 0.0:
+		flap_burst = maxf(flap_burst, 0.9)
+
+	if _flame_shader_mat:
+		_flame_shader_mat.set_shader_parameter("flare_intensity", _energy_flare)
+
+	if _cape_shader_mat:
+		var wind_val: float = lerpf(2.4, 10.5, speed_ratio)
+		_cape_shader_mat.set_shader_parameter("wind_speed", wind_val)
+		_cape_shader_mat.set_shader_parameter("flap_burst", flap_burst)
+
+	# Procedural billowing animation on left & right 3D cape wings + radiant light-wing flares
 	if cape_left and cape_right:
-		var speed_ratio: float = clampf(velocity.length() / flight_max_speed, 0.0, 1.2)
 		var billow_freq: float = lerpf(3.2, 13.5, speed_ratio)
 		var billow_amp: float = lerpf(0.07, 0.24, speed_ratio)
 		var wave_l: float = sin(_anim_time * billow_freq) * billow_amp
 		var wave_r: float = sin(_anim_time * billow_freq + 0.55) * billow_amp
 
-		# Dramatic downward wing flap stroke when boosting
-		var flap_stroke: float = 0.0
-		if _flap_anim_timer > 0.0:
-			var t: float = 1.0 - clampf(_flap_anim_timer / 0.55, 0.0, 1.0)
-			flap_stroke = sin(t * PI) * 0.85
+		var flap_stroke: float = flap_burst * 0.88
+		var spread_angle: float = 0.10 if is_flying else -0.52
+		var sweep_back: float = lerpf(0.18, 0.54, speed_ratio) if is_flying else lerpf(0.12, 0.42, speed_ratio)
 
-		var spread_angle: float = 0.08 if is_flying else -0.52
-		var sweep_back: float = lerpf(0.18, 0.52, speed_ratio) if is_flying else lerpf(0.12, 0.42, speed_ratio)
-
-		# Left wing (extends toward -X): positive Z rotation lifts outer tip down, negative lifts up
 		cape_left.rotation = Vector3(
 			0.12 + wave_l * 0.5,
 			sweep_back + wave_l * 0.35,
 			-(spread_angle - flap_stroke + wave_l)
 		)
-		# Right wing (extends toward +X): mirrored symmetrically
 		cape_right.rotation = Vector3(
 			0.12 + wave_r * 0.5,
 			-(sweep_back + wave_r * 0.35),
 			spread_angle - flap_stroke + wave_r
 		)
 
+	# Radiant additive light-wing flares bloom open on wing flaps, surge, or fast flight
+	var flare_vis: float = clampf(flap_burst * 0.85 + (_energy_flare * 0.35) + (0.14 if is_flying else 0.0), 0.0, 1.0)
+	if _wing_flare_mat:
+		_wing_flare_mat.albedo_color = Color(1.0, 0.93, 0.62, flare_vis * 0.72)
+	var flare_scale: Vector3 = Vector3(lerpf(0.65, 1.45, flare_vis), lerpf(0.55, 1.35, flare_vis), 1.0)
+	if wing_flare_left:
+		wing_flare_left.visible = flare_vis > 0.02
+		wing_flare_left.scale = flare_scale
+	if wing_flare_right:
+		wing_flare_right.visible = flare_vis > 0.02
+		wing_flare_right.scale = flare_scale
+
 	# Warm OmniLight3D intensity modulation on abilities & speed
 	if spark_light:
-		var target_energy: float = _base_light_energy + (_energy_flare * 2.4) + (0.45 if is_flying else 0.0)
+		var target_energy: float = _base_light_energy + (_energy_flare * 2.5) + (0.55 if is_flying else 0.0)
 		spark_light.light_energy = lerpf(spark_light.light_energy, target_energy, 1.0 - exp(-10.0 * delta))
 
 
@@ -505,7 +552,7 @@ func _update_camera(delta: float) -> void:
 	camera_rig.rotation = Vector3(cam_pitch, cam_yaw, 0.0)
 
 	# Dynamic FOV expansion during fast flight, wing flap boost, or golden surge
-	var speed_factor: float = clampf((velocity.length() - 10.0) / (flight_max_speed - 10.0), 0.0, 1.0)
+	var speed_factor: float = clampf((velocity.length() - 10.0) / maxf(flight_max_speed - 10.0, 1.0), 0.0, 1.0)
 	var boost_fov: float = 0.0
 	if _surge_timer > 0.0:
 		boost_fov += 8.0
@@ -515,9 +562,18 @@ func _update_camera(delta: float) -> void:
 	var target_fov: float = clampf(lerpf(base_fov, max_fov - 5.0, speed_factor) + boost_fov, base_fov, max_fov)
 	camera.fov = lerpf(camera.fov, target_fov, 1.0 - exp(-fov_lerp_speed * delta))
 
-	# Subtle camera roll following banking angle in flight
+	# Silky SpringArm3D distance easing (pulls back smoothly in flight for epic Sky-style scale)
+	if spring_arm:
+		var target_arm: float = lerpf(spring_length_ground, spring_length_flight, 1.0 if is_flying else 0.0)
+		if is_flying:
+			target_arm += speed_factor * 1.15
+		if _surge_timer > 0.0:
+			target_arm += spring_length_surge_bonus
+		spring_arm.spring_length = lerpf(spring_arm.spring_length, target_arm, 1.0 - exp(-spring_arm_lerp_speed * delta))
+
+	# Subtle cinematic camera roll following banking angle in flight
 	var target_cam_roll: float = bank_roll * camera_roll_factor if is_flying else 0.0
-	camera.rotation.z = lerpf(camera.rotation.z, target_cam_roll, 1.0 - exp(-6.5 * delta))
+	camera.rotation.z = lerpf(camera.rotation.z, target_cam_roll, 1.0 - exp(-6.2 * delta))
 
 
 func _update_call_pulse(delta: float) -> void:
@@ -526,14 +582,14 @@ func _update_call_pulse(delta: float) -> void:
 
 	if _call_pulse_timer > 0.0:
 		_call_pulse_timer = maxf(0.0, _call_pulse_timer - delta)
-		var progress: float = 1.0 - (_call_pulse_timer / call_pulse_duration)
+		var progress: float = 1.0 - (_call_pulse_timer / maxf(call_pulse_duration, 0.01))
 		var eased: float = 1.0 - pow(1.0 - progress, 3.0)
 		call_pulse_mesh.visible = true
-		var radius: float = lerpf(0.35, 9.5, eased)
+		var radius: float = lerpf(0.45, 9.8, eased)
 		call_pulse_mesh.scale = Vector3.ONE * radius
-		if _call_pulse_mat:
-			var alpha: float = (1.0 - progress) * 0.42
-			_call_pulse_mat.albedo_color = Color(1.0, 0.86, 0.42, alpha)
+		if _call_pulse_shader_mat:
+			var alpha: float = clampf(1.0 - progress, 0.0, 1.0)
+			_call_pulse_shader_mat.set_shader_parameter("alpha_fade", alpha)
 	else:
 		call_pulse_mesh.visible = false
 
@@ -548,8 +604,9 @@ func _setup_wingtip_trails() -> void:
 	trail_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	trail_mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
 	trail_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	trail_mat.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED
 	trail_mat.vertex_color_use_as_albedo = true
-	trail_mat.albedo_color = Color(1.0, 0.9, 0.55, 1.0)
+	trail_mat.albedo_color = Color(1.0, 0.94, 0.66, 1.0)
 
 	_trail_left_mesh = ImmediateMesh.new()
 	_trail_left_node = MeshInstance3D.new()
@@ -580,7 +637,7 @@ func _update_wingtip_trails(delta: float) -> void:
 	_sample_trail_points(_trail_left_points, _trail_left_ages, left_pos, delta, lifetime)
 	_sample_trail_points(_trail_right_points, _trail_right_ages, right_pos, delta, lifetime)
 
-	var width_mult: float = 1.0 + (0.55 if is_flying else 0.0) + (_energy_flare * 0.45)
+	var width_mult: float = 1.0 + (0.62 if is_flying else 0.0) + (_energy_flare * 0.48)
 	_rebuild_ribbon_mesh(_trail_left_mesh, _trail_left_points, _trail_left_ages, lifetime, trail_base_width * width_mult)
 	_rebuild_ribbon_mesh(_trail_right_mesh, _trail_right_points, _trail_right_ages, lifetime, trail_base_width * width_mult)
 
@@ -656,15 +713,15 @@ func _rebuild_ribbon_mesh(
 
 		var life_t: float = clampf(1.0 - (ages[i] / maxf(lifetime, 0.01)), 0.0, 1.0)
 		var index_t: float = float(i) / float(count - 1)
-		var taper: float = life_t * index_t
-		var half_w: float = base_width * 0.5 * taper
+		var taper: float = smoothstep(0.0, 1.0, life_t * index_t)
+		var half_w: float = base_width * 0.5 * (0.15 + 0.85 * taper)
 
-		# HDR golden glow fading smoothly toward transparent amber at the tail
+		# Luminous HDR white-gold core fading smoothly into soft amber tail
 		var col: Color = Color(
-			lerpf(1.0, 1.6, taper),
-			lerpf(0.62, 1.15, taper),
-			lerpf(0.18, 0.48, taper),
-			taper * (0.92 if is_flying else 0.55)
+			lerpf(0.95, 1.75, taper),
+			lerpf(0.58, 1.32, taper),
+			lerpf(0.16, 0.68, taper),
+			taper * taper * (0.94 if is_flying else 0.52)
 		)
 
 		imm_mesh.surface_set_color(col)

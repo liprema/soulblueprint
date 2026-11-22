@@ -53,15 +53,15 @@ func _connect_signals() -> void:
 
 
 func _setup_intro_handoff() -> void:
-	if intro_video and intro_video.has_signal("intro_finished"):
+	if intro_video and intro_video.has_signal("intro_completed"):
 		if player and "input_enabled" in player:
 			player.set("input_enabled", false)
-		intro_video.connect("intro_finished", _on_intro_finished)
+		intro_video.connect("intro_completed", _on_intro_completed)
 	else:
 		_enable_gameplay()
 
 
-func _on_intro_finished() -> void:
+func _on_intro_completed() -> void:
 	_enable_gameplay()
 
 

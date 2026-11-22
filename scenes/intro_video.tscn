@@ -33,7 +33,16 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 expand_mode = 1
-stretch_mode = 5
+stretch_mode = 6
+
+[node name="GlowVeil" type="ColorRect" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.96, 0.82, 0.48, 1)
 
 [node name="SkipHint" type="Label" parent="."]
 anchors_preset = 3
@@ -41,15 +50,15 @@ anchor_left = 1.0
 anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = -240.0
+offset_left = -280.0
 offset_top = -45.0
 offset_right = -20.0
 offset_bottom = -15.0
 grow_horizontal = 0
 grow_vertical = 0
-theme_override_colors/font_color = Color(0.96, 0.83, 0.42, 0.75)
+theme_override_colors/font_color = Color(0.96, 0.83, 0.42, 0.78)
 theme_override_font_sizes/font_size = 14
-text = "[Space / Esc] Пропустить"
+text = "[Space / Enter / Esc] Пропустить"
 horizontal_alignment = 2
 
 [node name="FadeRect" type="ColorRect" parent="."]
