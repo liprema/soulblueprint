@@ -11,27 +11,27 @@ const MIRA_GLB_PATH: String = "res://assets/models/characters/mentor_mira.glb"
 const TALK_RANGE_RADIUS: float = 20.0
 const SOUL_CALL_RADIUS: float = 24.0
 
-const COLOR_ALATEA_BODY: Color = Color("#041028")
-const COLOR_ALATEA_RIM: Color = Color("#58C4FF")
-const COLOR_ALATEA_RIM_HI: Color = Color("#B5F0FF")
-const COLOR_ALATEA_LIGHT: Color = Color(0.45, 0.80, 1.0, 1.0)
+const COLOR_ALATEA_BODY: Color = Color("#BFD8EE")
+const COLOR_ALATEA_RIM: Color = Color("#E8F6FF")
+const COLOR_ALATEA_RIM_HI: Color = Color("#D8F2FF")
+const COLOR_ALATEA_LIGHT: Color = Color(0.84, 0.93, 1.0, 1.0)
 
-const COLOR_MIRA_BODY: Color = Color("#061634")
-const COLOR_MIRA_RIM: Color = Color("#74D0FF")
-const COLOR_MIRA_RIM_HI: Color = Color("#CCF2FF")
-const COLOR_MIRA_HALO: Color = Color("#F6D36B")
-const COLOR_MIRA_LIGHT: Color = Color(0.86, 0.88, 0.74, 1.0)
+const COLOR_MIRA_BODY: Color = Color("#E6D9E2")
+const COLOR_MIRA_RIM: Color = Color("#FFF0DC")
+const COLOR_MIRA_RIM_HI: Color = Color("#FFF8EC")
+const COLOR_MIRA_HALO: Color = Color("#DFC48E")
+const COLOR_MIRA_LIGHT: Color = Color(1.0, 0.94, 0.86, 1.0)
 
-const COLOR_SATIN_GOLD: Color = Color("#EBC86A")
-const COLOR_BRIGHT_GOLD: Color = Color("#F6D36B")
+const COLOR_SATIN_GOLD: Color = Color("#DFC48E")
+const COLOR_BRIGHT_GOLD: Color = Color("#F0DCAA")
 
-const BASE_LIGHT_ENERGY: float = 1.45
-const HIGHLIGHT_LIGHT_ENERGY: float = 2.45
-const DIMMED_LIGHT_ENERGY: float = 1.05
+const BASE_LIGHT_ENERGY: float = 1.10
+const HIGHLIGHT_LIGHT_ENERGY: float = 1.65
+const DIMMED_LIGHT_ENERGY: float = 0.78
 
-const BASE_EMISSION_STRENGTH: float = 1.50
-const HIGHLIGHT_EMISSION_STRENGTH: float = 2.25
-const DIMMED_EMISSION_STRENGTH: float = 1.15
+const BASE_EMISSION_STRENGTH: float = 0.65
+const HIGHLIGHT_EMISSION_STRENGTH: float = 0.95
+const DIMMED_EMISSION_STRENGTH: float = 0.48
 
 var _alatea_root: Node3D = null
 var _mira_root: Node3D = null
@@ -129,8 +129,8 @@ func _process(delta: float) -> void:
 		_mira_sunburst_halo.rotation.z -= delta * _mira_halo_speed
 
 	# Apply smooth aura brightness & warm Soul Call pulse
-	var pulse_light_add: float = _soul_call_pulse * 1.65
-	var pulse_emission_add: float = _soul_call_pulse * 0.75
+	var pulse_light_add: float = _soul_call_pulse * 0.95
+	var pulse_emission_add: float = _soul_call_pulse * 0.35
 
 	if _alatea_light != null:
 		_alatea_light.light_energy = _alatea_current_energy + sin(_anim_time * 1.9) * 0.08 + pulse_light_add
@@ -143,12 +143,12 @@ func _process(delta: float) -> void:
 		_mira_body_mat.set_shader_parameter("emission_strength", _mira_current_emission + pulse_emission_add)
 
 	if _gold_mat != null:
-		_gold_mat.emission_energy_multiplier = 1.35 + pulse_emission_add * 0.65
+		_gold_mat.emission_energy_multiplier = 0.45 + pulse_emission_add * 0.45
 
 	if _fate_orb_mat != null:
-		var orb_boost: float = 2.15 + pulse_emission_add * 0.85
+		var orb_boost: float = 1.35 + pulse_emission_add * 0.55
 		if _active_speaker == "alatea":
-			orb_boost += 0.55
+			orb_boost += 0.35
 		_fate_orb_mat.emission_energy_multiplier = orb_boost
 
 
@@ -226,11 +226,11 @@ func _init_materials() -> void:
 	_alatea_body_mat.set_shader_parameter("body_color", COLOR_ALATEA_BODY)
 	_alatea_body_mat.set_shader_parameter("rim_color", COLOR_ALATEA_RIM)
 	_alatea_body_mat.set_shader_parameter("rim_highlight_color", COLOR_ALATEA_RIM_HI)
-	_alatea_body_mat.set_shader_parameter("base_opacity", 0.84)
+	_alatea_body_mat.set_shader_parameter("base_opacity", 0.90)
 	_alatea_body_mat.set_shader_parameter("fresnel_power", 2.35)
 	_alatea_body_mat.set_shader_parameter("emission_strength", BASE_EMISSION_STRENGTH)
 	_alatea_body_mat.set_shader_parameter("shimmer_speed", 0.88)
-	_alatea_body_mat.set_shader_parameter("stardust_intensity", 0.55)
+	_alatea_body_mat.set_shader_parameter("stardust_intensity", 0.32)
 	_alatea_body_mat.set_shader_parameter("hem_fade_start", 0.0)
 	_alatea_body_mat.set_shader_parameter("hem_fade_end", 1.05)
 
@@ -240,22 +240,22 @@ func _init_materials() -> void:
 	_mira_body_mat.set_shader_parameter("body_color", COLOR_MIRA_BODY)
 	_mira_body_mat.set_shader_parameter("rim_color", COLOR_MIRA_RIM)
 	_mira_body_mat.set_shader_parameter("rim_highlight_color", COLOR_MIRA_RIM_HI)
-	_mira_body_mat.set_shader_parameter("base_opacity", 0.82)
+	_mira_body_mat.set_shader_parameter("base_opacity", 0.90)
 	_mira_body_mat.set_shader_parameter("fresnel_power", 2.25)
 	_mira_body_mat.set_shader_parameter("emission_strength", BASE_EMISSION_STRENGTH)
 	_mira_body_mat.set_shader_parameter("shimmer_speed", 0.76)
-	_mira_body_mat.set_shader_parameter("stardust_intensity", 0.62)
+	_mira_body_mat.set_shader_parameter("stardust_intensity", 0.32)
 	_mira_body_mat.set_shader_parameter("hem_fade_start", 0.0)
 	_mira_body_mat.set_shader_parameter("hem_fade_end", 1.05)
 
 	_gold_mat = StandardMaterial3D.new()
 	_gold_mat.albedo_color = COLOR_SATIN_GOLD
-	_gold_mat.metallic = 0.88
-	_gold_mat.roughness = 0.24
+	_gold_mat.metallic = 0.78
+	_gold_mat.roughness = 0.38
 	_gold_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
 	_gold_mat.emission_enabled = true
 	_gold_mat.emission = COLOR_BRIGHT_GOLD
-	_gold_mat.emission_energy_multiplier = 1.35
+	_gold_mat.emission_energy_multiplier = 0.45
 
 	_alatea_halo_mat = StandardMaterial3D.new()
 	_alatea_halo_mat.albedo_color = Color(COLOR_ALATEA_RIM.r, COLOR_ALATEA_RIM.g, COLOR_ALATEA_RIM.b, 0.72)
@@ -273,11 +273,11 @@ func _init_materials() -> void:
 
 	_fate_orb_mat = StandardMaterial3D.new()
 	_fate_orb_mat.albedo_color = Color("#FFF7DC")
-	_fate_orb_mat.roughness = 0.14
+	_fate_orb_mat.roughness = 0.18
 	_fate_orb_mat.metallic = 0.15
 	_fate_orb_mat.emission_enabled = true
-	_fate_orb_mat.emission = Color("#FFE28A")
-	_fate_orb_mat.emission_energy_multiplier = 2.15
+	_fate_orb_mat.emission = Color("#F6DFAC")
+	_fate_orb_mat.emission_energy_multiplier = 1.35
 
 
 func _try_instantiate_mentor_glb(glb_path: String, parent: Node3D, body_mat: Material) -> Node3D:

@@ -9,14 +9,14 @@ signal awakened(lantern: StoneLantern3D)
 @export var dormant_light_energy: float = 0.55
 @export var dormant_light_range: float = 7.0
 @export var dormant_light_volumetric_fog_energy: float = 1.2
-@export var dormant_light_color: Color = Color("#7A9CA8")
+@export var dormant_light_color: Color = Color("#B8D4E8")
 @export var dormant_emission_energy: float = 0.55
 
-@export var awakened_light_energy: float = 5.2
+@export var awakened_light_energy: float = 3.2
 @export var awakened_light_range: float = 22.0
 @export var awakened_light_volumetric_fog_energy: float = 2.6
-@export var awakened_light_color: Color = Color("#FFAA4A")
-@export var awakened_emission_energy: float = 4.8
+@export var awakened_light_color: Color = Color("#FFD494")
+@export var awakened_emission_energy: float = 2.6
 
 @export var lantern_omni_attenuation: float = 1.55
 @export var awaken_duration: float = 0.95
@@ -32,14 +32,14 @@ signal awakened(lantern: StoneLantern3D)
 const LANTERN_MODEL_PATH: String = "res://assets/models/props/stone_lantern.glb"
 const MARBLE_SHADER: Shader = preload("res://shaders/akasha_marble.gdshader")
 
-const COLOR_AGED_GOLD: Color = Color("#CFA354")
-const COLOR_AGED_BRASS: Color = Color("#B28742")
-const COLOR_WARM_BRASS_EMISSION: Color = Color("#E09F3E")
+const COLOR_AGED_GOLD: Color = Color("#DFC48E")
+const COLOR_AGED_BRASS: Color = Color("#C9AC74")
+const COLOR_WARM_BRASS_EMISSION: Color = Color("#EDD29A")
 
-const GOLD_EMISSION_DORMANT: float = 0.08
-const GOLD_EMISSION_AWAKENED: float = 0.36
-const BRASS_EMISSION_DORMANT: float = 0.04
-const BRASS_EMISSION_AWAKENED: float = 0.24
+const GOLD_EMISSION_DORMANT: float = 0.06
+const GOLD_EMISSION_AWAKENED: float = 0.28
+const BRASS_EMISSION_DORMANT: float = 0.03
+const BRASS_EMISSION_AWAKENED: float = 0.18
 
 var _is_awakened: bool = false
 var _orb_material: StandardMaterial3D
@@ -93,6 +93,7 @@ func _create_wet_basalt_material(
 	mat.set_shader_parameter("stone_base_color", base_col)
 	mat.set_shader_parameter("stone_highlight_color", highlight_col)
 	mat.set_shader_parameter("stone_pore_color", pore_col)
+	mat.set_shader_parameter("horizon_tint_color", Color("#E4F0FA"))
 	mat.set_shader_parameter("base_roughness", roughness_val)
 	mat.set_shader_parameter("surface_specular", 0.42)
 	mat.set_shader_parameter("surface_metallic", 0.02)
@@ -104,21 +105,21 @@ func _create_wet_basalt_material(
 
 
 func _init_lantern_materials() -> void:
-	# Stray wet dark basalt & twilight slate stonework (matching Prologue architecture)
+	# Carved Warm Alabaster, Pearl Ivory & Pale Celestial Ice-Blue stonework
 	_mat_obsidian_dark = _create_wet_basalt_material(
-		Color("#11151E"), Color("#1B2230"), Color("#090C12"), 0.76, 0.08, 0.78, 1.65, 0.32
+		Color("#C4BDB3"), Color("#D8D2C8"), Color("#9C948A"), 0.58, 0.10, 0.38, 1.65, 0.32
 	)
 	_mat_indigo_stone = _create_wet_basalt_material(
-		Color("#1A202C"), Color("#273042"), Color("#10141D"), 0.74, 0.10, 0.85, 1.85, 0.28
+		Color("#E2DCD2"), Color("#F4EFE7"), Color("#BDB4A6"), 0.52, 0.12, 0.48, 1.85, 0.28
 	)
 	_mat_cobalt_trim = _create_wet_basalt_material(
-		Color("#1B283A"), Color("#283A52"), Color("#111A26"), 0.68, 0.10, 0.82, 2.00, 0.24
+		Color("#C6DCED"), Color("#E0EEF8"), Color("#96B4CC"), 0.40, 0.16, 0.70, 2.00, 0.24
 	)
 
-	# Brushed antique satin gold & warm temple brass (per-instance so each lantern awakens independently)
+	# Brushed satin champagne gold & warm temple brass (per-instance so each lantern awakens independently)
 	_mat_artdeco_gold = StandardMaterial3D.new()
 	_mat_artdeco_gold.albedo_color = COLOR_AGED_GOLD
-	_mat_artdeco_gold.metallic = 0.80
+	_mat_artdeco_gold.metallic = 0.78
 	_mat_artdeco_gold.roughness = 0.40
 	_mat_artdeco_gold.emission_enabled = true
 	_mat_artdeco_gold.emission = COLOR_WARM_BRASS_EMISSION
@@ -126,7 +127,7 @@ func _init_lantern_materials() -> void:
 
 	_mat_artdeco_brass = StandardMaterial3D.new()
 	_mat_artdeco_brass.albedo_color = COLOR_AGED_BRASS
-	_mat_artdeco_brass.metallic = 0.80
+	_mat_artdeco_brass.metallic = 0.78
 	_mat_artdeco_brass.roughness = 0.44
 	_mat_artdeco_brass.emission_enabled = true
 	_mat_artdeco_brass.emission = COLOR_WARM_BRASS_EMISSION
@@ -343,8 +344,8 @@ func _apply_dormant_immediate() -> void:
 		lantern_light.omni_attenuation = lantern_omni_attenuation
 		lantern_light.light_volumetric_fog_energy = dormant_light_volumetric_fog_energy
 	if _orb_material:
-		_orb_material.albedo_color = Color(0.46, 0.56, 0.60, 1.0)
-		_orb_material.emission = Color(0.56, 0.68, 0.66, 1.0)
+		_orb_material.albedo_color = Color(0.76, 0.85, 0.92, 1.0)
+		_orb_material.emission = dormant_light_color
 		_orb_material.emission_energy_multiplier = dormant_emission_energy
 	if _mat_artdeco_gold != null:
 		_mat_artdeco_gold.emission_energy_multiplier = GOLD_EMISSION_DORMANT

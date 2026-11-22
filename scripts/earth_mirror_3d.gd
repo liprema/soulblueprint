@@ -33,10 +33,10 @@ const COLOR_DORMANT_LIGHT: Color = Color(0.55, 0.72, 0.96, 1.0)
 const COLOR_READY_LIGHT: Color = Color(0.92, 0.80, 0.48, 1.0)
 const COLOR_AWAKENED_LIGHT: Color = Color(0.68, 0.88, 0.98, 1.0)
 
-const COLOR_INDIGO_STONE: Color = Color("#122D6B")
-const COLOR_SATIN_GOLD: Color = Color("#EBC86A")
-const COLOR_BRIGHT_GOLD: Color = Color("#F6D36B")
-const COLOR_ETHEREAL_CYAN: Color = Color("#58C4FF")
+const COLOR_INDIGO_STONE: Color = Color("#DFD9CF")
+const COLOR_SATIN_GOLD: Color = Color("#DFC48E")
+const COLOR_BRIGHT_GOLD: Color = Color("#EDD29A")
+const COLOR_ETHEREAL_CYAN: Color = Color("#C4DAEC")
 
 var state: MirrorState = MirrorState.DORMANT
 
@@ -136,17 +136,17 @@ func set_ready_for_call() -> void:
 
 	if _filigree_ring_mat != null:
 		_state_tween.tween_property(
-			_filigree_ring_mat, "emission_energy_multiplier", 1.15, 1.35
+			_filigree_ring_mat, "emission_energy_multiplier", 0.78, 1.35
 		).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 
 	if _finial_accent_mat != null:
 		_state_tween.tween_property(
-			_finial_accent_mat, "emission_energy_multiplier", 1.45, 1.35
+			_finial_accent_mat, "emission_energy_multiplier", 1.05, 1.35
 		).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 
 	if _gold_frame_mat != null:
 		_state_tween.tween_property(
-			_gold_frame_mat, "emission_energy_multiplier", 0.62, 1.35
+			_gold_frame_mat, "emission_energy_multiplier", 0.38, 1.35
 		).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 
 	if _starlight_particles != null:
@@ -188,17 +188,17 @@ func awaken_mirror() -> void:
 
 	if _filigree_ring_mat != null:
 		_state_tween.tween_property(
-			_filigree_ring_mat, "emission_energy_multiplier", 1.85, 1.6
+			_filigree_ring_mat, "emission_energy_multiplier", 1.25, 1.6
 		).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 
 	if _finial_accent_mat != null:
 		_state_tween.tween_property(
-			_finial_accent_mat, "emission_energy_multiplier", 2.1, 1.6
+			_finial_accent_mat, "emission_energy_multiplier", 1.55, 1.6
 		).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 
 	if _gold_frame_mat != null:
 		_state_tween.tween_property(
-			_gold_frame_mat, "emission_energy_multiplier", 0.85, 1.6
+			_gold_frame_mat, "emission_energy_multiplier", 0.58, 1.6
 		).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 
 	if _starlight_particles != null:
@@ -279,40 +279,42 @@ func _apply_dormant_immediate() -> void:
 		_mirror_light.omni_range = 14.0
 		_mirror_light.light_color = COLOR_DORMANT_LIGHT
 	if _gold_frame_mat != null:
-		_gold_frame_mat.emission_energy_multiplier = 0.36
+		_gold_frame_mat.emission_energy_multiplier = 0.14
 	if _filigree_ring_mat != null:
-		_filigree_ring_mat.emission_energy_multiplier = 0.42
+		_filigree_ring_mat.emission_energy_multiplier = 0.22
 	if _finial_accent_mat != null:
-		_finial_accent_mat.emission_energy_multiplier = 0.55
+		_finial_accent_mat.emission_energy_multiplier = 0.35
 	if _starlight_particles != null:
 		_starlight_particles.emitting = true
 		_starlight_particles.amount_ratio = 0.25
 
 
 func _init_materials() -> void:
+	# Brushed Satin Champagne Gold for Mat_MirrorGold & Mat_MirrorFiligree (zero shimmer)
 	_gold_frame_mat = StandardMaterial3D.new()
 	_gold_frame_mat.albedo_color = COLOR_SATIN_GOLD
-	_gold_frame_mat.roughness = 0.34
-	_gold_frame_mat.metallic = 0.86
+	_gold_frame_mat.roughness = 0.40
+	_gold_frame_mat.metallic = 0.78
 	_gold_frame_mat.emission_enabled = true
-	_gold_frame_mat.emission = COLOR_SATIN_GOLD
-	_gold_frame_mat.emission_energy_multiplier = 0.36
+	_gold_frame_mat.emission = COLOR_BRIGHT_GOLD
+	_gold_frame_mat.emission_energy_multiplier = 0.14
 
 	_filigree_ring_mat = StandardMaterial3D.new()
-	_filigree_ring_mat.albedo_color = COLOR_BRIGHT_GOLD
-	_filigree_ring_mat.roughness = 0.28
-	_filigree_ring_mat.metallic = 0.78
+	_filigree_ring_mat.albedo_color = COLOR_SATIN_GOLD
+	_filigree_ring_mat.roughness = 0.38
+	_filigree_ring_mat.metallic = 0.76
 	_filigree_ring_mat.emission_enabled = true
 	_filigree_ring_mat.emission = COLOR_BRIGHT_GOLD
-	_filigree_ring_mat.emission_energy_multiplier = 0.42
+	_filigree_ring_mat.emission_energy_multiplier = 0.22
 
+	# Pale Celestial Ice-Blue Crystal for Mat_MirrorAccent
 	_finial_accent_mat = StandardMaterial3D.new()
-	_finial_accent_mat.albedo_color = Color("#FFF4CF")
-	_finial_accent_mat.roughness = 0.22
-	_finial_accent_mat.metallic = 0.45
+	_finial_accent_mat.albedo_color = COLOR_ETHEREAL_CYAN
+	_finial_accent_mat.roughness = 0.34
+	_finial_accent_mat.metallic = 0.25
 	_finial_accent_mat.emission_enabled = true
-	_finial_accent_mat.emission = COLOR_BRIGHT_GOLD
-	_finial_accent_mat.emission_energy_multiplier = 0.55
+	_finial_accent_mat.emission = Color("#D8EEFF")
+	_finial_accent_mat.emission_energy_multiplier = 0.35
 
 	_mirror_shader_mat = ShaderMaterial.new()
 	if ResourceLoader.exists(MIRROR_SHADER_PATH):
@@ -321,7 +323,7 @@ func _init_materials() -> void:
 			_mirror_shader_mat.shader = loaded_shader
 	_mirror_shader_mat.set_shader_parameter("dormant_color", Color(0.05, 0.12, 0.28, 1.0))
 	_mirror_shader_mat.set_shader_parameter("awakened_color", Color(0.32, 0.72, 0.98, 1.0))
-	_mirror_shader_mat.set_shader_parameter("gold_rim_color", Color(0.95, 0.80, 0.42, 1.0))
+	_mirror_shader_mat.set_shader_parameter("gold_rim_color", COLOR_SATIN_GOLD)
 	_mirror_shader_mat.set_shader_parameter("awakened_amount", 0.0)
 	_mirror_shader_mat.set_shader_parameter("pulse_boost", 0.0)
 
@@ -333,18 +335,21 @@ func _create_pedestal_stone_material() -> Material:
 			var shader_mat: ShaderMaterial = ShaderMaterial.new()
 			shader_mat.shader = marble_shader
 			shader_mat.set_shader_parameter("stone_base_color", COLOR_INDIGO_STONE)
-			shader_mat.set_shader_parameter("stone_highlight_color", Color("#1C3D82"))
-			shader_mat.set_shader_parameter("stone_pore_color", Color("#0C1E4A"))
-			shader_mat.set_shader_parameter("base_roughness", 0.82)
-			shader_mat.set_shader_parameter("surface_specular", 0.16)
+			shader_mat.set_shader_parameter("stone_highlight_color", Color("#F2EDE5"))
+			shader_mat.set_shader_parameter("stone_pore_color", Color("#B9B0A2"))
+			shader_mat.set_shader_parameter("horizon_tint_color", Color("#E4F0FA"))
+			shader_mat.set_shader_parameter("base_roughness", 0.50)
+			shader_mat.set_shader_parameter("surface_specular", 0.42)
 			shader_mat.set_shader_parameter("surface_metallic", 0.02)
 			shader_mat.set_shader_parameter("fresnel_lift_strength", 0.12)
+			shader_mat.set_shader_parameter("wetness_strength", 0.48)
+			shader_mat.set_shader_parameter("block_scale", 1.25)
 			return shader_mat
 
 	var fallback: StandardMaterial3D = StandardMaterial3D.new()
 	fallback.albedo_color = COLOR_INDIGO_STONE
-	fallback.roughness = 0.82
-	fallback.metallic = 0.04
+	fallback.roughness = 0.50
+	fallback.metallic = 0.02
 	return fallback
 
 

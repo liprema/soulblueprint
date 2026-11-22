@@ -289,57 +289,57 @@ func _apply_spark_energy_shader_recursive(node: Node, energy_shader: Shader) -> 
 				smat.shader = energy_shader
 
 				var mat_name: String = src_mat.resource_name if src_mat != null else ""
-				var albedo_col: Color = Color.html("#D9A03A")
-				var emit_col: Color = Color.html("#DDA440")
-				var emit_str: float = 0.14
+				var albedo_col: Color = Color.html("#E2B46E")
+				var emit_col: Color = Color.html("#E5BC7C")
+				var emit_str: float = 0.11
 				var metallic_v: float = 0.08
-				var roughness_v: float = 0.48
+				var roughness_v: float = 0.46
 
 				if mat_name.contains("CreamCore"):
-					# Inner heart & tail core: serene pearlescent warm cream
-					albedo_col = Color.html("#F4E6C0")
-					emit_col = Color.html("#F2DC9E")
-					emit_str = 0.18
+					# Inner heart & tail core: warm luminous pearl-ivory
+					albedo_col = Color.html("#F7EFE0")
+					emit_col = Color.html("#F5E6C8")
+					emit_str = 0.16
 					metallic_v = 0.04
-					roughness_v = 0.44
-				elif mat_name.contains("GoldenAmber"):
-					# Flame head & ribbons: candlelit warm honey gold
-					albedo_col = Color.html("#D9A03A")
-					emit_col = Color.html("#DDA440")
-					emit_str = 0.12
-					metallic_v = 0.08
-					roughness_v = 0.48
-				elif mat_name.contains("DeepAmber"):
-					# Diamond marks, collar clasp, underside: rich sculpted copper-amber
-					albedo_col = Color.html("#B85A18")
-					emit_col = Color.html("#C4641E")
-					emit_str = 0.14
-					metallic_v = 0.16
 					roughness_v = 0.42
+				elif mat_name.contains("GoldenAmber"):
+					# Flame head & ribbons: soft sunlit champagne-apricot gold
+					albedo_col = Color.html("#E2B46E")
+					emit_col = Color.html("#E5BC7C")
+					emit_str = 0.11
+					metallic_v = 0.08
+					roughness_v = 0.46
+				elif mat_name.contains("DeepAmber"):
+					# Diamond marks, collar clasp, inner folds: rich warm rose-bronze / honey-caramel
+					albedo_col = Color.html("#BE743E")
+					emit_col = Color.html("#C88048")
+					emit_str = 0.12
+					metallic_v = 0.16
+					roughness_v = 0.40
 				elif mat_name.contains("PureGoldTrim"):
-					# Ribbon edges & star halo: refined satin pale gold
-					albedo_col = Color.html("#EED286")
-					emit_col = Color.html("#E8C978")
-					emit_str = 0.22
-					metallic_v = 0.24
+					# Ribbon edges & star halo: refined champagne pearl-gold
+					albedo_col = Color.html("#F0DCAA")
+					emit_col = Color.html("#EED8A0")
+					emit_str = 0.18
+					metallic_v = 0.28
 					roughness_v = 0.36
 				elif src_mat is StandardMaterial3D:
 					var std_mat: StandardMaterial3D = src_mat as StandardMaterial3D
 					albedo_col = std_mat.albedo_color
 					if std_mat.emission_enabled:
 						emit_col = std_mat.emission
-						emit_str = clampf(std_mat.emission_energy_multiplier * 0.12, 0.10, 0.20)
+						emit_str = clampf(std_mat.emission_energy_multiplier * 0.12, 0.10, 0.18)
 					else:
 						emit_col = albedo_col
-						emit_str = 0.12
+						emit_str = 0.11
 					metallic_v = clampf(std_mat.metallic, 0.0, 0.35)
-					roughness_v = clampf(std_mat.roughness, 0.36, 0.58)
+					roughness_v = clampf(std_mat.roughness, 0.36, 0.56)
 
 				# Pass Color directly so Godot converts source_color uniforms from sRGB to linear HDR
 				smat.set_shader_parameter("base_albedo", albedo_col)
-				smat.set_shader_parameter("shadow_tint", Color(0.58, 0.26, 0.07, 1.0))
+				smat.set_shader_parameter("shadow_tint", Color(0.68, 0.38, 0.18, 1.0))
 				smat.set_shader_parameter("emission_color", emit_col)
-				smat.set_shader_parameter("rim_color", Color(0.98, 0.90, 0.64, 1.0))
+				smat.set_shader_parameter("rim_color", Color(1.0, 0.94, 0.84, 1.0))
 				smat.set_shader_parameter("emission_strength", emit_str)
 				smat.set_shader_parameter("metallic_val", metallic_v)
 				smat.set_shader_parameter("roughness_val", roughness_v)

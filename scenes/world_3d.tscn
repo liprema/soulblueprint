@@ -29,9 +29,9 @@ camera_attributes = ExtResource("15_cam_attrs")
 
 [node name="SunLight" type="DirectionalLight3D" parent="."]
 transform = Transform3D(0.984808, -0.059391, 0.163176, 0, 0.939693, 0.34202, -0.173648, -0.336824, 0.925417, 0, 95, -260)
-light_color = Color(1, 0.78, 0.52, 1)
-light_energy = 1.65
-light_volumetric_fog_energy = 1.8
+light_color = Color(1, 0.94, 0.84, 1)
+light_energy = 1.85
+light_volumetric_fog_energy = 1.4
 shadow_enabled = true
 shadow_bias = 0.035
 shadow_blur = 1.45
@@ -39,9 +39,9 @@ directional_shadow_mode = 1
 
 [node name="NightRimLight" type="DirectionalLight3D" parent="."]
 transform = Transform3D(-0.984808, 0.073387, -0.157379, 0, 0.906308, 0.422618, 0.173648, 0.416198, -0.892539, 0, 80, 120)
-light_color = Color(0.32, 0.62, 0.88, 1)
-light_energy = 0.34
-light_volumetric_fog_energy = 0.4
+light_color = Color(0.74, 0.87, 1, 1)
+light_energy = 0.68
+light_volumetric_fog_energy = 0.3
 shadow_enabled = false
 
 [node name="AkashaArchitecture" parent="." instance=ExtResource("3_arch")]

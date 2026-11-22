@@ -1,23 +1,23 @@
 shader_type spatial;
 render_mode blend_mix, depth_draw_opaque, cull_disabled, unshaded;
 
-// Painterly Volumetric-Feeling Stylized 3D Cloud Shader — Sky: Children of the Light inspired
-// Calibrated palette: #0A1F44 (Deep Space Blue), #122D6B (Indigo),
-// #1E4B9A (Rich Blue), #F6D36B (Warm Radiant Gold)
+// Painterly Volumetric-Feeling Stylized 3D Cloud Shader — Radiant Heavenly Dawn Cloud Realm
+// Calibrated palette: #8DA8C8 (Periwinkle-Sky Shadow), #BACCE0 (Lavender-Blue Belly),
+// #ECE9EC (Pearl-White Body), #FFFBF0 (Sunlit Cream-White Crown), #F8DFB8 (Champagne-Peach Rim)
 
 group_uniforms cloud_colors;
-uniform vec3 deep_shadow_color : source_color = vec3(0.039, 0.115, 0.265); // #0A1F44 Deep cosmic underside
-uniform vec3 shadow_color : source_color = vec3(0.085, 0.195, 0.445);      // #122D6B Indigo belly
-uniform vec3 mid_color : source_color = vec3(0.265, 0.435, 0.725);         // Soft luminous cobalt-lavender
-uniform vec3 sunlit_color : source_color = vec3(0.996, 0.948, 0.825);      // Warm sunlit cream-gold crown
-uniform vec3 gold_rim_color : source_color = vec3(0.965, 0.827, 0.420);    // #F6D36B Soft Gold silver-lining
+uniform vec3 deep_shadow_color : source_color = vec3(0.553, 0.659, 0.784); // #8DA8C8 Soft periwinkle-sky underside
+uniform vec3 shadow_color : source_color = vec3(0.729, 0.800, 0.878);      // #BACCE0 Cool airy lavender-blue belly
+uniform vec3 mid_color : source_color = vec3(0.925, 0.914, 0.925);         // #ECE9EC Luminous pearl-white body
+uniform vec3 sunlit_color : source_color = vec3(1.000, 0.984, 0.941);      // #FFFBF0 Radiant warm cream-white crown
+uniform vec3 gold_rim_color : source_color = vec3(0.973, 0.875, 0.722);    // #F8DFB8 Delicate champagne-peach silver-lining
 
 group_uniforms lighting;
-uniform vec3 sun_direction = vec3(0.0, 0.24, -1.0);                        // -Z Cathedral sun direction
-uniform float rim_strength : hint_range(0.0, 3.0) = 1.45;
+uniform vec3 sun_direction = vec3(0.0, 0.17, -1.0);                        // -Z Cathedral sun direction
+uniform float rim_strength : hint_range(0.0, 3.0) = 0.62;
 uniform float rim_power : hint_range(0.5, 8.0) = 2.35;
-uniform float forward_scatter_strength : hint_range(0.0, 2.5) = 0.92;
-uniform float detail_contrast : hint_range(0.0, 1.0) = 0.34;
+uniform float forward_scatter_strength : hint_range(0.0, 2.5) = 0.42;
+uniform float detail_contrast : hint_range(0.0, 1.0) = 0.28;
 
 group_uniforms billowing_motion;
 uniform float billow_amplitude : hint_range(0.0, 2.0) = 0.42;

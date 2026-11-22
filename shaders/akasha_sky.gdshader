@@ -1,49 +1,52 @@
 shader_type sky;
 
-// Akasha Celestial Twilight Sky Dome
-// Painterly AAA twilight inspired by Sky: Children of the Light, Journey, and Stray.
-// Palette: #050918 (Velvet Cosmic Indigo), #0D1E3E (Sapphire-Indigo), #1D4866 (Cerulean-Teal),
-// #D89A58 (Silky Amber-Peach), #8E4F34 (Warm Terracotta-Amber), #030610 (Nocturnal Abyss).
+// Akasha Radiant Heavenly Dawn Sky Dome
+// Painterly AAA sunlit cloud realm inspired by Sky: Children of the Light and Journey.
+// Palette: #3A76BC (Luminous Cerulean-Azure), #649CD6 (Heavenly Sky-Blue), #A8CBE8 (Powder-Blue Pearl Mist),
+// #FCEBD2 (Warm Sunlit Cream-Ivory), #F0C494 (Champagne-Peach Dawn), #C8D8EC (Pale Pearl-Lavender),
+// #9CB6D4 (Luminous Misty Cloud-Sea Nadir).
 
 group_uniforms sky_palette;
-uniform vec3 zenith_color : source_color = vec3(0.020, 0.035, 0.094);       // #050918 Deep Velvet Cosmic Indigo
-uniform vec3 upper_indigo_color : source_color = vec3(0.051, 0.118, 0.243); // #0D1E3E Rich Sapphire-Indigo
-uniform vec3 mid_sky_color : source_color = vec3(0.114, 0.282, 0.400);      // #1D4866 Atmospheric Cerulean-Teal
-uniform vec3 horizon_color : source_color = vec3(0.847, 0.604, 0.345);      // #D89A58 Silky Amber-Peach
-uniform vec3 horizon_amber : source_color = vec3(0.557, 0.310, 0.204);      // #8E4F34 Warm Terracotta-Amber
-uniform vec3 nadir_color : source_color = vec3(0.012, 0.024, 0.063);        // #030610 Nocturnal Abyss
+uniform vec3 zenith_color : source_color = vec3(0.227, 0.463, 0.737);        // #3A76BC Serene Luminous Cerulean-Azure
+uniform vec3 upper_indigo_color : source_color = vec3(0.392, 0.612, 0.839);  // #649CD6 Clear Heavenly Sky-Blue
+uniform vec3 mid_sky_color : source_color = vec3(0.659, 0.796, 0.910);       // #A8CBE8 Airy Powder-Blue / Pearl Mist
+uniform vec3 horizon_warm_color : source_color = vec3(0.988, 0.922, 0.824);  // #FCEBD2 Warm Sunlit Cream-Ivory
+uniform vec3 horizon_amber_color : source_color = vec3(0.941, 0.769, 0.580); // #F0C494 Soft Champagne-Peach Dawn
+uniform vec3 horizon_cool_color : source_color = vec3(0.784, 0.847, 0.925);  // #C8D8EC Pale Pearl-Lavender (opposite sun)
+uniform vec3 nadir_color : source_color = vec3(0.612, 0.714, 0.831);         // #9CB6D4 Luminous Misty Cloud-Sea Reflection
 
 group_uniforms sun_and_mie;
-uniform vec3 sun_direction = vec3(0.0, 0.14, -1.0);                         // -Z toward the Astrolabe Cathedral
-uniform vec3 sun_color : source_color = vec3(1.0, 0.910, 0.745);            // Soft warm ivory-amber
-uniform float sun_disk_size : hint_range(0.008, 0.12) = 0.032;
-uniform float sun_disk_intensity : hint_range(0.0, 3.0) = 1.35;
-uniform float mie_inner_strength : hint_range(0.0, 2.5) = 0.68;
-uniform float mie_outer_strength : hint_range(0.0, 2.0) = 0.46;
-uniform float horizon_glow_strength : hint_range(0.0, 2.0) = 0.85;
+uniform vec3 sun_direction = vec3(0.0, 0.17, -1.0);                          // -Z toward the Astrolabe Cathedral
+uniform vec3 sun_color : source_color = vec3(1.0, 0.965, 0.882);             // Silky warm cream sunlight
+uniform float sun_disk_size : hint_range(0.008, 0.12) = 0.036;
+uniform float sun_disk_intensity : hint_range(0.0, 3.0) = 1.15;
+uniform float mie_inner_strength : hint_range(0.0, 2.5) = 0.55;
+uniform float mie_outer_strength : hint_range(0.0, 2.0) = 0.36;
+uniform float horizon_glow_strength : hint_range(0.0, 2.0) = 0.45;
 
 group_uniforms akashic_river;
-uniform float river_strength : hint_range(0.0, 1.5) = 0.58;
-uniform vec3 river_indigo_color : source_color = vec3(0.196, 0.173, 0.388); // Soft indigo-violet dust
-uniform vec3 river_cyan_color : source_color = vec3(0.282, 0.635, 0.765);   // Ethereal cyan wisps
-uniform vec3 river_gold_color : source_color = vec3(0.910, 0.725, 0.460);   // Warm golden star-cloud core
+uniform float river_strength : hint_range(0.0, 1.5) = 0.22;
+uniform vec3 river_indigo_color : source_color = vec3(0.745, 0.780, 0.925);  // Pale pearl-lavender celestial veil
+uniform vec3 river_cyan_color : source_color = vec3(0.780, 0.895, 0.975);    // Airy opalescent sky-pearl wisps
+uniform vec3 river_gold_color : source_color = vec3(0.985, 0.910, 0.760);    // Faint rainbow-gold stardust core
 
 group_uniforms twilight_clouds;
-uniform float cloud_coverage : hint_range(0.0, 1.0) = 0.54;
-uniform float cloud_opacity : hint_range(0.0, 1.0) = 0.78;
+uniform float cloud_coverage : hint_range(0.0, 1.0) = 0.64;
+uniform float cloud_opacity : hint_range(0.0, 1.0) = 0.88;
 uniform float cloud_speed : hint_range(0.0, 0.08) = 0.008;
-uniform vec3 cloud_top_color : source_color = vec3(0.090, 0.155, 0.265);    // Deep twilight indigo-slate
-uniform vec3 cloud_lit_color : source_color = vec3(0.945, 0.710, 0.475);    // Warm peach-gold sunlit underside
+uniform vec3 cloud_shadow_color : source_color = vec3(0.604, 0.706, 0.824);  // #9AB4D2 Soft periwinkle-blue underside
+uniform vec3 cloud_body_color : source_color = vec3(1.000, 0.984, 0.949);    // #FFFBF2 Pure sunlit warm cream-white
+uniform vec3 cloud_lit_color : source_color = vec3(0.976, 0.851, 0.722);     // #F9D9B8 Delicate blush-peach sunlit rim
 
 group_uniforms ethereal_aurora;
-uniform float aurora_strength : hint_range(0.0, 1.0) = 0.26;
+uniform float aurora_strength : hint_range(0.0, 1.0) = 0.14;
 uniform float aurora_speed : hint_range(0.0, 0.2) = 0.028;
-uniform vec3 aurora_cyan_color : source_color = vec3(0.320, 0.785, 0.790);  // Translucent painterly cyan
-uniform vec3 aurora_gold_color : source_color = vec3(0.925, 0.805, 0.560);  // Pale champagne gold
+uniform vec3 aurora_cyan_color : source_color = vec3(0.760, 0.915, 0.975);   // Pale opalescent pearl-aqua sheen
+uniform vec3 aurora_gold_color : source_color = vec3(0.995, 0.905, 0.775);   // Delicate champagne-gold shimmer
 
 group_uniforms celestial_stars;
-uniform float star_density : hint_range(0.0, 1.0) = 0.72;
-uniform float star_brightness : hint_range(0.0, 2.5) = 1.15;
+uniform float star_density : hint_range(0.0, 1.0) = 0.58;
+uniform float star_brightness : hint_range(0.0, 2.5) = 0.45;
 uniform float star_twinkle_speed : hint_range(0.0, 3.0) = 0.85;
 uniform float star_scale : hint_range(40.0, 220.0) = 112.0;
 
@@ -205,12 +208,12 @@ void sky() {
 	float sun_side = pow(azimuth_sun, 1.8);
 
 	// -------------------------------------------------------------------------
-	// 1. Rich Multi-Layered Celestial Twilight Gradient
+	// 1. Radiant Heavenly Dawn Multi-Layered Sky Gradient
 	// -------------------------------------------------------------------------
-	// Warm amber-peach horizon concentrated toward -Z Cathedral, cooler dusk opposite
-	vec3 cool_horizon = mix(upper_indigo_color, mid_sky_color, 0.72) + horizon_amber * 0.14;
-	vec3 warm_horizon = mix(horizon_amber, horizon_color, smoothstep(-0.04, 0.055, elev));
-	vec3 horiz_base = mix(cool_horizon, warm_horizon, mix(0.24, 1.0, sun_side));
+	// Warm champagne-peach & cream horizon toward -Z Cathedral, pale pearl-lavender opposite
+	vec3 cool_horizon = mix(horizon_cool_color, mid_sky_color, smoothstep(0.0, 0.14, elev) * 0.35);
+	vec3 warm_horizon = mix(horizon_amber_color, horizon_warm_color, smoothstep(-0.04, 0.065, elev));
+	vec3 horiz_base = mix(cool_horizon, warm_horizon, mix(0.28, 1.0, sun_side));
 
 	float mid_t = smoothstep(0.015, 0.30, elev);
 	float upper_t = smoothstep(0.18, 0.58, elev);
@@ -220,22 +223,22 @@ void sky() {
 	sky_col = mix(sky_col, upper_indigo_color, upper_t);
 	sky_col = mix(sky_col, zenith_color, zenith_t);
 
-	// Soft atmospheric cerulean-teal veil hovering above the horizon band
-	float teal_band = exp(-sq((elev - 0.17) * 5.2));
-	sky_col += mid_sky_color * teal_band * mix(0.16, 0.28, sun_side);
+	// Soft airy powder-blue / pearl mist veil hovering above the horizon band
+	float pearl_band = exp(-sq((elev - 0.17) * 5.2));
+	sky_col = mix(sky_col, mid_sky_color, pearl_band * mix(0.14, 0.24, sun_side));
 
-	// Warm silky amber-peach horizon bloom concentrated behind the Cathedral (-Z)
+	// Warm silky champagne-peach & cream dawn glow concentrated behind the Cathedral (-Z)
 	float horiz_belt = exp(-abs(elev - 0.018) * 7.5);
 	float wide_belt = exp(-abs(elev - 0.05) * 3.4);
-	vec3 warm_bloom_col = mix(horizon_amber, horizon_color, 0.65);
-	sky_col += warm_bloom_col * (horiz_belt * pow(azimuth_sun, 2.4) * 0.62 + wide_belt * pow(sun_dot, 2.2) * 0.36) * horizon_glow_strength;
+	vec3 warm_bloom_col = mix(horizon_amber_color, horizon_warm_color, 0.62);
+	sky_col += warm_bloom_col * (horiz_belt * pow(azimuth_sun, 2.4) * 0.38 + wide_belt * pow(sun_dot, 2.2) * 0.24) * horizon_glow_strength;
 
-	// Seamless transition into deep nocturnal abyss below the cloud sea (dir.y < 0)
+	// Luminous misty cloud-sea horizon reflection below (dir.y < 0, never dark black)
 	float nadir_t = smoothstep(0.02, -0.32, elev);
 	sky_col = mix(sky_col, nadir_color, nadir_t);
 
 	// -------------------------------------------------------------------------
-	// 2. Sweeping Akashic Starlight River (Tilted Milky Way Arch)
+	// 2. Delicate Daytime-Celestial Pearl & Rainbow-Gold River Sheen
 	// -------------------------------------------------------------------------
 	float mw_band_mask = 0.0;
 	if (elev > -0.02 && river_strength > 0.001) {
@@ -249,7 +252,7 @@ void sky() {
 
 		float river_outer = exp(-sq(gal_lat * 2.1));
 		float river_core = exp(-sq(gal_lat * 5.2));
-		float river_elev = smoothstep(0.03, 0.30, elev);
+		float river_elev = smoothstep(0.12, 0.42, elev);
 		float river_sun_fade = 1.0 - smoothstep(0.55, 0.94, sun_dot) * 0.72;
 
 		if (river_outer * river_elev > 0.004) {
@@ -257,18 +260,18 @@ void sky() {
 			float n_broad = fbm3_3d(flow_p);
 			float n_wisp = fbm3_3d(gal_dir * vec3(6.0, 9.5, 6.0) + vec3(n_broad * 1.1, 0.0, -n_broad * 0.9));
 
-			// Subtle dark cosmic dust rift threading through the bright star-cloud core
+			// Subtle airy rift modulation without creating dark streaks
 			float dust_rift = smoothstep(0.46, 0.76, n_wisp) * exp(-sq(gal_lat * 10.0));
 
 			float indigo_cloud = smoothstep(0.24, 0.76, n_broad) * river_outer;
 			float cyan_wisps = smoothstep(0.38, 0.80, n_broad * 0.55 + n_wisp * 0.45) * river_outer;
 			float gold_core = smoothstep(0.32, 0.78, n_broad * 0.7 + n_wisp * 0.3) * river_core;
 
-			vec3 river_col = river_indigo_color * indigo_cloud * 0.58
-				+ river_cyan_color * cyan_wisps * 0.34
-				+ river_gold_color * gold_core * 0.42;
+			vec3 river_col = river_indigo_color * indigo_cloud * 0.34
+				+ river_cyan_color * cyan_wisps * 0.24
+				+ river_gold_color * gold_core * 0.32;
 
-			river_col *= (1.0 - dust_rift * 0.52);
+			river_col *= (1.0 - dust_rift * 0.22);
 
 			float river_vis = river_elev * river_sun_fade * river_strength;
 			sky_col += river_col * river_vis;
@@ -277,15 +280,15 @@ void sky() {
 	}
 
 	// -------------------------------------------------------------------------
-	// 3. Silky Ethereal Aurora Curtains (High Vault)
+	// 3. Gossamer Pearlescent Rainbow-Gold Aurora Sheen (High Vault)
 	// -------------------------------------------------------------------------
-	if (elev > 0.10 && aurora_strength > 0.001) {
-		float aurora_elev = smoothstep(0.14, 0.36, elev) * smoothstep(0.92, 0.50, elev);
+	if (elev > 0.14 && aurora_strength > 0.001) {
+		float aurora_elev = smoothstep(0.18, 0.40, elev) * smoothstep(0.92, 0.50, elev);
 		if (aurora_elev > 0.002) {
 			vec2 aur_uv = dir.xz / (elev + 0.38);
 			float t_aur = TIME * aurora_speed;
 
-			// Gently undulating curtain ribbons
+			// Gently undulating silk ribbons
 			float wave_a = sin(aur_uv.x * 1.45 + aur_uv.y * 0.65 + t_aur * 1.4) * 0.55
 				+ sin(aur_uv.x * 2.8 - aur_uv.y * 1.2 - t_aur * 0.9) * 0.25;
 			float curtain_n = fbm2_2d(vec2(aur_uv.x * 1.35 + t_aur * 0.35, aur_uv.y * 0.85 + wave_a * 0.6));
@@ -298,59 +301,59 @@ void sky() {
 
 			float curtain_val = (ribbon_1 + ribbon_2) * silk * aurora_elev;
 			vec3 aurora_tint = mix(aurora_cyan_color, aurora_gold_color, smoothstep(0.24, 0.68, elev));
-			// Keep aurora poetic and unobtrusive near the bright sun
+			// Keep sheen delicate and unobtrusive near the bright sun
 			float aur_sun_fade = 1.0 - smoothstep(0.65, 0.96, sun_dot) * 0.65;
-			sky_col += aurora_tint * curtain_val * aurora_strength * aur_sun_fade * 0.62;
+			sky_col += aurora_tint * curtain_val * aurora_strength * aur_sun_fade * 0.45;
 		}
 	}
 
 	// -------------------------------------------------------------------------
-	// 4. Silky Double-Layered Mie Scattering Sun Corona (No Radial Spokes)
+	// 4. Silky Warm-Cream Double-Layered Mie Sun Corona (Controlled Luminance)
 	// -------------------------------------------------------------------------
 	float above_nadir = smoothstep(-0.18, 0.04, elev);
 	if (above_nadir > 0.001) {
 		float sun_angle = acos(clamp(cos_sun, -1.0, 1.0));
-		// Soft-edged solar disk with controlled peak luminance (no harsh white blowout)
+		// Soft-edged solar disk with controlled peak luminance (no blinding blowout)
 		float sun_disk = smoothstep(sun_disk_size * 1.45, sun_disk_size * 0.25, sun_angle);
 		sun_disk = sun_disk * sun_disk;
 
 		// Dual-lobe Henyey-Greenstein Mie scattering: tight inner corona + wide silky veil
-		float mie_inner = min(hg_phase(cos_sun, 0.92) * 0.14, 1.65);
-		float mie_outer = min(hg_phase(cos_sun, 0.62) * 0.42, 0.85);
-		float soft_aureole = pow(sun_dot, 5.0) * 0.28;
+		float mie_inner = min(hg_phase(cos_sun, 0.92) * 0.12, 1.25);
+		float mie_outer = min(hg_phase(cos_sun, 0.62) * 0.36, 0.68);
+		float soft_aureole = pow(sun_dot, 5.0) * 0.22;
 
 		vec3 corona = sun_color * (sun_disk * sun_disk_intensity + mie_inner * mie_inner_strength)
-			+ mix(horizon_color, sun_color, 0.38) * ((mie_outer + soft_aureole) * mie_outer_strength);
+			+ mix(horizon_warm_color, sun_color, 0.45) * ((mie_outer + soft_aureole) * mie_outer_strength);
 
 		sky_col += corona * above_nadir;
 	}
 
 	// -------------------------------------------------------------------------
-	// 5. Anti-Aliased Multi-Temperature Starfield (Before Clouds for Occlusion)
+	// 5. Delicate Daytime-Celestial Pearl Stardust (Upper Azure Vault)
 	// -------------------------------------------------------------------------
-	float star_vis = smoothstep(0.04, 0.32, elev) * (1.0 - smoothstep(0.68, 0.96, sun_dot));
+	float star_vis = smoothstep(0.14, 0.44, elev) * (1.0 - smoothstep(0.62, 0.94, sun_dot));
 	vec3 stars_col = vec3(0.0);
 	if (!AT_CUBEMAP_PASS && star_vis > 0.002 && star_density > 0.001) {
-		float dens_boost = clamp(star_density + mw_band_mask * 0.16, 0.0, 0.98);
-		float th_hero = mix(0.992, 0.948, star_density);
-		float th_mid = mix(0.986, 0.916, dens_boost);
-		float th_fine = mix(0.990, 0.932, dens_boost);
+		float dens_boost = clamp(star_density + mw_band_mask * 0.14, 0.0, 0.98);
+		float th_hero = mix(0.992, 0.952, star_density);
+		float th_mid = mix(0.986, 0.924, dens_boost);
+		float th_fine = mix(0.990, 0.940, dens_boost);
 
 		vec3 s_hero = star_layer(dir, star_scale * 0.56, th_hero, TIME * 0.75, 0.085, 0.170, true);
 		vec3 s_mid = star_layer(dir + vec3(0.37, 0.19, -0.53), star_scale * 1.02, th_mid, TIME * 1.0, 0.075, 0.140, false);
 		vec3 s_fine = star_layer(dir + vec3(-0.61, 0.41, 0.27), star_scale * 1.58, th_fine, TIME * 1.25, 0.070, 0.125, false);
 
-		stars_col = (s_hero * 1.25 + s_mid * 0.78 + s_fine * 0.42) * star_brightness * star_vis;
+		stars_col = (s_hero * 1.15 + s_mid * 0.72 + s_fine * 0.38) * star_brightness * star_vis;
 	}
 
 	// -------------------------------------------------------------------------
-	// 6. Painterly High-Altitude Twilight Clouds (Cirrus & Layered Wisps)
+	// 6. Lush Painterly High-Altitude Heavenly Clouds (Cream-White, Blush-Peach & Periwinkle)
 	// -------------------------------------------------------------------------
 	float cloud_alpha = 0.0;
 	vec3 cloud_col = vec3(0.0);
 
 	if (elev > 0.015 && cloud_coverage > 0.001 && cloud_opacity > 0.001) {
-		float cloud_horizon_fade = smoothstep(0.02, 0.20, elev);
+		float cloud_horizon_fade = smoothstep(0.02, 0.18, elev);
 		if (cloud_horizon_fade > 0.001) {
 			vec2 cloud_uv = dir.xz / (elev + 0.22);
 			vec2 drift = vec2(TIME * cloud_speed, -TIME * cloud_speed * 0.42);
@@ -364,37 +367,36 @@ void sky() {
 			vec2 uv_cirrus = cloud_uv * vec2(0.72, 0.42) + drift * 1.45 + vec2(3.7, -2.1);
 			float n_cirrus = fbm2_2d(uv_cirrus + vec2(warp * 0.3, 0.0));
 
-			float cov_thresh = mix(0.76, 0.34, cloud_coverage);
-			float main_density = smoothstep(cov_thresh, cov_thresh + 0.30, n_main);
-			float cirrus_density = smoothstep(cov_thresh + 0.06, cov_thresh + 0.36, n_cirrus) * 0.52;
+			float cov_thresh = mix(0.74, 0.32, cloud_coverage);
+			float main_density = smoothstep(cov_thresh, cov_thresh + 0.28, n_main);
+			float cirrus_density = smoothstep(cov_thresh + 0.05, cov_thresh + 0.34, n_cirrus) * 0.58;
 
-			float total_density = clamp(main_density + cirrus_density * (1.0 - main_density * 0.5), 0.0, 1.0);
+			float total_density = clamp(main_density + cirrus_density * (1.0 - main_density * 0.45), 0.0, 1.0);
 			cloud_alpha = total_density * cloud_horizon_fade * cloud_opacity;
 
 			if (cloud_alpha > 0.002) {
-				// Cheap sun-facing edge sample for sunlit peach-gold undersides vs deep indigo tops
+				// Cheap sun-facing edge sample for sunlit cream-white crowns & blush-peach rims vs soft periwinkle undersides
 				vec2 sun_step = sun_xz * 0.14;
 				float n_sun = fbm2_2d(uv_main + sun_step + vec2(warp * 0.55, -warp * 0.35));
-				float edge_lit = clamp((n_main - n_sun) * 2.4 + 0.48, 0.0, 1.0);
+				float edge_lit = clamp((n_main - n_sun) * 2.4 + 0.50, 0.0, 1.0);
 
-				// Forward-scattered golden-peach glow strongest facing the Cathedral sun
-				float sun_scatter = pow(sun_dot, 3.2) * 0.85 + pow(sun_dot, 12.0) * 0.65;
-				float underside_light = clamp(edge_lit * (0.28 + 0.72 * sun_side) + sun_scatter * 0.55, 0.0, 1.0);
-				// Thinner cirrus edges catch more warm light; thick cores stay deep twilight slate
-				float thin_boost = (1.0 - main_density * 0.55);
+				// Forward-scattered blush-peach dawn warmth facing the Cathedral sun
+				float sun_scatter = pow(sun_dot, 3.2) * 0.72 + pow(sun_dot, 10.0) * 0.48;
+				float sunlit_body = clamp(0.44 + edge_lit * 0.46 + (1.0 - main_density * 0.45) * 0.26, 0.0, 1.0);
+				float rim_light = clamp(edge_lit * (0.30 + 0.70 * sun_side) + sun_scatter * 0.50, 0.0, 1.0) * (1.0 - main_density * 0.36);
 
-				vec3 shadow_col = mix(cloud_top_color, upper_indigo_color * 0.95, smoothstep(0.15, 0.70, elev));
-				vec3 lit_col = mix(horizon_color, cloud_lit_color, 0.65);
+				vec3 shadow_col = mix(cloud_shadow_color, mid_sky_color, smoothstep(0.18, 0.72, elev) * 0.32);
+				cloud_col = mix(shadow_col, cloud_body_color, sunlit_body);
+				cloud_col = mix(cloud_col, cloud_lit_color, clamp(rim_light * 0.62, 0.0, 0.82));
 
-				cloud_col = mix(shadow_col, lit_col, clamp(underside_light * thin_boost, 0.0, 1.0));
-				// Silky silver-peach Mie rim when clouds drift across the sun corona
-				cloud_col += sun_color * pow(sun_dot, 8.0) * (1.0 - main_density * 0.45) * 0.38;
+				// Silky warm-cream Mie silver-lining when clouds drift across the sun corona
+				cloud_col += sun_color * pow(sun_dot, 8.0) * (1.0 - main_density * 0.45) * 0.22;
 			}
 		}
 	}
 
-	// Composite stars (softly occluded by clouds) and blend painterly twilight clouds over sky
-	sky_col += stars_col * (1.0 - cloud_alpha * 0.88);
+	// Composite pearl stardust (softly occluded by clouds) and blend sunlit heavenly clouds over sky
+	sky_col += stars_col * (1.0 - cloud_alpha * 0.92);
 	sky_col = mix(sky_col, cloud_col, cloud_alpha);
 
 	COLOR = sky_col;
