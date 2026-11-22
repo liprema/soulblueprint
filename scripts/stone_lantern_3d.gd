@@ -32,9 +32,9 @@ signal awakened(lantern: StoneLantern3D)
 const LANTERN_MODEL_PATH: String = "res://assets/models/props/stone_lantern.glb"
 const MARBLE_SHADER: Shader = preload("res://shaders/akasha_marble.gdshader")
 
-const COLOR_AGED_GOLD: Color = Color("#DFC48E")
-const COLOR_AGED_BRASS: Color = Color("#C9AC74")
-const COLOR_WARM_BRASS_EMISSION: Color = Color("#EDD29A")
+const COLOR_AGED_GOLD: Color = Color("#E5BC74")
+const COLOR_AGED_BRASS: Color = Color("#CF9E60")
+const COLOR_WARM_BRASS_EMISSION: Color = Color("#F2CA8A")
 
 const GOLD_EMISSION_DORMANT: float = 0.06
 const GOLD_EMISSION_AWAKENED: float = 0.28
@@ -93,7 +93,7 @@ func _create_wet_basalt_material(
 	mat.set_shader_parameter("stone_base_color", base_col)
 	mat.set_shader_parameter("stone_highlight_color", highlight_col)
 	mat.set_shader_parameter("stone_pore_color", pore_col)
-	mat.set_shader_parameter("horizon_tint_color", Color("#E4F0FA"))
+	mat.set_shader_parameter("horizon_tint_color", Color("#D8ECFA"))
 	mat.set_shader_parameter("base_roughness", roughness_val)
 	mat.set_shader_parameter("surface_specular", 0.42)
 	mat.set_shader_parameter("surface_metallic", 0.02)
@@ -105,18 +105,18 @@ func _create_wet_basalt_material(
 
 
 func _init_lantern_materials() -> void:
-	# Carved Warm Alabaster, Pearl Ivory & Pale Celestial Ice-Blue stonework
+	# Tender Blush-Rose, Dusty-Lavender & Pastel Turquoise-Aqua Crystal stonework
 	_mat_obsidian_dark = _create_wet_basalt_material(
-		Color("#C4BDB3"), Color("#D8D2C8"), Color("#9C948A"), 0.58, 0.10, 0.38, 1.65, 0.32
+		Color("#B8A0C2"), Color("#CEBAD8"), Color("#8C7498"), 0.58, 0.10, 0.36, 1.65, 0.32
 	)
 	_mat_indigo_stone = _create_wet_basalt_material(
-		Color("#E2DCD2"), Color("#F4EFE7"), Color("#BDB4A6"), 0.52, 0.12, 0.48, 1.85, 0.28
+		Color("#E8BCC6"), Color("#F7D7DF"), Color("#BF8897"), 0.54, 0.12, 0.46, 1.85, 0.28
 	)
 	_mat_cobalt_trim = _create_wet_basalt_material(
-		Color("#C6DCED"), Color("#E0EEF8"), Color("#96B4CC"), 0.40, 0.16, 0.70, 2.00, 0.24
+		Color("#76CEE2"), Color("#A6E6F4"), Color("#4D9EB5"), 0.38, 0.16, 0.74, 2.00, 0.24
 	)
 
-	# Brushed satin champagne gold & warm temple brass (per-instance so each lantern awakens independently)
+	# Satin rose-champagne gold & warm temple brass (per-instance so each lantern awakens independently)
 	_mat_artdeco_gold = StandardMaterial3D.new()
 	_mat_artdeco_gold.albedo_color = COLOR_AGED_GOLD
 	_mat_artdeco_gold.metallic = 0.78

@@ -1,22 +1,22 @@
 shader_type spatial;
 render_mode blend_mix, depth_draw_opaque, cull_disabled, unshaded;
 
-// Painterly Volumetric-Feeling Stylized 3D Cloud Shader — Radiant Heavenly Dawn Cloud Realm
-// Calibrated palette: #8DA8C8 (Periwinkle-Sky Shadow), #BACCE0 (Lavender-Blue Belly),
-// #ECE9EC (Pearl-White Body), #FFFBF0 (Sunlit Cream-White Crown), #F8DFB8 (Champagne-Peach Rim)
+// Painterly Volumetric-Feeling Stylized 3D Cloud Shader — Tender Pastel-Bloom Paradise
+// Calibrated palette: #A89AC6 (Pastel Lilac-Periwinkle Shadow), #D4B8D4 (Dusty-Rose-Lavender Belly),
+// #FBE8EE (Blush-Cream Body), #FFFBF8 (Luminous Ivory-White Crown), #FFC8B8 (Peach-Rose Silver-Lining)
 
 group_uniforms cloud_colors;
-uniform vec3 deep_shadow_color : source_color = vec3(0.553, 0.659, 0.784); // #8DA8C8 Soft periwinkle-sky underside
-uniform vec3 shadow_color : source_color = vec3(0.729, 0.800, 0.878);      // #BACCE0 Cool airy lavender-blue belly
-uniform vec3 mid_color : source_color = vec3(0.925, 0.914, 0.925);         // #ECE9EC Luminous pearl-white body
-uniform vec3 sunlit_color : source_color = vec3(1.000, 0.984, 0.941);      // #FFFBF0 Radiant warm cream-white crown
-uniform vec3 gold_rim_color : source_color = vec3(0.973, 0.875, 0.722);    // #F8DFB8 Delicate champagne-peach silver-lining
+uniform vec3 deep_shadow_color : source_color = vec3(0.659, 0.604, 0.776); // #A89AC6 Soft pastel lilac-periwinkle shadow
+uniform vec3 shadow_color : source_color = vec3(0.831, 0.722, 0.831);      // #D4B8D4 Tender dusty-rose-lavender belly
+uniform vec3 mid_color : source_color = vec3(0.984, 0.910, 0.933);         // #FBE8EE Soft blush-cream body
+uniform vec3 sunlit_color : source_color = vec3(1.000, 0.984, 0.973);      // #FFFBF8 Luminous ivory-white crown
+uniform vec3 gold_rim_color : source_color = vec3(1.000, 0.784, 0.722);    // #FFC8B8 Tender peach-rose silver-lining
 
 group_uniforms lighting;
 uniform vec3 sun_direction = vec3(0.0, 0.17, -1.0);                        // -Z Cathedral sun direction
-uniform float rim_strength : hint_range(0.0, 3.0) = 0.62;
+uniform float rim_strength : hint_range(0.0, 3.0) = 0.58;
 uniform float rim_power : hint_range(0.5, 8.0) = 2.35;
-uniform float forward_scatter_strength : hint_range(0.0, 2.5) = 0.42;
+uniform float forward_scatter_strength : hint_range(0.0, 2.5) = 0.38;
 uniform float detail_contrast : hint_range(0.0, 1.0) = 0.28;
 
 group_uniforms billowing_motion;

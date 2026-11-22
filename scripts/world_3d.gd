@@ -26,6 +26,8 @@ var _lantern_container: Node3D
 var _lantern_nodes: Array[Node3D] = []
 var _total_lanterns: int = 9
 var _dust_motes: GPUParticles3D = null
+var _sakura_petals: GPUParticles3D = null
+var _garden_decorator: AkashaGardenDecorator = null
 
 var _is_in_gameplay: bool = false
 var _is_transitioning: bool = false
@@ -37,7 +39,9 @@ var _checkpoint_timer: float = 0.0
 
 func _ready() -> void:
 	_spawn_lanterns()
+	_setup_garden_decorator()
 	_setup_atmospheric_dust_motes()
+	_setup_sakura_petals()
 	_connect_signals()
 	_apply_audio_setting()
 	_enter_main_menu_immediate()
@@ -67,6 +71,16 @@ func _spawn_lanterns() -> void:
 			_lantern_nodes.append(lantern)
 
 
+func _setup_garden_decorator() -> void:
+	if _garden_decorator != null and is_instance_valid(_garden_decorator):
+		_garden_decorator.queue_free()
+
+	_garden_decorator = AkashaGardenDecorator.new()
+	_garden_decorator.name = "AkashaGardenDecorator"
+	add_child(_garden_decorator)
+	_garden_decorator.populate_garden(architecture)
+
+
 func _setup_atmospheric_dust_motes() -> void:
 	if _dust_motes != null and is_instance_valid(_dust_motes):
 		_dust_motes.queue_free()
@@ -80,7 +94,7 @@ func _setup_atmospheric_dust_motes() -> void:
 	particles.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	particles.visibility_aabb = AABB(Vector3(-36.0, -18.0, -36.0), Vector3(72.0, 36.0, 72.0))
 
-	# Process material: 28x14x28 drifting volume with gentle turbulence and warm-amber / pale-cyan tint
+	# Process material: 28x14x28 drifting volume with gentle turbulence and pastel pearl-gold / sakura-blush tint
 	var proc_mat: ParticleProcessMaterial = ParticleProcessMaterial.new()
 	proc_mat.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
 	proc_mat.emission_box_extents = Vector3(14.0, 7.0, 14.0)
@@ -100,13 +114,13 @@ func _setup_atmospheric_dust_motes() -> void:
 	proc_mat.scale_min = 0.55
 	proc_mat.scale_max = 1.45
 
-	# Per-particle tint variation between warm ivory-amber and pale nocturnal cyan
+	# Per-particle tint variation between soft pastel pearl-gold and sakura-blush
 	var init_grad: Gradient = Gradient.new()
-	init_grad.offsets = PackedFloat32Array([0.0, 0.55, 1.0])
+	init_grad.offsets = PackedFloat32Array([0.0, 0.52, 1.0])
 	init_grad.colors = PackedColorArray([
-		Color(1.0, 0.87, 0.66, 1.0),
-		Color(1.0, 0.94, 0.82, 1.0),
-		Color(0.68, 0.90, 1.0, 1.0),
+		Color("#FFE6B8"),
+		Color("#FFF6EC"),
+		Color("#FFD1E0"),
 	])
 	var init_ramp: GradientTexture1D = GradientTexture1D.new()
 	init_ramp.gradient = init_grad
@@ -152,7 +166,7 @@ func _setup_atmospheric_dust_motes() -> void:
 	quad_mat.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
 	quad_mat.billboard_keep_scale = true
 	quad_mat.albedo_texture = radial_tex
-	quad_mat.albedo_color = Color(1.0, 0.96, 0.90, 0.78)
+	quad_mat.albedo_color = Color(1.0, 0.95, 0.93, 0.78)
 	quad_mat.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED
 
 	var quad_mesh: QuadMesh = QuadMesh.new()
@@ -166,6 +180,111 @@ func _setup_atmospheric_dust_motes() -> void:
 	else:
 		particles.global_position = START_PLAYER_POS + Vector3(0.0, 3.0, 0.0)
 	_dust_motes = particles
+
+
+func _setup_sakura_petals() -> void:
+	if _sakura_petals != null and is_instance_valid(_sakura_petals):
+		_sakura_petals.queue_free()
+
+	var petals: GPUParticles3D = GPUParticles3D.new()
+	petals.name = "DriftingSakuraPetals"
+	petals.amount = 140
+	petals.lifetime = 11.0
+	petals.preprocess = 7.0
+	petals.local_coords = false
+	petals.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	petals.visibility_aabb = AABB(Vector3(-42.0, -24.0, -42.0), Vector3(84.0, 48.0, 84.0))
+
+	# Gentle breeze carrying tumbling sakura petals downward and sideways around the player
+	var proc_mat: ParticleProcessMaterial = ParticleProcessMaterial.new()
+	proc_mat.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
+	proc_mat.emission_box_extents = Vector3(18.0, 8.0, 18.0)
+	proc_mat.gravity = Vector3(0.16, -0.30, 0.10)
+	proc_mat.direction = Vector3(0.45, -0.25, 0.20)
+	proc_mat.spread = 48.0
+	proc_mat.initial_velocity_min = 0.24
+	proc_mat.initial_velocity_max = 0.72
+	proc_mat.angle_min = -180.0
+	proc_mat.angle_max = 180.0
+	proc_mat.angular_velocity_min = -55.0
+	proc_mat.angular_velocity_max = 55.0
+	proc_mat.damping_min = 0.08
+	proc_mat.damping_max = 0.20
+	proc_mat.turbulence_enabled = true
+	proc_mat.turbulence_noise_strength = 0.52
+	proc_mat.turbulence_noise_scale = 2.4
+	proc_mat.turbulence_noise_speed_random = 0.40
+	proc_mat.turbulence_influence_min = 0.28
+	proc_mat.turbulence_influence_max = 0.72
+	proc_mat.scale_min = 0.65
+	proc_mat.scale_max = 1.35
+
+	# Soft pink & blush-white sakura blossom petal palette
+	var init_grad: Gradient = Gradient.new()
+	init_grad.offsets = PackedFloat32Array([0.0, 0.52, 1.0])
+	init_grad.colors = PackedColorArray([
+		Color("#FF9EBB"),
+		Color("#FFC8D8"),
+		Color("#FFF0F5"),
+	])
+	var init_ramp: GradientTexture1D = GradientTexture1D.new()
+	init_ramp.gradient = init_grad
+	proc_mat.color_initial_ramp = init_ramp
+
+	# Gentle fade-in and fade-out over the petal's 11-second drift
+	var life_grad: Gradient = Gradient.new()
+	life_grad.offsets = PackedFloat32Array([0.0, 0.14, 0.80, 1.0])
+	life_grad.colors = PackedColorArray([
+		Color(1.0, 1.0, 1.0, 0.0),
+		Color(1.0, 1.0, 1.0, 0.92),
+		Color(1.0, 1.0, 1.0, 0.84),
+		Color(1.0, 1.0, 1.0, 0.0),
+	])
+	var life_ramp: GradientTexture1D = GradientTexture1D.new()
+	life_ramp.gradient = life_grad
+	proc_mat.color_ramp = life_ramp
+
+	petals.process_material = proc_mat
+
+	# Soft oval petal texture
+	var petal_grad: Gradient = Gradient.new()
+	petal_grad.offsets = PackedFloat32Array([0.0, 0.55, 0.85, 1.0])
+	petal_grad.colors = PackedColorArray([
+		Color(1.0, 1.0, 1.0, 1.0),
+		Color(1.0, 1.0, 1.0, 0.92),
+		Color(1.0, 1.0, 1.0, 0.35),
+		Color(1.0, 1.0, 1.0, 0.0),
+	])
+	var petal_tex: GradientTexture2D = GradientTexture2D.new()
+	petal_tex.width = 48
+	petal_tex.height = 48
+	petal_tex.fill = GradientTexture2D.FILL_RADIAL
+	petal_tex.fill_from = Vector2(0.5, 0.5)
+	petal_tex.fill_to = Vector2(0.5, 0.02)
+	petal_tex.gradient = petal_grad
+
+	var petal_mat: StandardMaterial3D = StandardMaterial3D.new()
+	petal_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	petal_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	petal_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	petal_mat.vertex_color_use_as_albedo = true
+	petal_mat.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	petal_mat.billboard_keep_scale = true
+	petal_mat.albedo_texture = petal_tex
+	petal_mat.albedo_color = Color(1.0, 0.97, 0.98, 0.94)
+	petal_mat.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED
+
+	var petal_mesh: QuadMesh = QuadMesh.new()
+	petal_mesh.size = Vector2(0.15, 0.09)
+	petal_mesh.material = petal_mat
+	petals.draw_pass_1 = petal_mesh
+
+	add_child(petals)
+	if player != null:
+		petals.global_position = player.global_position + Vector3(0.0, 5.0, 0.0)
+	else:
+		petals.global_position = START_PLAYER_POS + Vector3(0.0, 5.0, 0.0)
+	_sakura_petals = petals
 
 
 func _connect_signals() -> void:
@@ -624,13 +743,21 @@ func _update_prompt(new_text: String) -> void:
 
 
 func _process(delta: float) -> void:
-	if _dust_motes != null and is_instance_valid(_dust_motes) and player != null:
-		var target_dust_pos: Vector3 = player.global_position + Vector3(0.0, 3.0, 0.0)
-		if _dust_motes.global_position.distance_squared_to(target_dust_pos) > 400.0:
-			_dust_motes.global_position = target_dust_pos
-		else:
-			var follow_weight: float = clampf(delta * 4.0, 0.0, 1.0)
-			_dust_motes.global_position = _dust_motes.global_position.lerp(target_dust_pos, follow_weight)
+	if player != null:
+		var follow_weight: float = clampf(delta * 4.0, 0.0, 1.0)
+		if _dust_motes != null and is_instance_valid(_dust_motes):
+			var target_dust_pos: Vector3 = player.global_position + Vector3(0.0, 3.0, 0.0)
+			if _dust_motes.global_position.distance_squared_to(target_dust_pos) > 400.0:
+				_dust_motes.global_position = target_dust_pos
+			else:
+				_dust_motes.global_position = _dust_motes.global_position.lerp(target_dust_pos, follow_weight)
+
+		if _sakura_petals != null and is_instance_valid(_sakura_petals):
+			var target_petal_pos: Vector3 = player.global_position + Vector3(0.0, 5.0, 0.0)
+			if _sakura_petals.global_position.distance_squared_to(target_petal_pos) > 400.0:
+				_sakura_petals.global_position = target_petal_pos
+			else:
+				_sakura_petals.global_position = _sakura_petals.global_position.lerp(target_petal_pos, follow_weight)
 
 	if not _is_in_gameplay or _is_transitioning or not player:
 		return

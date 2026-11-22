@@ -1,19 +1,19 @@
 shader_type sky;
 
-// Akasha Radiant Heavenly Dawn Sky Dome
+// Akasha Tender Pastel-Bloom Paradise Sky Dome
 // Painterly AAA sunlit cloud realm inspired by Sky: Children of the Light and Journey.
-// Palette: #3A76BC (Luminous Cerulean-Azure), #649CD6 (Heavenly Sky-Blue), #A8CBE8 (Powder-Blue Pearl Mist),
-// #FCEBD2 (Warm Sunlit Cream-Ivory), #F0C494 (Champagne-Peach Dawn), #C8D8EC (Pale Pearl-Lavender),
-// #9CB6D4 (Luminous Misty Cloud-Sea Nadir).
+// Palette: #2B7CE0 (Tender Azure Sky-Blue), #5CB0F5 (Joyous Sky-Blue), #A2DAFC (Robin's-Egg Sky-Blue),
+// #FFD6DC (Sakura-Blush Pink Horizon), #FFCA9E (Peach-Apricot Sunrise), #D8C8F0 (Pastel Lilac-Blue),
+// #B4CBE8 (Soft Sky-Lavender Nadir).
 
 group_uniforms sky_palette;
-uniform vec3 zenith_color : source_color = vec3(0.227, 0.463, 0.737);        // #3A76BC Serene Luminous Cerulean-Azure
-uniform vec3 upper_indigo_color : source_color = vec3(0.392, 0.612, 0.839);  // #649CD6 Clear Heavenly Sky-Blue
-uniform vec3 mid_sky_color : source_color = vec3(0.659, 0.796, 0.910);       // #A8CBE8 Airy Powder-Blue / Pearl Mist
-uniform vec3 horizon_warm_color : source_color = vec3(0.988, 0.922, 0.824);  // #FCEBD2 Warm Sunlit Cream-Ivory
-uniform vec3 horizon_amber_color : source_color = vec3(0.941, 0.769, 0.580); // #F0C494 Soft Champagne-Peach Dawn
-uniform vec3 horizon_cool_color : source_color = vec3(0.784, 0.847, 0.925);  // #C8D8EC Pale Pearl-Lavender (opposite sun)
-uniform vec3 nadir_color : source_color = vec3(0.612, 0.714, 0.831);         // #9CB6D4 Luminous Misty Cloud-Sea Reflection
+uniform vec3 zenith_color : source_color = vec3(0.169, 0.486, 0.878);        // #2B7CE0 Clear Tender Azure Sky-Blue
+uniform vec3 upper_indigo_color : source_color = vec3(0.361, 0.690, 0.961);  // #5CB0F5 Joyous Sky-Blue
+uniform vec3 mid_sky_color : source_color = vec3(0.635, 0.855, 0.988);       // #A2DAFC Soft Tender Robin's-Egg Sky-Blue
+uniform vec3 horizon_warm_color : source_color = vec3(1.000, 0.839, 0.863);  // #FFD6DC Tender Sakura-Blush Pink Horizon
+uniform vec3 horizon_amber_color : source_color = vec3(1.000, 0.792, 0.620); // #FFCA9E Warm Peach-Apricot Sunrise
+uniform vec3 horizon_cool_color : source_color = vec3(0.847, 0.784, 0.941);  // #D8C8F0 Soft Pastel Lilac-Blue (opposite sun)
+uniform vec3 nadir_color : source_color = vec3(0.706, 0.796, 0.910);         // #B4CBE8 Soft Sky-Lavender Below
 
 group_uniforms sun_and_mie;
 uniform vec3 sun_direction = vec3(0.0, 0.17, -1.0);                          // -Z toward the Astrolabe Cathedral
@@ -34,9 +34,9 @@ group_uniforms twilight_clouds;
 uniform float cloud_coverage : hint_range(0.0, 1.0) = 0.64;
 uniform float cloud_opacity : hint_range(0.0, 1.0) = 0.88;
 uniform float cloud_speed : hint_range(0.0, 0.08) = 0.008;
-uniform vec3 cloud_shadow_color : source_color = vec3(0.604, 0.706, 0.824);  // #9AB4D2 Soft periwinkle-blue underside
-uniform vec3 cloud_body_color : source_color = vec3(1.000, 0.984, 0.949);    // #FFFBF2 Pure sunlit warm cream-white
-uniform vec3 cloud_lit_color : source_color = vec3(0.976, 0.851, 0.722);     // #F9D9B8 Delicate blush-peach sunlit rim
+uniform vec3 cloud_shadow_color : source_color = vec3(0.612, 0.690, 0.863);  // #9CB0DC Soft lilac-blue undersides
+uniform vec3 cloud_body_color : source_color = vec3(1.000, 0.961, 0.949);    // #FFF5F2 Warm blush-cream tops
+uniform vec3 cloud_lit_color : source_color = vec3(1.000, 0.745, 0.808);     // #FFBECE Tender peach-pink sunlit edges
 
 group_uniforms ethereal_aurora;
 uniform float aurora_strength : hint_range(0.0, 1.0) = 0.14;
