@@ -205,19 +205,19 @@ func _update_multimesh_transforms(boost_factor: float = 0.0) -> void:
 		if absf(forward.dot(up)) > 0.96:
 			up = Vector3.RIGHT
 
-		var basis := Basis.looking_at(forward, up)
+		var bird_basis: Basis = Basis.looking_at(forward, up)
 
 		# Gentle wing-rock & banking roll for organic Sky-style gliding motion.
-		var flap_speed := lerpf(4.8, 8.2, boost_factor)
-		var wing_rock := sin(_elapsed * flap_speed + _flap_phases[i]) * 0.24
-		basis = basis.rotated(forward, wing_rock)
+		var flap_speed: float = lerpf(4.8, 8.2, boost_factor)
+		var wing_rock: float = sin(_elapsed * flap_speed + _flap_phases[i]) * 0.24
+		bird_basis = bird_basis.rotated(forward, wing_rock)
 
-		var sc := _bird_scales[i] * (1.0 + _call_weights[i] * boost_factor * 0.14)
+		var sc: float = _bird_scales[i] * (1.0 + _call_weights[i] * boost_factor * 0.14)
 		# Subtle vertical flap stretch on Y to evoke graceful wingbeats.
-		var flap_y := 1.0 + sin(_elapsed * flap_speed + _flap_phases[i]) * 0.35
-		basis = basis.scaled(Vector3(sc, sc * flap_y, sc))
+		var flap_y: float = 1.0 + sin(_elapsed * flap_speed + _flap_phases[i]) * 0.35
+		bird_basis = bird_basis.scaled(Vector3(sc, sc * flap_y, sc))
 
-		_multimesh.set_instance_transform(i, Transform3D(basis, _positions[i]))
+		_multimesh.set_instance_transform(i, Transform3D(bird_basis, _positions[i]))
 
 
 func _build_stylized_bird_mesh() -> ArrayMesh:

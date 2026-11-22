@@ -246,7 +246,7 @@ void light() {
 	float ndotv = clamp(dot(NORMAL, VIEW), 0.0, 1.0);
 
 	float satin_spec = pow(ndoth, mix(24.0, 64.0, 1.0 - ROUGHNESS)) * 0.28;
-	float glass_glint = pow(ndoth, 180.0) * (0.75 + CLEARCOAT * 0.45);
+	float glass_glint = pow(ndoth, 180.0) * (0.75 + clearcoat_val * 0.45);
 
 	vec3 glint_tint = mix(vec3(0.95, 0.98, 1.0), rim_color, 0.22 * (1.0 - ndotv));
 	vec3 satin_tint = mix(emission_color, rim_color, 0.55);
