@@ -47,12 +47,13 @@ const MARBLE_SHADER: Shader = preload("res://shaders/akasha_marble.gdshader")
 const GOD_RAYS_SHADER: Shader = preload("res://shaders/god_rays.gdshader")
 const MENTOR_SHADER: Shader = preload("res://shaders/ethereal_mentor.gdshader")
 
-var _mat_indigo_stone: StandardMaterial3D
+var _mat_indigo_stone: Material
 var _mat_dark_obsidian: Material
 var _mat_polished_marble: Material
-var _mat_cobalt_trim: StandardMaterial3D
+var _mat_cobalt_trim: Material
 var _mat_gold_filigree: StandardMaterial3D
 var _mat_gold_brass: StandardMaterial3D
+var _mat_gold_glow_accent: StandardMaterial3D
 var _mat_gold_thread: StandardMaterial3D
 var _mat_light_core: StandardMaterial3D
 var _mat_mentor_body: Material
@@ -145,107 +146,111 @@ func get_cathedral_position() -> Vector3:
 # Materials
 # ---------------------------------------------------------------------------
 
+func _create_velvet_stone_material(
+	base_col: Color,
+	highlight_col: Color,
+	pore_col: Color,
+	roughness_val: float,
+	fresnel_strength: float
+) -> ShaderMaterial:
+	var mat: ShaderMaterial = ShaderMaterial.new()
+	mat.shader = MARBLE_SHADER
+	mat.set_shader_parameter("stone_base_color", base_col)
+	mat.set_shader_parameter("stone_highlight_color", highlight_col)
+	mat.set_shader_parameter("stone_pore_color", pore_col)
+	mat.set_shader_parameter("base_roughness", roughness_val)
+	mat.set_shader_parameter("surface_specular", 0.16)
+	mat.set_shader_parameter("surface_metallic", 0.02)
+	mat.set_shader_parameter("fresnel_lift_strength", fresnel_strength)
+	return mat
+
+
 func _init_materials() -> void:
-	_mat_indigo_stone = StandardMaterial3D.new()
-	_mat_indigo_stone.albedo_color = COLOR_INDIGO_STONE
-	_mat_indigo_stone.roughness = 0.48
-	_mat_indigo_stone.metallic = 0.16
-	_mat_indigo_stone.clearcoat_enabled = true
-	_mat_indigo_stone.clearcoat = 0.22
-	_mat_indigo_stone.clearcoat_roughness = 0.35
+	# Painterly, velvety matte-satin celestial slate/sandstone variants (ZERO mirror glare)
+	_mat_dark_obsidian = _create_velvet_stone_material(
+		Color("#132244"), Color("#1C315C"), Color("#0D1833"), 0.85, 0.11
+	)
+	_mat_indigo_stone = _create_velvet_stone_material(
+		Color("#16284F"), Color("#203766"), Color("#0F1C3A"), 0.82, 0.12
+	)
+	_mat_polished_marble = _create_velvet_stone_material(
+		Color("#1B305C"), Color("#264074"), Color("#132347"), 0.80, 0.13
+	)
+	_mat_cobalt_trim = _create_velvet_stone_material(
+		Color("#223968"), Color("#2E4C85"), Color("#17284D"), 0.79, 0.14
+	)
 
-	var obsidian_mat: ShaderMaterial = ShaderMaterial.new()
-	obsidian_mat.shader = MARBLE_SHADER
-	obsidian_mat.set_shader_parameter("dark_marble_color", Color(0.028, 0.088, 0.215))
-	obsidian_mat.set_shader_parameter("mid_marble_color", COLOR_DEEP_NAVY)
-	obsidian_mat.set_shader_parameter("accent_blue_color", COLOR_MID_INDIGO)
-	obsidian_mat.set_shader_parameter("vein_intensity", 0.78)
-	obsidian_mat.set_shader_parameter("vein_emission_strength", 0.38)
-	obsidian_mat.set_shader_parameter("art_deco_inlay_strength", 0.34)
-	obsidian_mat.set_shader_parameter("base_roughness", 0.18)
-	obsidian_mat.set_shader_parameter("clearcoat_amount", 0.62)
-	obsidian_mat.set_shader_parameter("rim_glow_strength", 0.18)
-	_mat_dark_obsidian = obsidian_mat
-
-	var marble_mat: ShaderMaterial = ShaderMaterial.new()
-	marble_mat.shader = MARBLE_SHADER
-	marble_mat.set_shader_parameter("dark_marble_color", COLOR_DEEP_NAVY)
-	marble_mat.set_shader_parameter("mid_marble_color", COLOR_MID_INDIGO)
-	marble_mat.set_shader_parameter("accent_blue_color", COLOR_COBALT_ACCENT)
-	marble_mat.set_shader_parameter("vein_intensity", 0.96)
-	marble_mat.set_shader_parameter("vein_emission_strength", 0.46)
-	marble_mat.set_shader_parameter("art_deco_inlay_strength", 0.42)
-	marble_mat.set_shader_parameter("base_roughness", 0.16)
-	marble_mat.set_shader_parameter("clearcoat_amount", 0.72)
-	marble_mat.set_shader_parameter("rim_glow_strength", 0.20)
-	_mat_polished_marble = marble_mat
-
-	_mat_cobalt_trim = StandardMaterial3D.new()
-	_mat_cobalt_trim.albedo_color = COLOR_COBALT_ACCENT
-	_mat_cobalt_trim.roughness = 0.30
-	_mat_cobalt_trim.metallic = 0.32
-	_mat_cobalt_trim.clearcoat_enabled = true
-	_mat_cobalt_trim.clearcoat = 0.35
+	# Calm satin metallic gold filigree & brass accents (poetic shimmer, never blinding)
+	var satin_gold_color := Color("#EBC86A")
+	var satin_brass_color := Color("#D8B458")
 
 	_mat_gold_filigree = StandardMaterial3D.new()
-	_mat_gold_filigree.albedo_color = COLOR_GOLD_FILIGREE
-	_mat_gold_filigree.roughness = 0.18
-	_mat_gold_filigree.metallic = 0.88
+	_mat_gold_filigree.albedo_color = satin_gold_color
+	_mat_gold_filigree.roughness = 0.34
+	_mat_gold_filigree.metallic = 0.86
 	_mat_gold_filigree.emission_enabled = true
-	_mat_gold_filigree.emission = COLOR_GOLD_FILIGREE
-	_mat_gold_filigree.emission_energy_multiplier = 1.75
+	_mat_gold_filigree.emission = satin_gold_color
+	_mat_gold_filigree.emission_energy_multiplier = 0.45
 
 	_mat_gold_brass = StandardMaterial3D.new()
-	_mat_gold_brass.albedo_color = COLOR_GOLD_BRASS
-	_mat_gold_brass.roughness = 0.24
-	_mat_gold_brass.metallic = 0.92
+	_mat_gold_brass.albedo_color = satin_brass_color
+	_mat_gold_brass.roughness = 0.38
+	_mat_gold_brass.metallic = 0.84
 	_mat_gold_brass.emission_enabled = true
-	_mat_gold_brass.emission = COLOR_GOLD_FILIGREE
-	_mat_gold_brass.emission_energy_multiplier = 0.55
+	_mat_gold_brass.emission = satin_gold_color
+	_mat_gold_brass.emission_energy_multiplier = 0.28
+
+	_mat_gold_glow_accent = StandardMaterial3D.new()
+	_mat_gold_glow_accent.albedo_color = Color("#F5DC93")
+	_mat_gold_glow_accent.roughness = 0.34
+	_mat_gold_glow_accent.metallic = 0.55
+	_mat_gold_glow_accent.emission_enabled = true
+	_mat_gold_glow_accent.emission = satin_gold_color
+	_mat_gold_glow_accent.emission_energy_multiplier = 0.65
 
 	_mat_gold_thread = StandardMaterial3D.new()
-	_mat_gold_thread.albedo_color = COLOR_GOLD_FILIGREE
-	_mat_gold_thread.roughness = 0.12
+	_mat_gold_thread.albedo_color = satin_gold_color
+	_mat_gold_thread.roughness = 0.24
 	_mat_gold_thread.metallic = 0.45
 	_mat_gold_thread.cull_mode = BaseMaterial3D.CULL_DISABLED
 	_mat_gold_thread.emission_enabled = true
-	_mat_gold_thread.emission = COLOR_GOLD_FILIGREE
-	_mat_gold_thread.emission_energy_multiplier = 2.25
+	_mat_gold_thread.emission = satin_gold_color
+	_mat_gold_thread.emission_energy_multiplier = 1.15
 
 	_mat_light_core = StandardMaterial3D.new()
 	_mat_light_core.albedo_color = Color("#FFF6D4")
-	_mat_light_core.roughness = 0.08
+	_mat_light_core.roughness = 0.16
 	_mat_light_core.emission_enabled = true
-	_mat_light_core.emission = COLOR_GOLD_FILIGREE
-	_mat_light_core.emission_energy_multiplier = 3.6
+	_mat_light_core.emission = satin_gold_color
+	_mat_light_core.emission_energy_multiplier = 1.65
 
 	var mentor_mat: ShaderMaterial = ShaderMaterial.new()
 	mentor_mat.shader = MENTOR_SHADER
 	_mat_mentor_body = mentor_mat
 
 	_mat_mentor_halo = StandardMaterial3D.new()
-	_mat_mentor_halo.albedo_color = Color(COLOR_MENTOR_CYAN.r, COLOR_MENTOR_CYAN.g, COLOR_MENTOR_CYAN.b, 0.62)
+	_mat_mentor_halo.albedo_color = Color(COLOR_MENTOR_CYAN.r, COLOR_MENTOR_CYAN.g, COLOR_MENTOR_CYAN.b, 0.56)
 	_mat_mentor_halo.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	_mat_mentor_halo.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
 	_mat_mentor_halo.cull_mode = BaseMaterial3D.CULL_DISABLED
 	_mat_mentor_halo.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED
 	_mat_mentor_halo.emission_enabled = true
 	_mat_mentor_halo.emission = Color("#8CE0FF")
-	_mat_mentor_halo.emission_energy_multiplier = 2.0
+	_mat_mentor_halo.emission_energy_multiplier = 1.15
 
 	_mat_god_rays = ShaderMaterial.new()
 	_mat_god_rays.shader = GOD_RAYS_SHADER
-	_mat_god_rays.set_shader_parameter("intensity", 0.54)
+	_mat_god_rays.set_shader_parameter("intensity", 0.42)
 	_mat_god_rays.set_shader_parameter("edge_falloff", 2.0)
-	_mat_god_rays.set_shader_parameter("shimmer_strength", 0.34)
+	_mat_god_rays.set_shader_parameter("shimmer_strength", 0.30)
 	_mat_god_rays.set_shader_parameter("near_fade_min", 6.0)
 	_mat_god_rays.set_shader_parameter("near_fade_max", 24.0)
 
 	_mat_island_rays = ShaderMaterial.new()
 	_mat_island_rays.shader = GOD_RAYS_SHADER
-	_mat_island_rays.set_shader_parameter("intensity", 0.28)
+	_mat_island_rays.set_shader_parameter("intensity", 0.24)
 	_mat_island_rays.set_shader_parameter("edge_falloff", 2.35)
-	_mat_island_rays.set_shader_parameter("shimmer_strength", 0.28)
+	_mat_island_rays.set_shader_parameter("shimmer_strength", 0.24)
 	_mat_island_rays.set_shader_parameter("near_fade_min", 3.0)
 	_mat_island_rays.set_shader_parameter("near_fade_max", 14.0)
 
@@ -254,14 +259,23 @@ func _init_materials() -> void:
 # a) Starting Monolith Plaza (z = 24..46, y = 0)
 # ---------------------------------------------------------------------------
 
+func _add_plaza_colliders(root: Node3D) -> void:
+	# Main walkable deck collider (top strictly at y = 0.0, covers z = 23.5..46.5)
+	_add_box_collider(root, "PlazaSurfaceCollider", Vector3(16.0, 2.4, 23.0), Vector3(0.0, -1.2, 35.0))
+	# Forward ceremonial prow collider (top strictly at y = 0.0, covers down to z = 19.25)
+	_add_box_collider(root, "PlazaProwCollider", Vector3(11.0, 2.4, 5.5), Vector3(0.0, -1.2, 22.0))
+	# Low balustrade guard colliders along x = -7.0 and x = +7.0 (z = 24..46)
+	_add_box_collider(root, "PlazaBalustradeCollider_L", Vector3(0.9, 1.6, 22.0), Vector3(-7.0, 0.8, 35.0))
+	_add_box_collider(root, "PlazaBalustradeCollider_R", Vector3(0.9, 1.6, 22.0), Vector3(7.0, 0.8, 35.0))
+
+
 func _build_starting_monolith_plaza() -> void:
 	var root := Node3D.new()
 	root.name = "StartingMonolithPlaza"
 	add_child(root)
 
 	if _try_instantiate_override(plaza_model_path, root, Vector3(0.0, 0.0, 35.0)):
-		# Still ensure a reliable walkable surface collider at y = 0
-		_add_box_collider(root, "PlazaSurfaceCollider", Vector3(16.0, 2.4, 22.0), Vector3(0.0, -1.2, 35.0))
+		_add_plaza_colliders(root)
 		return
 
 	var plaza_center := Vector3(0.0, 0.0, 35.0)
@@ -276,11 +290,7 @@ func _build_starting_monolith_plaza() -> void:
 		Vector3(0.0, -deck_thickness * 0.5, plaza_center.z),
 		_mat_dark_obsidian
 	)
-	_add_box_collider(
-		root, "PlazaDeckCollider",
-		Vector3(width, deck_thickness, length),
-		Vector3(0.0, -deck_thickness * 0.5, plaza_center.z)
-	)
+	_add_plaza_colliders(root)
 
 	# Forward ceremonial cantilevered prow (z = 24..20.5, top surface at y = 0.0)
 	_add_box_mesh(
@@ -288,11 +298,6 @@ func _build_starting_monolith_plaza() -> void:
 		Vector3(9.6, 1.8, 3.6),
 		Vector3(0.0, -0.9, 22.2),
 		_mat_polished_marble
-	)
-	_add_box_collider(
-		root, "PlazaProwCollider",
-		Vector3(9.6, 1.8, 3.6),
-		Vector3(0.0, -0.9, 22.2)
 	)
 
 	# Stepped Art Deco beveled golden edges along sides and ends
@@ -395,22 +400,36 @@ func _build_indigo_viaduct() -> void:
 	var bay_span := total_length / float(arch_count) # ~21.667 m
 	var viaduct_x := 33.0 # spans x = 28..38 (width 10m)
 	var deck_width := 10.0
+	var deck_collider_width := 10.5
 	var deck_top_y := 14.0
 	var deck_thickness := 2.2
 	var pier_bottom_y := -66.0
-
-	# Continuous upper stone roadway & walkable collider
 	var deck_center_z := (z_start + z_end) * 0.5
+
+	# Continuous solid walkable roadway collider along the full viaduct (top strictly at y = deck_top_y)
+	_add_box_collider(
+		root, "ViaductDeckCollider",
+		Vector3(deck_collider_width, deck_thickness, total_length + 4.0),
+		Vector3(viaduct_x, deck_top_y - deck_thickness * 0.5, deck_center_z)
+	)
+
+	# If viaduct_arch.glb exists, each bay already includes its own deck, parapets, and piers.
+	# Instantiate the 12 .glb bays directly without spawning duplicate procedural piers/decks.
+	if not viaduct_arch_model_path.is_empty() and ResourceLoader.exists(viaduct_arch_model_path):
+		var loaded_any: bool = false
+		for i: int in range(arch_count):
+			var bay_z: float = z_start - (float(i) + 0.5) * bay_span
+			if _try_instantiate_override(viaduct_arch_model_path, root, Vector3(viaduct_x, deck_top_y, bay_z)):
+				loaded_any = true
+		if loaded_any:
+			return
+
+	# Procedural fallback when viaduct_arch.glb is absent
 	_add_box_mesh(
 		root, "ViaductDeck",
 		Vector3(deck_width, deck_thickness, total_length + 4.0),
 		Vector3(viaduct_x, deck_top_y - deck_thickness * 0.5, deck_center_z),
 		_mat_indigo_stone
-	)
-	_add_box_collider(
-		root, "ViaductDeckCollider",
-		Vector3(deck_width, deck_thickness, total_length + 4.0),
-		Vector3(viaduct_x, deck_top_y - deck_thickness * 0.5, deck_center_z)
 	)
 
 	# Continuous golden cornice rails along both sides of the viaduct
@@ -459,8 +478,6 @@ func _build_indigo_viaduct() -> void:
 	# 12 majestic arched spans between consecutive piers
 	for i in range(arch_count):
 		var bay_z := z_start - (float(i) + 0.5) * bay_span
-		if _try_instantiate_override(viaduct_arch_model_path, root, Vector3(viaduct_x, deck_top_y, bay_z)):
-			continue
 		_build_viaduct_arch_bay(root, i, viaduct_x, deck_top_y - deck_thickness, bay_z, bay_span, deck_width)
 
 
@@ -540,9 +557,11 @@ func _build_floating_temple_islands() -> void:
 		var radius_scale := 1.0 + float(i % 3 - 1) * 0.08
 		var slab_radius := 8.4 * radius_scale
 		var slab_height := 1.4
+		var collider_radius := 8.4
+		var collider_height := 2.6
 
 		if _try_instantiate_override(temple_island_model_path, island, Vector3.ZERO):
-			_add_cylinder_collider(island, "IslandSlabCollider", slab_radius, slab_height, Vector3(0.0, -slab_height * 0.5, 0.0))
+			_add_cylinder_collider(island, "IslandSlabCollider", collider_radius, collider_height, Vector3(0.0, -collider_height * 0.5, 0.0))
 			continue
 
 		# Top polished marble slab (top surface strictly at local y = 0.0)
@@ -554,8 +573,8 @@ func _build_floating_temple_islands() -> void:
 		)
 		_add_cylinder_collider(
 			island, "IslandSlabCollider",
-			slab_radius, slab_height,
-			Vector3(0.0, -slab_height * 0.5, 0.0)
+			collider_radius, collider_height,
+			Vector3(0.0, -collider_height * 0.5, 0.0)
 		)
 
 		# Beveled golden rim around the top marble slab
@@ -663,6 +682,31 @@ func _build_floating_temple_islands() -> void:
 # d) Colossal Akashic Astrolabe Cathedral (z = -280)
 # ---------------------------------------------------------------------------
 
+func _add_cathedral_colliders(root: Node3D) -> void:
+	# Lower podium platform (y = 0..4, size = 88x4x62, pos = (0, 2, 2))
+	_add_box_collider(root, "CathedralLowerPodiumCollider", Vector3(88.0, 4.0, 62.0), Vector3(0.0, 2.0, 2.0))
+	# Upper sanctuary dais (y = 4..8, size = 72x4x48, pos = (0, 6, 2))
+	_add_box_collider(root, "CathedralUpperDaisCollider", Vector3(72.0, 4.0, 48.0), Vector3(0.0, 6.0, 2.0))
+
+	# Smooth sloped front ceremonial stairs ramp connecting y = 0 (z = 38) up to y = 8 (z = 25)
+	var stair_dz: float = 13.0
+	var stair_dy: float = 8.0
+	var ramp_angle: float = atan2(stair_dy, stair_dz)
+	var ramp_len: float = sqrt(stair_dz * stair_dz + stair_dy * stair_dy) + 0.8
+	var ramp_thickness: float = 2.4
+	var ramp_center := Vector3(
+		0.0,
+		4.0 - cos(ramp_angle) * (ramp_thickness * 0.5),
+		31.5 - sin(ramp_angle) * (ramp_thickness * 0.5)
+	)
+	var stairs_ramp: StaticBody3D = _add_box_collider(
+		root, "CathedralFrontStairsRampCollider",
+		Vector3(32.0, ramp_thickness, ramp_len),
+		ramp_center
+	)
+	stairs_ramp.rotation.x = ramp_angle
+
+
 func _build_colossal_cathedral() -> void:
 	var root := Node3D.new()
 	root.name = "AkashaAstrolabeCathedral"
@@ -670,6 +714,7 @@ func _build_colossal_cathedral() -> void:
 	add_child(root)
 
 	if _try_instantiate_override(cathedral_model_path, root, Vector3.ZERO):
+		_add_cathedral_colliders(root)
 		_build_cathedral_astrolabe_rings(root, Vector3(0.0, 62.0, 8.0))
 		return
 
@@ -677,7 +722,7 @@ func _build_colossal_cathedral() -> void:
 	_add_box_mesh(root, "CathedralFoundation", Vector3(92.0, 82.0, 64.0), Vector3(0.0, -41.0, 0.0), _mat_dark_obsidian)
 	_add_box_mesh(root, "CathedralDaisStep1", Vector3(84.0, 4.0, 56.0), Vector3(0.0, 2.0, 2.0), _mat_indigo_stone)
 	_add_box_mesh(root, "CathedralDaisStep2", Vector3(68.0, 4.0, 44.0), Vector3(0.0, 6.0, 4.0), _mat_polished_marble)
-	_add_box_collider(root, "CathedralDaisCollider", Vector3(68.0, 4.0, 44.0), Vector3(0.0, 6.0, 4.0))
+	_add_cathedral_colliders(root)
 
 	# Golden dais edge steps
 	_add_box_mesh(root, "DaisGoldEdge1", Vector3(84.6, 0.45, 0.6), Vector3(0.0, 3.9, 30.1), _mat_gold_filigree)
@@ -737,8 +782,8 @@ func _build_colossal_cathedral() -> void:
 	var core_light := OmniLight3D.new()
 	core_light.name = "CathedralCoreLight"
 	core_light.position = Vector3(0.0, 50.0, 14.0)
-	core_light.light_color = COLOR_GOLD_FILIGREE
-	core_light.light_energy = 8.0
+	core_light.light_color = Color("#F5D88A")
+	core_light.light_energy = 3.5
 	core_light.omni_range = 110.0
 	core_light.omni_attenuation = 1.2
 	root.add_child(core_light)
@@ -1087,8 +1132,67 @@ func _try_instantiate_override(res_path: String, parent: Node3D, local_pos: Vect
 		if inst is Node3D:
 			(inst as Node3D).position = local_pos
 		parent.add_child(inst)
+		_refine_glb_materials(inst)
 		return true
 	return false
+
+
+func _refine_glb_materials(node: Node) -> void:
+	if node is MeshInstance3D:
+		var mesh_inst: MeshInstance3D = node as MeshInstance3D
+		var mesh: Mesh = mesh_inst.mesh
+		if mesh != null:
+			var surface_count: int = mesh.get_surface_count()
+			for surface_idx: int in range(surface_count):
+				var src_mat: Material = mesh_inst.get_active_material(surface_idx)
+				var replacement: Material = _classify_glb_surface_material(src_mat)
+				mesh_inst.set_surface_override_material(surface_idx, replacement)
+	for child: Node in node.get_children():
+		_refine_glb_materials(child)
+
+
+func _classify_glb_surface_material(src_mat: Material) -> Material:
+	var mat_name: String = ""
+	var is_gold: bool = false
+	var albedo: Color = COLOR_INDIGO_STONE
+	var has_pbr: bool = false
+
+	if src_mat != null:
+		mat_name = src_mat.resource_name.to_lower()
+		if mat_name.contains("gold") or mat_name.contains("brass"):
+			is_gold = true
+		if src_mat is BaseMaterial3D:
+			var base_mat: BaseMaterial3D = src_mat as BaseMaterial3D
+			albedo = base_mat.albedo_color
+			has_pbr = true
+			if base_mat.metallic >= 0.55:
+				is_gold = true
+			elif albedo.r > 0.55 and albedo.g > 0.35 and albedo.r > albedo.b * 1.8:
+				is_gold = true
+
+	if is_gold:
+		if mat_name.contains("glow"):
+			return _mat_gold_glow_accent
+		if mat_name.contains("brass"):
+			return _mat_gold_brass
+		return _mat_gold_filigree
+
+	# Preserve subtle brightness differentiation across stone surfaces for architectural depth
+	if mat_name.contains("cobalt") or mat_name.contains("trim") or mat_name.contains("facet"):
+		return _mat_cobalt_trim
+	if mat_name.contains("obsidian") or mat_name.contains("dark") or mat_name.contains("deep"):
+		return _mat_dark_obsidian
+	if mat_name.contains("marble") or mat_name.contains("cosmic"):
+		return _mat_polished_marble
+
+	if has_pbr:
+		if albedo.b > 0.22:
+			return _mat_cobalt_trim
+		if albedo.b < 0.04:
+			return _mat_dark_obsidian
+
+	return _mat_indigo_stone
+
 
 
 func _add_box_mesh(

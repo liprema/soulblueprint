@@ -19,8 +19,8 @@ environment = ExtResource("2_world_env")
 
 [node name="SunLight" type="DirectionalLight3D" parent="."]
 transform = Transform3D(0.984808, -0.059391, 0.163176, 0, 0.939693, 0.34202, -0.173648, -0.336824, 0.925417, 0, 95, -260)
-light_color = Color(1, 0.894118, 0.654902, 1)
-light_energy = 1.9
+light_color = Color(1, 0.91, 0.76, 1)
+light_energy = 1.05
 shadow_enabled = true
 shadow_bias = 0.05
 shadow_blur = 2.0

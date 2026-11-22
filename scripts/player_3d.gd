@@ -65,6 +65,11 @@ signal flight_mode_changed(is_flying: bool)
 @export var spring_length_surge_bonus: float = 1.8
 @export var spring_arm_lerp_speed: float = 4.2
 @export var mouse_look_sensitivity: float = 0.0035
+@export var zoom_min_offset: float = -4.0
+@export var zoom_max_offset: float = 6.0
+@export var zoom_step: float = 0.85
+@export var keyboard_cam_yaw_speed: float = 2.2
+@export var keyboard_cam_pitch_speed: float = 1.6
 
 # --- Trails ---
 @export_group("Wingtip Trails")
@@ -87,6 +92,7 @@ var visual_pitch: float = 0.0
 
 var cam_yaw: float = 0.0
 var cam_pitch: float = -0.24
+var cam_zoom_offset: float = 0.0
 var _manual_cam_timer: float = 0.0
 
 var _coyote_timer: float = 0.0
@@ -133,7 +139,7 @@ const SPARK_MODEL_PATH: String = "res://assets/models/characters/spark.glb"
 const SPARK_ENERGY_SHADER_PATH: String = "res://shaders/spark_energy.gdshader"
 
 var _base_halo_y: float = 1.18
-var _base_light_energy: float = 2.4
+var _base_light_energy: float = 0.95
 var _call_pulse_shader_mat: ShaderMaterial = null
 var _flame_shader_mat: ShaderMaterial = null
 var _cape_shader_mat: ShaderMaterial = null
@@ -162,7 +168,8 @@ func _ready() -> void:
 		_base_halo_y = star_halo.position.y
 
 	if spark_light:
-		_base_light_energy = spark_light.light_energy
+		spark_light.light_energy = _base_light_energy
+		spark_light.omni_range = 7.5
 
 	if core_flame and core_flame.material_override is ShaderMaterial:
 		_flame_shader_mat = core_flame.material_override as ShaderMaterial
@@ -259,24 +266,55 @@ func _apply_spark_energy_shader_recursive(node: Node, energy_shader: Shader) -> 
 				var smat: ShaderMaterial = ShaderMaterial.new()
 				smat.shader = energy_shader
 
-				var albedo_col: Color = Color(0.969, 0.788, 0.282, 1.0)
-				var emit_col: Color = albedo_col
-				var emit_str: float = 1.45
-				var metallic_v: float = 0.06
-				var roughness_v: float = 0.22
+				var mat_name: String = src_mat.resource_name if src_mat != null else ""
+				var albedo_col: Color = Color.html("#F2B438")
+				var emit_col: Color = Color.html("#F5BA42")
+				var emit_str: float = 0.28
+				var metallic_v: float = 0.08
+				var roughness_v: float = 0.42
 
-				if src_mat is StandardMaterial3D:
+				if mat_name.contains("CreamCore"):
+					# Inner heart & tail core: bright warm ivory
+					albedo_col = Color.html("#FFF7DC")
+					emit_col = Color.html("#FFF2C2")
+					emit_str = 0.38
+					metallic_v = 0.04
+					roughness_v = 0.36
+				elif mat_name.contains("GoldenAmber"):
+					# Flame head & ribbons: rich warm sunlit gold
+					albedo_col = Color.html("#F2B438")
+					emit_col = Color.html("#F5BA42")
+					emit_str = 0.26
+					metallic_v = 0.08
+					roughness_v = 0.42
+				elif mat_name.contains("DeepAmber"):
+					# Diamond marks, collar clasp, underside: high-contrast copper-amber
+					albedo_col = Color.html("#D96B16")
+					emit_col = Color.html("#E87A1E")
+					emit_str = 0.32
+					metallic_v = 0.16
+					roughness_v = 0.34
+				elif mat_name.contains("PureGoldTrim"):
+					# Ribbon edges & star halo: luminous pale gold
+					albedo_col = Color.html("#FFE899")
+					emit_col = Color.html("#FFE899")
+					emit_str = 0.55
+					metallic_v = 0.32
+					roughness_v = 0.24
+				elif src_mat is StandardMaterial3D:
 					var std_mat: StandardMaterial3D = src_mat as StandardMaterial3D
 					albedo_col = std_mat.albedo_color
 					if std_mat.emission_enabled:
 						emit_col = std_mat.emission
-						emit_str = maxf(std_mat.emission_energy_multiplier, 0.85)
+						emit_str = clampf(std_mat.emission_energy_multiplier * 0.22, 0.22, 0.45)
 					else:
 						emit_col = albedo_col
-					metallic_v = std_mat.metallic
-					roughness_v = std_mat.roughness
+						emit_str = 0.24
+					metallic_v = clampf(std_mat.metallic, 0.0, 0.35)
+					roughness_v = clampf(std_mat.roughness, 0.28, 0.55)
 
 				smat.set_shader_parameter("base_albedo", Vector3(albedo_col.r, albedo_col.g, albedo_col.b))
+				smat.set_shader_parameter("shadow_tint", Vector3(0.76, 0.34, 0.08))
 				smat.set_shader_parameter("emission_color", Vector3(emit_col.r, emit_col.g, emit_col.b))
 				smat.set_shader_parameter("emission_strength", emit_str)
 				smat.set_shader_parameter("metallic_val", metallic_v)
@@ -294,11 +332,38 @@ func _unhandled_input(event: InputEvent) -> void:
 	if not input_enabled:
 		return
 
-	if event is InputEventMouseMotion and Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT):
-		var motion: InputEventMouseMotion = event as InputEventMouseMotion
-		cam_yaw -= motion.relative.x * mouse_look_sensitivity
-		cam_pitch = clampf(cam_pitch - motion.relative.y * mouse_look_sensitivity, deg_to_rad(-65.0), deg_to_rad(40.0))
-		_manual_cam_timer = 1.2
+	if event is InputEventKey:
+		var key_ev: InputEventKey = event as InputEventKey
+		if key_ev.pressed and not key_ev.echo:
+			if key_ev.keycode == KEY_ESCAPE or key_ev.keycode == KEY_TAB:
+				if Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
+					Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+					get_viewport().set_input_as_handled()
+				return
+
+	if event is InputEventMouseButton:
+		var btn_ev: InputEventMouseButton = event as InputEventMouseButton
+		if btn_ev.pressed:
+			if btn_ev.button_index == MOUSE_BUTTON_LEFT:
+				if Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
+					Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+			elif btn_ev.button_index == MOUSE_BUTTON_WHEEL_UP:
+				cam_zoom_offset = clampf(cam_zoom_offset - zoom_step, zoom_min_offset, zoom_max_offset)
+			elif btn_ev.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+				cam_zoom_offset = clampf(cam_zoom_offset + zoom_step, zoom_min_offset, zoom_max_offset)
+
+	if event is InputEventPanGesture:
+		var pan_ev: InputEventPanGesture = event as InputEventPanGesture
+		cam_zoom_offset = clampf(cam_zoom_offset + pan_ev.delta.y * 0.45, zoom_min_offset, zoom_max_offset)
+
+	if event is InputEventMouseMotion:
+		var is_captured: bool = Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
+		var is_dragging: bool = Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT) or Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)
+		if is_captured or is_dragging:
+			var motion: InputEventMouseMotion = event as InputEventMouseMotion
+			cam_yaw -= motion.relative.x * mouse_look_sensitivity
+			cam_pitch = clampf(cam_pitch - motion.relative.y * mouse_look_sensitivity, deg_to_rad(-68.0), deg_to_rad(48.0))
+			_manual_cam_timer = 2.2
 
 
 func _physics_process(delta: float) -> void:
@@ -308,8 +373,9 @@ func _physics_process(delta: float) -> void:
 		_process_disabled_state(delta)
 		return
 
-	var steer_x: float = Input.get_axis("move_left", "move_right")
-	var move_z: float = Input.get_axis("move_forward", "move_back")
+	# Use physical WASD for Spark movement so Arrow keys cleanly orbit the camera
+	var steer_x: float = (1.0 if Input.is_physical_key_pressed(KEY_D) else 0.0) - (1.0 if Input.is_physical_key_pressed(KEY_A) else 0.0)
+	var move_z: float = (1.0 if Input.is_physical_key_pressed(KEY_S) else 0.0) - (1.0 if Input.is_physical_key_pressed(KEY_W) else 0.0)
 
 	# Golden Resonance Call [Q]
 	if Input.is_action_just_pressed("soul_spark") and _call_cooldown_timer <= 0.0:
@@ -325,6 +391,16 @@ func _physics_process(delta: float) -> void:
 		_physics_ground(delta, steer_x, move_z)
 
 	move_and_slide()
+
+	# Gentle Cloud-Sea Updraft Safety Cushion: catch Spark before falling into the void
+	if global_position.y < -16.0:
+		if not is_flying:
+			_enter_flight()
+		velocity.y = maxf(velocity.y, 12.0)
+		flight_pitch = maxf(flight_pitch, deg_to_rad(18.0))
+		_boost_velocity.y = maxf(_boost_velocity.y, 6.0)
+		_energy_flare = maxf(_energy_flare, 0.85)
+		recharge_wing_energy(wing_regen_rate * 4.0 * delta)
 
 	# Auto-exit flight upon touching solid temple stone / island surface
 	if is_flying and _flight_entry_grace <= 0.0 and is_on_floor():
@@ -382,6 +458,8 @@ func _update_timers_and_regen(delta: float) -> void:
 
 
 func _process_disabled_state(delta: float) -> void:
+	if Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	if is_flying:
 		velocity = velocity.lerp(Vector3.ZERO, 1.0 - exp(-4.0 * delta))
 	else:
@@ -391,6 +469,8 @@ func _process_disabled_state(delta: float) -> void:
 		if not is_on_floor():
 			velocity.y -= gravity * delta
 	move_and_slide()
+	if global_position.y < -16.0:
+		velocity.y = maxf(velocity.y, 12.0)
 
 
 func _physics_ground(delta: float, steer_x: float, move_z: float) -> void:
@@ -412,10 +492,6 @@ func _physics_ground(delta: float, steer_x: float, move_z: float) -> void:
 
 		var target_yaw: float = atan2(-wish_dir.x, -wish_dir.z)
 		facing_yaw = lerp_angle(facing_yaw, target_yaw, 1.0 - exp(-ground_turn_speed * delta))
-
-		# Gently steer camera behind curving ground movement when not mouse-orbiting
-		if _manual_cam_timer <= 0.0 and absf(steer_x) > 0.05:
-			cam_yaw = lerp_angle(cam_yaw, facing_yaw, 1.0 - exp(-1.6 * delta))
 	else:
 		horiz_vel = horiz_vel.move_toward(Vector3.ZERO, ground_deceleration * delta)
 
@@ -653,9 +729,9 @@ func _update_visual_rig(delta: float) -> void:
 		wing_flare_right.visible = flare_vis > 0.02
 		wing_flare_right.scale = flare_scale
 
-	# Warm OmniLight3D intensity modulation on abilities & speed
+	# Warm OmniLight3D intensity modulation on abilities & speed (kept soft to avoid floor hotspots)
 	if spark_light:
-		var target_energy: float = _base_light_energy + (_energy_flare * 2.5) + (0.55 if is_flying else 0.0)
+		var target_energy: float = _base_light_energy + (_energy_flare * 0.85) + (0.25 if is_flying else 0.0)
 		spark_light.light_energy = lerpf(spark_light.light_energy, target_energy, 1.0 - exp(-10.0 * delta))
 
 
@@ -663,14 +739,21 @@ func _update_camera(delta: float) -> void:
 	if not camera_rig or not camera:
 		return
 
-	# Chase yaw & pitch smoothly behind Spark
-	if _manual_cam_timer <= 0.0:
-		if is_flying:
-			cam_yaw = lerp_angle(cam_yaw, flight_yaw, 1.0 - exp(-camera_follow_speed * delta))
-			var target_cam_pitch: float = clampf(flight_pitch * 0.65 - deg_to_rad(6.0), deg_to_rad(-48.0), deg_to_rad(28.0))
-			cam_pitch = lerpf(cam_pitch, target_cam_pitch, 1.0 - exp(-camera_follow_speed * 0.85 * delta))
-		else:
-			cam_pitch = lerpf(cam_pitch, deg_to_rad(-14.0), 1.0 - exp(-4.0 * delta))
+	# Keyboard Arrow-key smooth camera orbit (WASD moves Spark; Arrows orbit camera)
+	if input_enabled:
+		var key_cam_x: float = (1.0 if Input.is_key_pressed(KEY_RIGHT) else 0.0) - (1.0 if Input.is_key_pressed(KEY_LEFT) else 0.0)
+		var key_cam_y: float = (1.0 if Input.is_key_pressed(KEY_UP) else 0.0) - (1.0 if Input.is_key_pressed(KEY_DOWN) else 0.0)
+		if absf(key_cam_x) > 0.01 or absf(key_cam_y) > 0.01:
+			cam_yaw -= key_cam_x * keyboard_cam_yaw_speed * delta
+			cam_pitch = clampf(cam_pitch + key_cam_y * keyboard_cam_pitch_speed * delta, deg_to_rad(-68.0), deg_to_rad(48.0))
+			_manual_cam_timer = 2.2
+
+	# During flight, gently drift behind Spark after 2.2s without manual orbit.
+	# While walking on the ground, keep camera completely where the player aimed.
+	if _manual_cam_timer <= 0.0 and is_flying:
+		cam_yaw = lerp_angle(cam_yaw, flight_yaw, 1.0 - exp(-camera_follow_speed * delta))
+		var target_cam_pitch: float = clampf(flight_pitch * 0.65 - deg_to_rad(6.0), deg_to_rad(-48.0), deg_to_rad(28.0))
+		cam_pitch = lerpf(cam_pitch, target_cam_pitch, 1.0 - exp(-camera_follow_speed * 0.85 * delta))
 
 	camera_rig.rotation = Vector3(cam_pitch, cam_yaw, 0.0)
 
@@ -685,13 +768,14 @@ func _update_camera(delta: float) -> void:
 	var target_fov: float = clampf(lerpf(base_fov, max_fov - 5.0, speed_factor) + boost_fov, base_fov, max_fov)
 	camera.fov = lerpf(camera.fov, target_fov, 1.0 - exp(-fov_lerp_speed * delta))
 
-	# Silky SpringArm3D distance easing (pulls back smoothly in flight for epic Sky-style scale)
+	# Silky SpringArm3D distance easing + player mouse-wheel zoom offset
 	if spring_arm:
 		var target_arm: float = lerpf(spring_length_ground, spring_length_flight, 1.0 if is_flying else 0.0)
 		if is_flying:
 			target_arm += speed_factor * 1.15
 		if _surge_timer > 0.0:
 			target_arm += spring_length_surge_bonus
+		target_arm = clampf(target_arm + cam_zoom_offset, 2.5, 22.0)
 		spring_arm.spring_length = lerpf(spring_arm.spring_length, target_arm, 1.0 - exp(-spring_arm_lerp_speed * delta))
 
 	# Subtle cinematic camera roll following banking angle in flight
