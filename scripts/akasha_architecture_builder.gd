@@ -260,8 +260,8 @@ func _build_starting_monolith_plaza() -> void:
 	)
 
 	# Stepped Art Deco beveled golden edges along sides and ends
-	for side in [-1.0, 1.0]:
-		var x_outer := side * (width * 0.5 + 0.18)
+	for side: float in [-1.0, 1.0]:
+		var x_outer: float = side * (width * 0.5 + 0.18)
 		_add_box_mesh(
 			root, "GoldBevelTop_%s" % ("L" if side < 0 else "R"),
 			Vector3(0.45, 0.24, length + 0.4),
@@ -378,8 +378,8 @@ func _build_indigo_viaduct() -> void:
 	)
 
 	# Continuous golden cornice rails along both sides of the viaduct
-	for side in [-1.0, 1.0]:
-		var rail_x := viaduct_x + side * (deck_width * 0.5 + 0.15)
+	for side: float in [-1.0, 1.0]:
+		var rail_x: float = viaduct_x + side * (deck_width * 0.5 + 0.15)
 		_add_box_mesh(
 			root, "ViaductGoldCornice_%s" % ("L" if side < 0 else "R"),
 			Vector3(0.38, 0.36, total_length + 4.4),
@@ -409,7 +409,7 @@ func _build_indigo_viaduct() -> void:
 		# Art Deco stepped capital
 		_add_box_mesh(pier, "PierCapital", Vector3(deck_width + 0.6, 2.2, 5.2), Vector3(0.0, deck_top_y - deck_thickness - 1.1, 0.0), _mat_dark_obsidian)
 		# Vertical golden filigree strips on the canyon-facing (-X) and outer (+X) sides
-		for side in [-1.0, 1.0]:
+		for side: float in [-1.0, 1.0]:
 			_add_box_mesh(
 				pier, "GoldFiligree_%s" % ("In" if side < 0 else "Out"),
 				Vector3(0.28, pier_height - 4.0, 0.55),
@@ -474,7 +474,7 @@ func _build_viaduct_arch_bay(
 		trim.rotation.x = angle - PI * 0.5
 
 	# Art Deco golden spandrel medallions above the arch shoulders
-	for side_z in [-1.0, 1.0]:
+	for side_z: float in [-1.0, 1.0]:
 		var med := _add_torus_mesh(
 			bay, "SpandrelRing_%s" % ("F" if side_z < 0 else "B"),
 			0.95, 1.22, 20, 8,
@@ -640,8 +640,8 @@ func _build_colossal_cathedral() -> void:
 	_add_box_mesh(root, "DaisGoldEdge2", Vector3(68.6, 0.45, 0.6), Vector3(0.0, 7.9, 26.1), _mat_gold_filigree)
 
 	# Main cathedral nave walls framing the grand archway (left and right massive piers)
-	for side in [-1.0, 1.0]:
-		var s_name := "L" if side < 0 else "R"
+	for side: float in [-1.0, 1.0]:
+		var s_name: String = "L" if side < 0 else "R"
 		_add_box_mesh(root, "NavePier_%s" % s_name, Vector3(14.0, 74.0, 28.0), Vector3(side * 19.0, 45.0, 0.0), _mat_dark_obsidian)
 		_add_box_mesh(root, "NaveButtress_%s" % s_name, Vector3(6.5, 62.0, 32.0), Vector3(side * 25.0, 39.0, 2.0), _mat_indigo_stone)
 		# Vertical golden filigree ribs
@@ -879,14 +879,14 @@ func _create_bezier_tube_mesh(
 		rings.append(ring)
 
 	for i in range(segments):
-		var r0 := rings[i]
-		var r1 := rings[i + 1]
+		var r0: PackedVector3Array = rings[i]
+		var r1: PackedVector3Array = rings[i + 1]
 		for s in range(sides):
-			var sn := (s + 1) % sides
-			var v00 := r0[s]
-			var v01 := r0[sn]
-			var v10 := r1[s]
-			var v11 := r1[sn]
+			var sn: int = (s + 1) % sides
+			var v00: Vector3 = r0[s]
+			var v01: Vector3 = r0[sn]
+			var v10: Vector3 = r1[s]
+			var v11: Vector3 = r1[sn]
 
 			st.add_vertex(v00)
 			st.add_vertex(v10)
@@ -951,7 +951,7 @@ func _build_ethereal_mentor_silhouettes() -> void:
 		mantle.scale = Vector3(1.35, 1.0, 0.72)
 
 		# Gently raised welcoming arms
-		for side in [-1.0, 1.0]:
+		for side: float in [-1.0, 1.0]:
 			var arm := _add_cylinder_mesh(
 				mentor, "EtherealArm_%s" % ("L" if side < 0 else "R"),
 				0.9, 1.8, 14.5, 10,

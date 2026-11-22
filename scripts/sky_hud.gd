@@ -206,7 +206,7 @@ func _draw_wing_emblem() -> void:
 	wing_fill.a = lerpf(0.32, 0.94, energy_ratio)
 	var wing_edge := Color(COLOR_IVORY.r, COLOR_IVORY.g, COLOR_IVORY.b, lerpf(0.22, 0.85, energy_ratio))
 
-	for side in [-1.0, 1.0]:
+	for side: float in [-1.0, 1.0]:
 		# Upper primary wing feather
 		var feather_top := PackedVector2Array([
 			star_center + Vector2(side * 9.0, 0.0),
