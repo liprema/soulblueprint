@@ -279,8 +279,15 @@ func _apply_spark_energy_shader_recursive(node: Node, energy_shader: Shader) -> 
 		var mesh_inst: MeshInstance3D = node as MeshInstance3D
 		var mesh_res: Mesh = mesh_inst.mesh
 		if mesh_res != null:
-			var is_halo: bool = mesh_inst.name == "SparkStarHalo"
+			var node_name: String = mesh_inst.name
+			var is_halo: bool = node_name == "SparkStarHalo"
+			var is_wing_ribbon: bool = node_name.begins_with("SparkWingRibbon")
+			var is_droplet: bool = node_name == "SparkDroplets"
 			var surface_count: int = mesh_res.get_surface_count()
+
+			if is_wing_ribbon or is_halo:
+				mesh_inst.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+
 			for i: int in range(surface_count):
 				var src_mat: Material = mesh_inst.get_active_material(i)
 				if src_mat == null:
@@ -290,61 +297,94 @@ func _apply_spark_energy_shader_recursive(node: Node, energy_shader: Shader) -> 
 				smat.shader = energy_shader
 
 				var mat_name: String = src_mat.resource_name if src_mat != null else ""
-				var albedo_col: Color = Color.html("#F486B6")
-				var emit_col: Color = Color.html("#FF98C6")
-				var emit_str: float = 0.14
-				var metallic_v: float = 0.08
-				var roughness_v: float = 0.44
 
-				if mat_name.contains("CreamCore"):
-					# Inner heart & tail core: soft blush-pearl white
-					albedo_col = Color.html("#FFF0F6")
-					emit_col = Color.html("#FFD4E8")
-					emit_str = 0.16
-					metallic_v = 0.04
-					roughness_v = 0.42
-				elif mat_name.contains("GoldenAmber"):
-					# Main flame head & silk ribbons: tender luminous sakura-rose pink
-					albedo_col = Color.html("#F486B6")
-					emit_col = Color.html("#FF98C6")
-					emit_str = 0.14
-					metallic_v = 0.08
-					roughness_v = 0.44
-				elif mat_name.contains("DeepAmber"):
-					# Face diamond, collar clasp, underside: rich amethyst-orchid violet
-					albedo_col = Color.html("#9B5CE0")
-					emit_col = Color.html("#B274F2")
-					emit_str = 0.15
-					metallic_v = 0.16
-					roughness_v = 0.38
-				elif mat_name.contains("PureGoldTrim"):
-					# Ribbon edges & star halo: iridescent celestial sky-aqua
-					albedo_col = Color.html("#7AE4FF")
-					emit_col = Color.html("#9CEEFF")
+				# Default: SparkCrystalBody (pearlescent liquid-crystal glass)
+				var albedo_col: Color = Color.html("#F7EEF6")
+				var shadow_col: Color = Color.html("#8B5BB8")
+				var emit_col: Color = Color.html("#F4A0C8")
+				var rim_col: Color = Color.html("#9CEBFF")
+				var irid_col: Color = Color.html("#B48AF2")
+				var emit_str: float = 0.15
+				var metallic_v: float = 0.12
+				var roughness_v: float = 0.11
+				var clearcoat_v: float = 0.95
+				var alpha_v: float = 0.92
+				var irid_str: float = 1.05
+				var wing_flag: float = 0.0
+				var droplet_flag: float = 0.0
+				var sway_v: float = 1.0
+
+				if is_wing_ribbon or mat_name.contains("WingRibbon"):
+					# Gossamer iridescent sakura-orchid-aqua ribbon-wings
+					albedo_col = Color.html("#F6DCFA")
+					shadow_col = Color.html("#8C5CD6")
+					emit_col = Color.html("#B48AF2")
+					rim_col = Color.html("#9CEBFF")
+					irid_col = Color.html("#F4A0C8")
 					emit_str = 0.20
+					metallic_v = 0.10
+					roughness_v = 0.15
+					clearcoat_v = 0.85
+					alpha_v = 0.74
+					irid_str = 1.35
+					wing_flag = 1.0
+					sway_v = 1.0
+				elif is_droplet or mat_name.contains("Droplets"):
+					# Orbiting liquid-crystal splash light-droplets
+					albedo_col = Color.html("#EFFAFF")
+					shadow_col = Color.html("#7A68C8")
+					emit_col = Color.html("#9CEBFF")
+					rim_col = Color.html("#FFFFFF")
+					irid_col = Color.html("#F4A0C8")
+					emit_str = 0.22
+					metallic_v = 0.18
+					roughness_v = 0.08
+					clearcoat_v = 1.0
+					alpha_v = 0.88
+					irid_str = 1.25
+					droplet_flag = 1.0
+					sway_v = 1.0
+				elif is_halo or mat_name.contains("StarHalo"):
+					# Floating celestial starlight crescent & star-crystal halo
+					albedo_col = Color.html("#E6F8FF")
+					shadow_col = Color.html("#7A84D8")
+					emit_col = Color.html("#9CEBFF")
+					rim_col = Color.html("#FFF5FA")
+					irid_col = Color.html("#B48AF2")
+					emit_str = 0.26
 					metallic_v = 0.24
-					roughness_v = 0.34
+					roughness_v = 0.09
+					clearcoat_v = 1.0
+					alpha_v = 0.95
+					irid_str = 1.15
+					sway_v = 0.0
+				elif mat_name.contains("CrystalBody"):
+					# Explicit match for SparkCrystalBodyMat (uses pearlescent crystal defaults above)
+					pass
 				elif src_mat is StandardMaterial3D:
 					var std_mat: StandardMaterial3D = src_mat as StandardMaterial3D
 					albedo_col = std_mat.albedo_color
 					if std_mat.emission_enabled:
 						emit_col = std_mat.emission
-						emit_str = clampf(std_mat.emission_energy_multiplier * 0.12, 0.10, 0.18)
-					else:
-						emit_col = albedo_col
-						emit_str = 0.14
-					metallic_v = clampf(std_mat.metallic, 0.0, 0.35)
-					roughness_v = clampf(std_mat.roughness, 0.34, 0.56)
+						emit_str = clampf(std_mat.emission_energy_multiplier * 0.14, 0.10, 0.22)
+					metallic_v = clampf(std_mat.metallic, 0.08, 0.28)
+					roughness_v = clampf(std_mat.roughness, 0.08, 0.18)
 
 				# Pass Color directly so Godot converts source_color uniforms from sRGB to linear HDR
 				smat.set_shader_parameter("base_albedo", albedo_col)
-				smat.set_shader_parameter("shadow_tint", Color(0.45, 0.22, 0.56, 1.0))
+				smat.set_shader_parameter("shadow_tint", shadow_col)
 				smat.set_shader_parameter("emission_color", emit_col)
-				smat.set_shader_parameter("rim_color", Color(0.84, 0.96, 1.0, 1.0))
+				smat.set_shader_parameter("rim_color", rim_col)
+				smat.set_shader_parameter("iridescence_tint", irid_col)
 				smat.set_shader_parameter("emission_strength", emit_str)
 				smat.set_shader_parameter("metallic_val", metallic_v)
 				smat.set_shader_parameter("roughness_val", roughness_v)
-				smat.set_shader_parameter("sway_scale", 0.0 if is_halo else 1.0)
+				smat.set_shader_parameter("clearcoat_val", clearcoat_v)
+				smat.set_shader_parameter("alpha_base", alpha_v)
+				smat.set_shader_parameter("iridescence_strength", irid_str)
+				smat.set_shader_parameter("is_wing_ribbon", wing_flag)
+				smat.set_shader_parameter("is_droplet", droplet_flag)
+				smat.set_shader_parameter("sway_scale", sway_v)
 
 				mesh_inst.set_surface_override_material(i, smat)
 				_spark_energy_materials.append(smat)

@@ -63,31 +63,38 @@ void fragment() {
 	float fresnel_broad = pow(1.0 - ndotv, fresnel_power);
 	float fresnel_sharp = pow(1.0 - ndotv, fresnel_power * 2.1 + 1.2);
 
-	// Delicate woven-silk / fine-linen micro-texture in local space
-	float weave_u = sin(v_local_pos.x * 160.0 + v_local_pos.z * 160.0);
-	float weave_v = sin(v_local_pos.y * 190.0);
+	// Delicate woven-silk / fine-linen micro-texture & normal perturbation in local space
+	float weave_u = sin(v_local_pos.x * 185.0 + v_local_pos.z * 185.0);
+	float weave_v = sin(v_local_pos.y * 210.0);
+	float weave_du = cos(v_local_pos.x * 185.0 + v_local_pos.z * 185.0);
+	float weave_dv = cos(v_local_pos.y * 210.0);
 	float fine_weave = weave_u * weave_v;
 	float micro_sheen = 0.5 + 0.5 * fine_weave;
 
-	// Delicate warm-beige fold AO darkening in deep drapery crevices
-	float normal_curv = clamp((length(dFdx(n)) + length(dFdy(n))) * 1.15, 0.0, 1.0);
-	float fold_crevice = smoothstep(0.10, 0.62, normal_curv);
-	vec3 crevice_tint = mix(vec3(1.0), vec3(0.83, 0.77, 0.70), fold_crevice * 0.58);
+	// Subtle tangent-space woven-linen micro-normal perturbation
+	vec3 weave_perturb = normalize(TANGENT * (weave_du * weave_v) + BINORMAL * (weave_u * weave_dv) + vec3(0.0, 0.0, 0.0001));
+	vec3 n_woven = normalize(n + weave_perturb * 0.042);
+	NORMAL = n_woven;
+
+	// Deep warm-beige fold AO darkening in sculpted drapery crevices
+	float normal_curv = clamp((length(dFdx(n)) + length(dFdy(n))) * 1.35, 0.0, 1.0);
+	float fold_crevice = smoothstep(0.08, 0.58, normal_curv);
+	vec3 crevice_tint = mix(vec3(1.0), vec3(0.79, 0.72, 0.65), fold_crevice * 0.66);
 
 	// Soft silk fiber sheen along grazing edges and subtle woven thread variation
 	float hem_blend = smoothstep(hem_fade_start, hem_fade_end, v_local_pos.y);
-	float opacity_sheen = mix(0.18, 0.11, clamp(base_opacity, 0.0, 1.0));
-	vec3 base_fabric = body_color * crevice_tint * (0.975 + 0.035 * micro_sheen);
-	vec3 silk_albedo = mix(base_fabric, rim_color, clamp(fresnel_broad * opacity_sheen, 0.0, 0.22));
+	float opacity_sheen = mix(0.20, 0.12, clamp(base_opacity, 0.0, 1.0));
+	vec3 base_fabric = body_color * crevice_tint * (0.97 + 0.04 * micro_sheen);
+	vec3 silk_albedo = mix(base_fabric, rim_color, clamp(fresnel_broad * opacity_sheen, 0.0, 0.24));
 	// Gentle warm sand-cream hem softening near the floor
-	vec3 hem_soft = mix(body_color * 0.94, rim_color * 0.96, 0.35);
+	vec3 hem_soft = mix(body_color * 0.93, rim_color * 0.96, 0.35);
 	silk_albedo = mix(hem_soft, silk_albedo, mix(0.65, 1.0, hem_blend));
 
 	// Subtle upward sky-bounce warmth on upward-facing drapery planes
 	float upper_plane = smoothstep(-0.25, 0.85, wn.y);
-	silk_albedo *= (0.97 + 0.04 * upper_plane);
+	silk_albedo *= (0.965 + 0.045 * upper_plane);
 
-	// Very subtle, tasteful warm golden-cream Fresnel rim in EMISSION (0.06..0.18 range)
+	// Soft, tasteful warm golden-cream Fresnel rim in EMISSION
 	float emit_scale = clamp(emission_strength, 0.0, 0.65);
 	float shimmer_wave = 0.92 + 0.08 * sin(v_world_pos.y * 1.25 - TIME * shimmer_speed + v_world_pos.x * 0.35);
 
@@ -98,16 +105,17 @@ void fragment() {
 	float stardust = (stars_a + stars_b * 0.6) * stardust_intensity * (0.35 + 0.65 * fresnel_broad);
 
 	vec3 rim_glow_col = mix(rim_color, rim_highlight_color, fresnel_sharp);
-	float rim_factor = fresnel_broad * 0.44 + fresnel_sharp * 0.36;
+	float rim_factor = fresnel_broad * 0.48 + fresnel_sharp * 0.38;
 	vec3 emission_out = rim_glow_col * (rim_factor * emit_scale * shimmer_wave);
-	emission_out += body_color * (0.05 * emit_scale);
+	emission_out += body_color * (0.045 * emit_scale);
 	emission_out += rim_highlight_color * (stardust * emit_scale * 0.32);
 
 	ALBEDO = silk_albedo;
-	ROUGHNESS = clamp(0.48 + (0.5 - micro_sheen) * 0.06 - fresnel_broad * 0.05, 0.36, 0.58);
-	METALLIC = 0.04;
-	SPECULAR = 0.35;
-	AO = clamp(1.0 - fold_crevice * 0.32, 0.66, 1.0);
+	ROUGHNESS = clamp(0.49 + (0.5 - micro_sheen) * 0.07 - fresnel_broad * 0.06, 0.36, 0.60);
+	METALLIC = 0.03;
+	SPECULAR = 0.36;
+	AO = clamp(1.0 - fold_crevice * 0.40, 0.58, 1.0);
 	EMISSION = emission_out;
 }
+
 

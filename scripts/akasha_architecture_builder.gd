@@ -16,11 +16,11 @@ const COLOR_MENTOR_CYAN := Color("#58C4FF")
 const CATHEDRAL_POSITION := Vector3(0.0, 0.0, -280.0)
 
 const ISLAND_COORDS := [
-	Vector3(-26.0, 6.0, -32.0),
-	Vector3(22.0, 10.0, -88.0),
-	Vector3(-32.0, 14.0, -148.0),
-	Vector3(18.0, 4.0, -195.0),
-	Vector3(-16.0, -2.0, -105.0),
+	Vector3(-28.0, 3.5, -36.0),   # Gate of Awakening — West Twin Island
+	Vector3(28.0, 3.5, -36.0),    # Gate of Awakening — East Twin Island
+	Vector3(0.0, 6.5, -106.0),    # Heart of the Sky — Central Axial Sanctuary Island
+	Vector3(-34.0, 9.5, -176.0),  # Pillars of Memory — West Grand Twin Island
+	Vector3(34.0, 9.5, -176.0),   # Pillars of Memory — East Grand Twin Island
 ]
 
 const PLAZA_LANTERN_COORDS := [
@@ -56,10 +56,13 @@ var _mat_gold_brass: StandardMaterial3D
 var _mat_gold_glow_accent: StandardMaterial3D
 var _mat_gold_thread: StandardMaterial3D
 var _mat_light_core: StandardMaterial3D
+var _mat_glass_skylight: StandardMaterial3D
+var _mat_warm_window: StandardMaterial3D
 var _mat_mentor_body: Material
 var _mat_mentor_halo: StandardMaterial3D
 var _mat_god_rays: ShaderMaterial
 var _mat_island_rays: ShaderMaterial
+var _mat_skylight_ray: ShaderMaterial
 
 var _astrolabe_rings: Array[Node3D] = []
 var _mentor_nodes: Array[Node3D] = []
@@ -230,6 +233,27 @@ func _init_materials() -> void:
 	_mat_light_core.emission = aged_gold_color
 	_mat_light_core.emission_energy_multiplier = 1.65
 
+	# Translucent sky-blue glass for the Castle Rotunda Skylight Dome (smooth, zero shimmer)
+	_mat_glass_skylight = StandardMaterial3D.new()
+	_mat_glass_skylight.albedo_color = Color(0.64, 0.85, 1.0, 0.34)
+	_mat_glass_skylight.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	_mat_glass_skylight.roughness = 0.16
+	_mat_glass_skylight.metallic = 0.06
+	_mat_glass_skylight.cull_mode = BaseMaterial3D.CULL_DISABLED
+	_mat_glass_skylight.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_OPAQUE_ONLY
+	_mat_glass_skylight.emission_enabled = true
+	_mat_glass_skylight.emission = Color("#A8D8FF")
+	_mat_glass_skylight.emission_energy_multiplier = 0.22
+
+	# Warm glowing gothic-baroque windows on Castle towers & clerestory
+	_mat_warm_window = StandardMaterial3D.new()
+	_mat_warm_window.albedo_color = Color("#FFF0C8")
+	_mat_warm_window.roughness = 0.26
+	_mat_warm_window.metallic = 0.02
+	_mat_warm_window.emission_enabled = true
+	_mat_warm_window.emission = Color("#FFE2A0")
+	_mat_warm_window.emission_energy_multiplier = 1.35
+
 	var mentor_mat: ShaderMaterial = ShaderMaterial.new()
 	mentor_mat.shader = MENTOR_SHADER
 	_mat_mentor_body = mentor_mat
@@ -259,6 +283,14 @@ func _init_materials() -> void:
 	_mat_island_rays.set_shader_parameter("shimmer_strength", 0.24)
 	_mat_island_rays.set_shader_parameter("near_fade_min", 3.0)
 	_mat_island_rays.set_shader_parameter("near_fade_max", 14.0)
+
+	_mat_skylight_ray = ShaderMaterial.new()
+	_mat_skylight_ray.shader = GOD_RAYS_SHADER
+	_mat_skylight_ray.set_shader_parameter("intensity", 0.28)
+	_mat_skylight_ray.set_shader_parameter("edge_falloff", 2.4)
+	_mat_skylight_ray.set_shader_parameter("shimmer_strength", 0.20)
+	_mat_skylight_ray.set_shader_parameter("near_fade_min", 2.0)
+	_mat_skylight_ray.set_shader_parameter("near_fade_max", 9.0)
 
 
 # ---------------------------------------------------------------------------
@@ -391,7 +423,7 @@ func _build_starting_monolith_plaza() -> void:
 
 
 # ---------------------------------------------------------------------------
-# b) Sweeping 12-Arch Indigo Viaduct (x = 28..38, z = 20..-240)
+# b) Symmetrical Twin Flanking Celestial Viaducts (x = -56.0 & x = +56.0, z = 20..-240)
 # ---------------------------------------------------------------------------
 
 func _build_indigo_viaduct() -> void:
@@ -399,92 +431,98 @@ func _build_indigo_viaduct() -> void:
 	root.name = "IndigoViaduct"
 	add_child(root)
 
-	var arch_count := 12
-	var z_start := 20.0
-	var z_end := -240.0
-	var total_length := z_start - z_end # 260.0 m
-	var bay_span := total_length / float(arch_count) # ~21.667 m
-	var viaduct_x := 33.0 # spans x = 28..38 (width 10m)
-	var deck_width := 10.0
-	var deck_collider_width := 10.5
-	var deck_top_y := 14.0
-	var deck_thickness := 2.2
-	var pier_bottom_y := -66.0
-	var deck_center_z := (z_start + z_end) * 0.5
+	var arch_count: int = 12
+	var z_start: float = 20.0
+	var z_end: float = -240.0
+	var total_length: float = z_start - z_end # 260.0 m
+	var bay_span: float = total_length / float(arch_count) # ~21.667 m
+	var deck_width: float = 10.0
+	var deck_collider_width: float = 10.5
+	var deck_top_y: float = 14.0
+	var deck_thickness: float = 2.2
+	var pier_bottom_y: float = -66.0
+	var deck_center_z: float = (z_start + z_end) * 0.5
 
-	# Continuous solid walkable roadway collider along the full viaduct (top strictly at y = deck_top_y)
-	_add_box_collider(
-		root, "ViaductDeckCollider",
-		Vector3(deck_collider_width, deck_thickness, total_length + 4.0),
-		Vector3(viaduct_x, deck_top_y - deck_thickness * 0.5, deck_center_z)
-	)
+	var has_glb: bool = not viaduct_arch_model_path.is_empty() and ResourceLoader.exists(viaduct_arch_model_path)
+	var viaduct_sides: Array[float] = [-1.0, 1.0]
 
-	# If viaduct_arch.glb exists, each bay already includes its own deck, parapets, and piers.
-	# Instantiate the 12 .glb bays directly without spawning duplicate procedural piers/decks.
-	if not viaduct_arch_model_path.is_empty() and ResourceLoader.exists(viaduct_arch_model_path):
-		var loaded_any: bool = false
-		for i: int in range(arch_count):
-			var bay_z: float = z_start - (float(i) + 0.5) * bay_span
-			if _try_instantiate_override(viaduct_arch_model_path, root, Vector3(viaduct_x, deck_top_y, bay_z)):
-				loaded_any = true
-		if loaded_any:
-			return
+	for side_sign: float in viaduct_sides:
+		var side_tag: String = "W" if side_sign < 0.0 else "E"
+		var viaduct_x: float = side_sign * 56.0
+		var wing_root: Node3D = Node3D.new()
+		wing_root.name = "CelestialViaduct_%s" % side_tag
+		root.add_child(wing_root)
 
-	# Procedural fallback when viaduct_arch.glb is absent
-	_add_box_mesh(
-		root, "ViaductDeck",
-		Vector3(deck_width, deck_thickness, total_length + 4.0),
-		Vector3(viaduct_x, deck_top_y - deck_thickness * 0.5, deck_center_z),
-		_mat_indigo_stone
-	)
-
-	# Continuous golden cornice rails along both sides of the viaduct
-	for side: float in [-1.0, 1.0]:
-		var rail_x: float = viaduct_x + side * (deck_width * 0.5 + 0.15)
-		_add_box_mesh(
-			root, "ViaductGoldCornice_%s" % ("L" if side < 0 else "R"),
-			Vector3(0.38, 0.36, total_length + 4.4),
-			Vector3(rail_x, deck_top_y - 0.15, deck_center_z),
-			_mat_gold_filigree
-		)
-		_add_box_mesh(
-			root, "ViaductParapet_%s" % ("L" if side < 0 else "R"),
-			Vector3(0.7, 1.25, total_length + 4.0),
-			Vector3(viaduct_x + side * (deck_width * 0.5 - 0.35), deck_top_y + 0.625, deck_center_z),
-			_mat_dark_obsidian
+		# Continuous solid walkable roadway collider along EACH viaduct (top strictly at y = deck_top_y)
+		_add_box_collider(
+			wing_root, "ViaductDeckCollider_%s" % side_tag,
+			Vector3(deck_collider_width, deck_thickness, total_length + 4.0),
+			Vector3(viaduct_x, deck_top_y - deck_thickness * 0.5, deck_center_z)
 		)
 
-	# 13 monumental piers with golden vertical filigree trim
-	var pier_height := (deck_top_y - deck_thickness) - pier_bottom_y
-	var pier_center_y := pier_bottom_y + pier_height * 0.5
+		if has_glb:
+			var loaded_any: bool = false
+			for i: int in range(arch_count):
+				var bay_z: float = z_start - (float(i) + 0.5) * bay_span
+				var prev_count: int = wing_root.get_child_count()
+				if _try_instantiate_override(viaduct_arch_model_path, wing_root, Vector3(viaduct_x, deck_top_y, bay_z)):
+					loaded_any = true
+					if side_sign < 0.0 and wing_root.get_child_count() > prev_count:
+						var bay_node: Node = wing_root.get_child(wing_root.get_child_count() - 1)
+						if bay_node is Node3D:
+							(bay_node as Node3D).rotation_degrees.y = 180.0
+			if loaded_any:
+				continue
 
-	for i in range(arch_count + 1):
-		var pz := z_start - float(i) * bay_span
-		var pier := Node3D.new()
-		pier.name = "ViaductPier_%02d" % i
-		pier.position = Vector3(viaduct_x, 0.0, pz)
-		root.add_child(pier)
+		# Procedural fallback when viaduct_arch.glb is absent
+		_add_box_mesh(
+			wing_root, "ViaductDeck_%s" % side_tag,
+			Vector3(deck_width, deck_thickness, total_length + 4.0),
+			Vector3(viaduct_x, deck_top_y - deck_thickness * 0.5, deck_center_z),
+			_mat_indigo_stone
+		)
 
-		# Core tapered stone pier
-		_add_box_mesh(pier, "PierCore", Vector3(deck_width - 1.2, pier_height, 4.2), Vector3(0.0, pier_center_y, 0.0), _mat_indigo_stone)
-		# Art Deco stepped capital
-		_add_box_mesh(pier, "PierCapital", Vector3(deck_width + 0.6, 2.2, 5.2), Vector3(0.0, deck_top_y - deck_thickness - 1.1, 0.0), _mat_dark_obsidian)
-		# Vertical golden filigree strips on the canyon-facing (-X) and outer (+X) sides
-		for side: float in [-1.0, 1.0]:
+		for edge_side: float in [-1.0, 1.0]:
+			var rail_x: float = viaduct_x + edge_side * (deck_width * 0.5 + 0.15)
 			_add_box_mesh(
-				pier, "GoldFiligree_%s" % ("In" if side < 0 else "Out"),
-				Vector3(0.28, pier_height - 4.0, 0.55),
-				Vector3(side * (deck_width * 0.5 - 0.45), pier_center_y, 0.0),
+				wing_root, "ViaductGoldCornice_%s_%s" % [side_tag, "L" if edge_side < 0.0 else "R"],
+				Vector3(0.38, 0.36, total_length + 4.4),
+				Vector3(rail_x, deck_top_y - 0.15, deck_center_z),
 				_mat_gold_filigree
 			)
-		# Parapet obelisk finial on top of each pier
-		_add_box_mesh(pier, "FinialBase", Vector3(1.1, 2.4, 1.1), Vector3(-deck_width * 0.5 + 0.35, deck_top_y + 2.2, 0.0), _mat_dark_obsidian)
-		_add_cylinder_mesh(pier, "FinialTip", 0.05, 0.42, 1.4, 4, Vector3(-deck_width * 0.5 + 0.35, deck_top_y + 4.1, 0.0), _mat_gold_filigree)
+			_add_box_mesh(
+				wing_root, "ViaductParapet_%s_%s" % [side_tag, "L" if edge_side < 0.0 else "R"],
+				Vector3(0.7, 1.25, total_length + 4.0),
+				Vector3(viaduct_x + edge_side * (deck_width * 0.5 - 0.35), deck_top_y + 0.625, deck_center_z),
+				_mat_dark_obsidian
+			)
 
-	# 12 majestic arched spans between consecutive piers
-	for i in range(arch_count):
-		var bay_z := z_start - (float(i) + 0.5) * bay_span
-		_build_viaduct_arch_bay(root, i, viaduct_x, deck_top_y - deck_thickness, bay_z, bay_span, deck_width)
+		var pier_height: float = (deck_top_y - deck_thickness) - pier_bottom_y
+		var pier_center_y: float = pier_bottom_y + pier_height * 0.5
+		var inner_dir: float = -side_sign
+
+		for i: int in range(arch_count + 1):
+			var pz: float = z_start - float(i) * bay_span
+			var pier: Node3D = Node3D.new()
+			pier.name = "ViaductPier_%s_%02d" % [side_tag, i]
+			pier.position = Vector3(viaduct_x, 0.0, pz)
+			wing_root.add_child(pier)
+
+			_add_box_mesh(pier, "PierCore", Vector3(deck_width - 1.2, pier_height, 4.2), Vector3(0.0, pier_center_y, 0.0), _mat_indigo_stone)
+			_add_box_mesh(pier, "PierCapital", Vector3(deck_width + 0.6, 2.2, 5.2), Vector3(0.0, deck_top_y - deck_thickness - 1.1, 0.0), _mat_dark_obsidian)
+			for edge_side: float in [-1.0, 1.0]:
+				_add_box_mesh(
+					pier, "GoldFiligree_%s" % ("In" if edge_side < 0.0 else "Out"),
+					Vector3(0.28, pier_height - 4.0, 0.55),
+					Vector3(edge_side * (deck_width * 0.5 - 0.45), pier_center_y, 0.0),
+					_mat_gold_filigree
+				)
+			_add_box_mesh(pier, "FinialBase", Vector3(1.1, 2.4, 1.1), Vector3(inner_dir * (deck_width * 0.5 - 0.35), deck_top_y + 2.2, 0.0), _mat_dark_obsidian)
+			_add_cylinder_mesh(pier, "FinialTip", 0.05, 0.42, 1.4, 4, Vector3(inner_dir * (deck_width * 0.5 - 0.35), deck_top_y + 4.1, 0.0), _mat_gold_filigree)
+
+		for i: int in range(arch_count):
+			var bay_z: float = z_start - (float(i) + 0.5) * bay_span
+			_build_viaduct_arch_bay(wing_root, i, viaduct_x, deck_top_y - deck_thickness, bay_z, bay_span, deck_width, inner_dir)
 
 
 func _build_viaduct_arch_bay(
@@ -494,7 +532,8 @@ func _build_viaduct_arch_bay(
 	spring_top_y: float,
 	center_z: float,
 	span: float,
-	width: float
+	width: float,
+	inward_x_sign: float = -1.0
 ) -> void:
 	var bay := Node3D.new()
 	bay.name = "ViaductArch_%02d" % index
@@ -523,11 +562,11 @@ func _build_viaduct_arch_bay(
 		)
 		stone.rotation.x = angle - PI * 0.5
 
-		# Glowing golden inner arch trim on the canyon-facing side (-X)
+		# Glowing golden inner arch trim on the avenue-facing side
 		var trim := _add_box_mesh(
 			bay, "ArchGoldTrim_%d" % s,
 			Vector3(0.32, 0.34, seg_len + 0.1),
-			Vector3(-(width * 0.5 - 0.65), local_y - 0.65 * sin(angle), local_z - 0.65 * cos(angle)),
+			Vector3(inward_x_sign * (width * 0.5 - 0.65), local_y - 0.65 * sin(angle), local_z - 0.65 * cos(angle)),
 			_mat_gold_filigree
 		)
 		trim.rotation.x = angle - PI * 0.5
@@ -537,14 +576,14 @@ func _build_viaduct_arch_bay(
 		var med := _add_torus_mesh(
 			bay, "SpandrelRing_%s" % ("F" if side_z < 0 else "B"),
 			0.95, 1.22, 20, 8,
-			Vector3(-(width * 0.5 - 0.55), -2.4, side_z * (arch_radius * 0.72)),
+			Vector3(inward_x_sign * (width * 0.5 - 0.55), -2.4, side_z * (arch_radius * 0.72)),
 			_mat_gold_filigree
 		)
 		med.rotation_degrees.z = 90.0
 
 
 # ---------------------------------------------------------------------------
-# c) 5 Floating Carved Indigo Temple Islands
+# c) 5 Floating Carved Indigo Temple Islands (Sacred-Geometry Avenue)
 # ---------------------------------------------------------------------------
 
 func _build_floating_temple_islands() -> void:
@@ -552,6 +591,7 @@ func _build_floating_temple_islands() -> void:
 	root.name = "FloatingTempleIslands"
 	add_child(root)
 
+	var sym_scales: Array[float] = [0.96, 0.96, 1.12, 1.04, 1.04]
 	for i in range(ISLAND_COORDS.size()):
 		var pos: Vector3 = ISLAND_COORDS[i]
 		var island := Node3D.new()
@@ -559,12 +599,12 @@ func _build_floating_temple_islands() -> void:
 		island.position = pos
 		root.add_child(island)
 
-		# Subtle scale variation across the 5 islands for organic monumentality
-		var radius_scale := 1.0 + float(i % 3 - 1) * 0.08
-		var slab_radius := 8.4 * radius_scale
-		var slab_height := 1.4
-		var collider_radius := 8.4
-		var collider_height := 2.6
+		# Symmetrical sacred-geometry scale rhythm (Twin Gates, Grand Central Heart, Twin Pillars of Memory)
+		var radius_scale: float = sym_scales[i] if i < sym_scales.size() else 1.0
+		var slab_radius: float = 8.4 * radius_scale
+		var slab_height: float = 1.4
+		var collider_radius: float = 8.4
+		var collider_height: float = 2.6
 
 		if _try_instantiate_override(temple_island_model_path, island, Vector3.ZERO):
 			_add_cylinder_collider(island, "IslandSlabCollider", collider_radius, collider_height, Vector3(0.0, -collider_height * 0.5, 0.0))
@@ -689,28 +729,64 @@ func _build_floating_temple_islands() -> void:
 # ---------------------------------------------------------------------------
 
 func _add_cathedral_colliders(root: Node3D) -> void:
-	# Lower podium platform (y = 0..4, size = 88x4x62, pos = (0, 2, 2))
-	_add_box_collider(root, "CathedralLowerPodiumCollider", Vector3(88.0, 4.0, 62.0), Vector3(0.0, 2.0, 2.0))
-	# Upper sanctuary dais (y = 4..8, size = 72x4x48, pos = (0, 6, 2))
-	_add_box_collider(root, "CathedralUpperDaisCollider", Vector3(72.0, 4.0, 48.0), Vector3(0.0, 6.0, 2.0))
+	# Lower flanking garden terrace wings (y = 0..4.0, x = +-15..+-44, z = -22..+32)
+	_add_box_collider(root, "CathedralLowerTerrace_W", Vector3(29.0, 4.0, 54.0), Vector3(-29.5, 2.0, 5.0))
+	_add_box_collider(root, "CathedralLowerTerrace_E", Vector3(29.0, 4.0, 54.0), Vector3(29.5, 2.0, 5.0))
 
-	# Smooth sloped front ceremonial stairs ramp connecting y = 0 (z = 38) up to y = 8 (z = 25)
-	var stair_dz: float = 13.0
+	# Main Rotunda & Panoramic Side Galleries floor slab (top strictly at y = 8.0, covering x = -38..+38, z = -22..+24)
+	_add_box_collider(root, "CathedralRotundaFloorCollider", Vector3(76.0, 4.0, 46.0), Vector3(0.0, 6.0, 1.0))
+
+	# North Cloud Horizon Balcony floor slab (top strictly at y = 8.0, covering x = -18..+18, z = -34..-18)
+	_add_box_collider(root, "CathedralNorthBalconyCollider", Vector3(36.0, 4.0, 16.0), Vector3(0.0, 6.0, -26.0))
+
+	# Smooth sloped front ceremonial stairs ramp connecting y = 0.0 (z = +38.0) up to y = 8.0 (z = +24.0), width 28m
+	var stair_dz: float = 14.0
 	var stair_dy: float = 8.0
 	var ramp_angle: float = atan2(stair_dy, stair_dz)
-	var ramp_len: float = sqrt(stair_dz * stair_dz + stair_dy * stair_dy) + 0.8
+	var ramp_len: float = sqrt(stair_dz * stair_dz + stair_dy * stair_dy) + 0.9
 	var ramp_thickness: float = 2.4
-	var ramp_center := Vector3(
+	var ramp_center: Vector3 = Vector3(
 		0.0,
 		4.0 - cos(ramp_angle) * (ramp_thickness * 0.5),
-		31.5 - sin(ramp_angle) * (ramp_thickness * 0.5)
+		31.0 - sin(ramp_angle) * (ramp_thickness * 0.5)
 	)
 	var stairs_ramp: StaticBody3D = _add_box_collider(
 		root, "CathedralFrontStairsRampCollider",
-		Vector3(32.0, ramp_thickness, ramp_len),
+		Vector3(28.0, ramp_thickness, ramp_len),
 		ramp_center
 	)
 	stairs_ramp.rotation.x = ramp_angle
+
+	# Perimeter balustrade guard colliders ONLY on outer edges of balconies
+	# (Front stairs, Rotunda center, East/West gallery archways, and North balcony archway remain 100% open!)
+	_add_box_collider(root, "BalustradeGuard_WestOuter", Vector3(0.9, 1.6, 38.0), Vector3(-37.5, 8.8, 1.0))
+	_add_box_collider(root, "BalustradeGuard_EastOuter", Vector3(0.9, 1.6, 38.0), Vector3(37.5, 8.8, 1.0))
+	_add_box_collider(root, "BalustradeGuard_WestFront", Vector3(15.5, 1.6, 0.9), Vector3(-29.8, 8.8, 19.6))
+	_add_box_collider(root, "BalustradeGuard_EastFront", Vector3(15.5, 1.6, 0.9), Vector3(29.8, 8.8, 19.6))
+	_add_box_collider(root, "BalustradeGuard_WestRear", Vector3(15.5, 1.6, 0.9), Vector3(-29.8, 8.8, -17.6))
+	_add_box_collider(root, "BalustradeGuard_EastRear", Vector3(15.5, 1.6, 0.9), Vector3(29.8, 8.8, -17.6))
+	_add_box_collider(root, "BalustradeGuard_NorthWest", Vector3(0.9, 1.6, 13.0), Vector3(-15.6, 8.8, -24.5))
+	_add_box_collider(root, "BalustradeGuard_NorthEast", Vector3(0.9, 1.6, 13.0), Vector3(15.6, 8.8, -24.5))
+	_add_box_collider(root, "BalustradeGuard_NorthTip", Vector3(22.0, 1.6, 0.9), Vector3(0.0, 8.8, -33.6))
+
+
+func _build_rotunda_skylight_sunbeam(root: Node3D) -> void:
+	# Soft vertical Skylight Sunbeam God-Ray descending from the Castle glass dome (y = 46 down to y = 8)
+	_add_cylinder_mesh(
+		root, "RotundaSkylightSunbeam",
+		6.8, 10.5, 38.0, 24,
+		Vector3(0.0, 27.0, 0.0),
+		_mat_skylight_ray, false
+	)
+	# Warm sunlit fill illuminating the Rotunda marble floor, fluted columns, Mentors, and Earth Mirror
+	var rotunda_light: OmniLight3D = OmniLight3D.new()
+	rotunda_light.name = "RotundaSkylightFill"
+	rotunda_light.position = Vector3(0.0, 26.0, 2.0)
+	rotunda_light.light_color = Color("#FFF4DC")
+	rotunda_light.light_energy = 2.2
+	rotunda_light.omni_range = 48.0
+	rotunda_light.omni_attenuation = 1.15
+	root.add_child(rotunda_light)
 
 
 func _build_colossal_cathedral() -> void:
@@ -721,7 +797,8 @@ func _build_colossal_cathedral() -> void:
 
 	if _try_instantiate_override(cathedral_model_path, root, Vector3.ZERO):
 		_add_cathedral_colliders(root)
-		_build_cathedral_astrolabe_rings(root, Vector3(0.0, 62.0, 8.0))
+		_build_rotunda_skylight_sunbeam(root)
+		_build_cathedral_astrolabe_rings(root, Vector3(0.0, 92.0, 0.0))
 		return
 
 	# Grand stepped obsidian-indigo sanctuary dais & deep foundation
@@ -921,55 +998,86 @@ func _build_golden_threads_of_destiny() -> void:
 	root.name = "GoldenThreadsOfDestiny"
 	add_child(root)
 
-	# Cubic Bezier curves sweeping gracefully through the sky canyon toward the Cathedral
+	# Symmetrical Sacred-Geometry luminous golden ley-line web connecting:
+	# Plaza (0,0,22) -> Twin Gate Islands (+-28, 3.5, -36) -> Central Heart (0, 6.5, -106)
+	# -> Twin Memory Islands (+-34, 9.5, -176) -> Castle Rotunda Portal & Skylight Dome (0, 28..56, -256)
 	var threads := [
+		# Central Axial Spine linking Plaza -> Heart of the Sky -> Castle Rotunda Skylight
 		{
-			"name": "PrimaryDestinyThread",
-			"p0": Vector3(0.0, 3.2, 22.0),
-			"p1": Vector3(-14.0, 14.0, -60.0),
-			"p2": Vector3(12.0, 26.0, -175.0),
-			"p3": Vector3(0.0, 48.0, -266.0),
-			"radius": 0.24,
+			"name": "AxialDestinySpine",
+			"p0": Vector3(0.0, 2.8, 22.0),
+			"p1": Vector3(0.0, 14.5, -68.0),
+			"p2": Vector3(0.0, 22.0, -176.0),
+			"p3": Vector3(0.0, 44.0, -256.0),
+			"radius": 0.22,
 		},
+		# First Sacred Diamond: Plaza -> Gate of Awakening (West & East) -> Heart of the Sky
 		{
-			"name": "WestIslandRibbon",
-			"p0": Vector3(-7.0, 6.0, 26.0),
-			"p1": Vector3(-34.0, 18.0, -45.0),
-			"p2": Vector3(-38.0, 28.0, -160.0),
-			"p3": Vector3(-12.0, 62.0, -268.0),
+			"name": "GateDiamond_West",
+			"p0": Vector3(-5.0, 2.6, 22.5),
+			"p1": Vector3(-28.0, 13.5, -18.0),
+			"p2": Vector3(-28.0, 14.5, -56.0),
+			"p3": Vector3(0.0, 16.0, -106.0),
 			"radius": 0.16,
 		},
 		{
-			"name": "EastViaductRibbon",
-			"p0": Vector3(8.0, 7.5, 25.0),
-			"p1": Vector3(36.0, 24.0, -70.0),
-			"p2": Vector3(26.0, 16.0, -190.0),
-			"p3": Vector3(10.0, 56.0, -268.0),
+			"name": "GateDiamond_East",
+			"p0": Vector3(5.0, 2.6, 22.5),
+			"p1": Vector3(28.0, 13.5, -18.0),
+			"p2": Vector3(28.0, 14.5, -56.0),
+			"p3": Vector3(0.0, 16.0, -106.0),
+			"radius": 0.16,
+		},
+		# Second Sacred Diamond: Heart of the Sky -> Pillars of Memory (West & East) -> Castle Rotunda Archway
+		{
+			"name": "MemoryDiamond_West",
+			"p0": Vector3(0.0, 16.0, -106.0),
+			"p1": Vector3(-34.0, 20.5, -152.0),
+			"p2": Vector3(-34.0, 22.0, -198.0),
+			"p3": Vector3(-8.0, 28.0, -256.0),
 			"radius": 0.16,
 		},
 		{
-			"name": "HighCelestialArcLeft",
-			"p0": Vector3(-42.0, 26.0, -10.0),
-			"p1": Vector3(-18.0, 48.0, -105.0),
-			"p2": Vector3(22.0, 54.0, -195.0),
-			"p3": Vector3(0.0, 76.0, -268.0),
+			"name": "MemoryDiamond_East",
+			"p0": Vector3(0.0, 16.0, -106.0),
+			"p1": Vector3(34.0, 20.5, -152.0),
+			"p2": Vector3(34.0, 22.0, -198.0),
+			"p3": Vector3(8.0, 28.0, -256.0),
+			"radius": 0.16,
+		},
+		# Outer Twin Celestial Flank Ribbons linking Gate Islands -> Memory Islands -> Castle Crown
+		{
+			"name": "OuterCelestialRibbon_West",
+			"p0": Vector3(-28.0, 14.0, -36.0),
+			"p1": Vector3(-44.0, 26.0, -106.0),
+			"p2": Vector3(-38.0, 32.0, -186.0),
+			"p3": Vector3(-16.0, 58.0, -264.0),
 			"radius": 0.14,
 		},
 		{
-			"name": "HighCelestialArcRight",
-			"p0": Vector3(38.0, 22.0, 5.0),
-			"p1": Vector3(14.0, 42.0, -95.0),
-			"p2": Vector3(-24.0, 46.0, -185.0),
-			"p3": Vector3(0.0, 68.0, -268.0),
+			"name": "OuterCelestialRibbon_East",
+			"p0": Vector3(28.0, 14.0, -36.0),
+			"p1": Vector3(44.0, 26.0, -106.0),
+			"p2": Vector3(38.0, 32.0, -186.0),
+			"p3": Vector3(16.0, 58.0, -264.0),
+			"radius": 0.14,
+		},
+		# High Symmetrical Canopy Arcs framing the Twin Viaducts up to the Castle Astrolabe
+		{
+			"name": "HighViaductArc_West",
+			"p0": Vector3(-52.0, 26.0, -12.0),
+			"p1": Vector3(-36.0, 48.0, -106.0),
+			"p2": Vector3(-18.0, 62.0, -195.0),
+			"p3": Vector3(0.0, 78.0, -268.0),
 			"radius": 0.13,
 		},
 		{
-			"name": "DeepCanyonThread",
-			"p0": Vector3(-4.0, 1.5, 20.0),
-			"p1": Vector3(-22.0, 2.0, -95.0),
-			"p2": Vector3(20.0, 10.0, -192.0),
-			"p3": Vector3(0.0, 32.0, -268.0),
-			"radius": 0.12,
+			"name": "HighViaductArc_East",
+			"p0": Vector3(52.0, 26.0, -12.0),
+			"p1": Vector3(36.0, 48.0, -106.0),
+			"p2": Vector3(18.0, 62.0, -195.0),
+			"p3": Vector3(0.0, 78.0, -268.0),
+			"radius": 0.13,
 		},
 	]
 
@@ -1212,6 +1320,17 @@ func _classify_glb_surface_material(src_mat: Material) -> Material:
 
 	if src_mat != null:
 		mat_name = src_mat.resource_name.to_lower()
+		# Explicit Walkable Fairytale Castle material mappings (zero shimmer, crisp identity)
+		if mat_name.contains("glass") or mat_name.contains("skylight"):
+			return _mat_glass_skylight
+		if mat_name.contains("window"):
+			return _mat_warm_window
+		if mat_name.contains("blueroof") or mat_name.contains("blue_roof"):
+			return _mat_cobalt_trim
+		if mat_name.contains("floormarble") or mat_name.contains("floor_marble"):
+			return _mat_polished_marble
+		if mat_name.contains("whitestone") or mat_name.contains("white_stone"):
+			return _mat_indigo_stone
 		if mat_name.contains("gold") or mat_name.contains("brass"):
 			is_gold = true
 		if src_mat is BaseMaterial3D:
@@ -1239,7 +1358,7 @@ func _classify_glb_surface_material(src_mat: Material) -> Material:
 		return _mat_polished_marble
 
 	if has_pbr:
-		if albedo.b > 0.22:
+		if albedo.b > 0.22 and albedo.b > albedo.r * 1.15:
 			return _mat_cobalt_trim
 		if albedo.b < 0.04:
 			return _mat_dark_obsidian

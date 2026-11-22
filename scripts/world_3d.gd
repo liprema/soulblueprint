@@ -28,6 +28,7 @@ var _total_lanterns: int = 9
 var _dust_motes: GPUParticles3D = null
 var _sakura_petals: GPUParticles3D = null
 var _garden_decorator: AkashaGardenDecorator = null
+var _castle_interactables: CastleInteractables3D = null
 
 var _is_in_gameplay: bool = false
 var _is_transitioning: bool = false
@@ -40,6 +41,7 @@ var _checkpoint_timer: float = 0.0
 func _ready() -> void:
 	_spawn_lanterns()
 	_setup_garden_decorator()
+	_setup_castle_interactables()
 	_setup_atmospheric_dust_motes()
 	_setup_sakura_petals()
 	_connect_signals()
@@ -79,6 +81,15 @@ func _setup_garden_decorator() -> void:
 	_garden_decorator.name = "AkashaGardenDecorator"
 	add_child(_garden_decorator)
 	_garden_decorator.populate_garden(architecture)
+
+
+func _setup_castle_interactables() -> void:
+	if _castle_interactables != null and is_instance_valid(_castle_interactables):
+		_castle_interactables.queue_free()
+
+	_castle_interactables = CastleInteractables3D.new()
+	_castle_interactables.name = "CastleInteractables3D"
+	add_child(_castle_interactables)
 
 
 func _setup_atmospheric_dust_motes() -> void:
@@ -328,6 +339,10 @@ func _connect_signals() -> void:
 		if earth_mirror.has_signal("player_entered_portal"):
 			earth_mirror.connect("player_entered_portal", _on_player_entered_portal)
 
+	if _castle_interactables != null and is_instance_valid(_castle_interactables):
+		if _castle_interactables.has_signal("relic_interacted"):
+			_castle_interactables.connect("relic_interacted", _on_castle_relic_interacted)
+
 
 func _apply_audio_setting() -> void:
 	if audio_manager and audio_manager.has_method("set_muted") and SaveManager != null:
@@ -438,6 +453,8 @@ func _reset_world_for_new_game() -> void:
 		earth_mirror.call("reset_to_dormant")
 	if sanctuary_mentors and sanctuary_mentors.has_method("highlight_speaker"):
 		sanctuary_mentors.call("highlight_speaker", "")
+	if _castle_interactables != null and is_instance_valid(_castle_interactables):
+		_castle_interactables.reset_all_relics()
 
 
 func _restore_world_from_save() -> void:
@@ -520,17 +537,29 @@ func _unhandled_input(event: InputEvent) -> void:
 	if dialogue_manager and dialogue_manager.has_method("is_active") and bool(dialogue_manager.call("is_active")):
 		return
 
-	if event is InputEventKey:
+	var pressed_interact: bool = false
+	if InputMap.has_action("interact") and event.is_action_pressed("interact"):
+		pressed_interact = true
+	elif event is InputEventKey:
 		var key_ev: InputEventKey = event as InputEventKey
-		if key_ev.pressed and not key_ev.echo and key_ev.keycode == KEY_ESCAPE:
-			# If mouse is already released (not captured by 3D look), Escape opens the Main Menu
-			if Input.mouse_mode == Input.MOUSE_MODE_VISIBLE:
-				get_viewport().set_input_as_handled()
-				_return_to_main_menu()
+		if key_ev.pressed and not key_ev.echo:
+			if key_ev.keycode == KEY_ESCAPE:
+				# If mouse is already released (not captured by 3D look), Escape opens the Main Menu
+				if Input.mouse_mode == Input.MOUSE_MODE_VISIBLE:
+					get_viewport().set_input_as_handled()
+					_return_to_main_menu()
+				return
+			if key_ev.keycode == KEY_E or key_ev.physical_keycode == KEY_E:
+				pressed_interact = true
+
+	if pressed_interact and player != null and _castle_interactables != null and is_instance_valid(_castle_interactables):
+		var relic_seq: String = _castle_interactables.interact_nearest(player.global_position)
+		if not relic_seq.is_empty():
+			get_viewport().set_input_as_handled()
 
 
 # ---------------------------------------------------------------------------
-# Gameplay Signals (Soul Call, Lanterns, Mentors, Earth Mirror)
+# Gameplay Signals (Soul Call, Lanterns, Mentors, Earth Mirror, Castle Relics)
 # ---------------------------------------------------------------------------
 
 func _on_player_soul_call(origin: Vector3) -> void:
@@ -538,6 +567,9 @@ func _on_player_soul_call(origin: Vector3) -> void:
 		soul_call.call("trigger", origin)
 	if audio_manager and audio_manager.has_method("play_soul_call"):
 		audio_manager.call("play_soul_call")
+
+	if dialogue_manager and dialogue_manager.has_method("is_active") and bool(dialogue_manager.call("is_active")):
+		return
 
 	# 1. Check if Earth Mirror is ready for awakening via Soul Call [Q]
 	if earth_mirror and earth_mirror.has_method("respond_to_soul_call"):
@@ -552,6 +584,25 @@ func _on_player_soul_call(origin: Vector3) -> void:
 			var stage: String = SaveManager.prologue_stage if SaveManager != null else "exploring"
 			if stage == "exploring" or stage == "intro":
 				_start_dialogue_sequence("first_contract")
+				return
+
+	# 3. Check if player is calling to a Castle relic (Fountain, Chronicle Book, Kronos Astrolabe)
+	if _castle_interactables != null and is_instance_valid(_castle_interactables):
+		_castle_interactables.respond_to_soul_call(origin)
+
+
+func _on_castle_relic_interacted(relic_id: String, dialogue_sequence_id: String) -> void:
+	if dialogue_manager and dialogue_manager.has_method("is_active") and bool(dialogue_manager.call("is_active")):
+		return
+
+	if audio_manager and audio_manager.has_method("play_lantern_chime"):
+		var chime_idx: int = 0
+		if _castle_interactables != null and is_instance_valid(_castle_interactables):
+			chime_idx = _castle_interactables.get_chime_index_for_relic(relic_id)
+		audio_manager.call("play_lantern_chime", chime_idx)
+
+	if not dialogue_sequence_id.is_empty():
+		_start_dialogue_sequence(dialogue_sequence_id)
 
 
 func _on_player_wing_energy_changed(current: float, max_energy: float) -> void:
@@ -789,18 +840,43 @@ func _process(delta: float) -> void:
 			return
 
 	# 3. Contextual gentle Sky-style interaction prompts
+	_update_interaction_prompt(p_pos, stage)
+
+
+func _update_interaction_prompt(p_pos: Vector3, stage: String) -> void:
+	var relic_prompt: String = ""
+	if _castle_interactables != null and is_instance_valid(_castle_interactables):
+		relic_prompt = _castle_interactables.get_interaction_prompt(p_pos)
+
+	var near_mirror_close: bool = earth_mirror != null and p_pos.distance_to(earth_mirror.global_position) <= 16.0
+	var near_mirror_zone: bool = (
+		earth_mirror != null
+		and earth_mirror.has_method("is_player_near_call_zone")
+		and bool(earth_mirror.call("is_player_near_call_zone", p_pos))
+	)
+
 	var prompt: String = ""
-	if stage == "exploring" or stage == "intro":
+	if stage == "contract_spoken":
+		if near_mirror_close:
+			prompt = "✦  [Q]  Пробудить Зеркало Земли"
+		elif not relic_prompt.is_empty():
+			prompt = relic_prompt
+		elif near_mirror_zone:
+			prompt = "✦  [Q]  Пробудить Зеркало Земли"
+	elif stage == "mirror_awakened" or stage == "prologue_complete":
+		if near_mirror_close:
+			prompt = "✦  Шагните в Зеркало Земли"
+		elif not relic_prompt.is_empty():
+			prompt = relic_prompt
+		elif near_mirror_zone:
+			prompt = "✦  Шагните в Зеркало Земли"
+	elif stage == "exploring" or stage == "intro":
 		if sanctuary_mentors and sanctuary_mentors.has_method("is_player_in_talk_range"):
 			if bool(sanctuary_mentors.call("is_player_in_talk_range", p_pos)):
 				prompt = "✦  [Q]  Откликнуться Наставникам"
-	elif stage == "contract_spoken":
-		if earth_mirror and earth_mirror.has_method("is_player_near_call_zone"):
-			if bool(earth_mirror.call("is_player_near_call_zone", p_pos)):
-				prompt = "✦  [Q]  Пробудить Зеркало Земли"
-	elif stage == "mirror_awakened" or stage == "prologue_complete":
-		if earth_mirror and earth_mirror.has_method("is_player_near_call_zone"):
-			if bool(earth_mirror.call("is_player_near_call_zone", p_pos)):
-				prompt = "✦  Шагните в Зеркало Земли"
+		if prompt.is_empty() and not relic_prompt.is_empty():
+			prompt = relic_prompt
+	elif not relic_prompt.is_empty():
+		prompt = relic_prompt
 
 	_update_prompt(prompt)

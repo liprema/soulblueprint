@@ -40,6 +40,10 @@ const BASE_STAR_EMISSION: float = 0.85
 
 class MentorMaterialSet:
 	var skin: StandardMaterial3D = null
+	var lips: StandardMaterial3D = null
+	var eye_sclera: StandardMaterial3D = null
+	var eye_iris: StandardMaterial3D = null
+	var eyelash: StandardMaterial3D = null
 	var hair: StandardMaterial3D = null
 	var robe: ShaderMaterial = null
 	var silk_veil: StandardMaterial3D = null
@@ -48,6 +52,7 @@ class MentorMaterialSet:
 	var gold: StandardMaterial3D = null
 	var crystal: StandardMaterial3D = null
 	var star: StandardMaterial3D = null
+
 
 
 var _alatea_root: Node3D = null
@@ -277,69 +282,106 @@ func _init_materials() -> void:
 	_mira_body_mat.set_shader_parameter("hem_fade_start", 0.0)
 	_mira_body_mat.set_shader_parameter("hem_fade_end", 1.05)
 
-	# Realistic warm cream-beige sculpted angelic feathers (minimal emission so every feather casts crisp 3D shadows)
+	# Procedural micro-normal bump textures (triplanar-mapped for crisp realism on sculpted GLBs)
+	var skin_bump_tex: NoiseTexture2D = _make_procedural_normal_tex(256, 0.085, 3, 2.2)
+	var hair_bump_tex: NoiseTexture2D = _make_procedural_normal_tex(256, 0.055, 4, 4.5)
+	var feather_bump_tex: NoiseTexture2D = _make_procedural_normal_tex(256, 0.065, 4, 3.8)
+	var silk_bump_tex: NoiseTexture2D = _make_procedural_normal_tex(256, 0.110, 2, 1.8)
+
+	# Realistic warm creamy-ivory sculpted angelic feathers with subtle barb micro-bump (ref_8.jpg)
 	var alatea_wing_mat: StandardMaterial3D = StandardMaterial3D.new()
-	alatea_wing_mat.albedo_color = Color("#ECE1CE")
-	alatea_wing_mat.roughness = 0.48
+	alatea_wing_mat.albedo_color = Color("#F0E6D6")
+	alatea_wing_mat.roughness = 0.52
 	alatea_wing_mat.metallic = 0.02
 	alatea_wing_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	alatea_wing_mat.normal_enabled = true
+	alatea_wing_mat.normal_texture = feather_bump_tex
+	alatea_wing_mat.normal_scale = 0.24
+	alatea_wing_mat.uv1_triplanar = true
+	alatea_wing_mat.uv1_scale = Vector3(5.5, 2.2, 5.5)
 	alatea_wing_mat.emission_enabled = true
-	alatea_wing_mat.emission = Color("#F4E9D6")
-	alatea_wing_mat.emission_energy_multiplier = 0.03
+	alatea_wing_mat.emission = Color("#F5EBD8")
+	alatea_wing_mat.emission_energy_multiplier = 0.025
 
+	# Rich brushed satin-gold inner coverts & raised feather quills (ref_8.jpg)
 	var alatea_wing_tip_mat: StandardMaterial3D = StandardMaterial3D.new()
-	alatea_wing_tip_mat.albedo_color = COLOR_SATIN_GOLD
-	alatea_wing_tip_mat.metallic = 0.78
-	alatea_wing_tip_mat.roughness = 0.36
+	alatea_wing_tip_mat.albedo_color = Color("#E4C072")
+	alatea_wing_tip_mat.metallic = 0.86
+	alatea_wing_tip_mat.roughness = 0.28
 	alatea_wing_tip_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	alatea_wing_tip_mat.normal_enabled = true
+	alatea_wing_tip_mat.normal_texture = feather_bump_tex
+	alatea_wing_tip_mat.normal_scale = 0.18
+	alatea_wing_tip_mat.uv1_triplanar = true
+	alatea_wing_tip_mat.uv1_scale = Vector3(4.5, 2.0, 4.5)
 	alatea_wing_tip_mat.emission_enabled = true
 	alatea_wing_tip_mat.emission = COLOR_BRIGHT_GOLD
 	alatea_wing_tip_mat.emission_energy_multiplier = BASE_GOLD_EMISSION
 
 	var mira_wing_mat: StandardMaterial3D = StandardMaterial3D.new()
-	mira_wing_mat.albedo_color = Color("#EAE0CE")
-	mira_wing_mat.roughness = 0.48
+	mira_wing_mat.albedo_color = Color("#EEE4D3")
+	mira_wing_mat.roughness = 0.52
 	mira_wing_mat.metallic = 0.02
 	mira_wing_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	mira_wing_mat.normal_enabled = true
+	mira_wing_mat.normal_texture = feather_bump_tex
+	mira_wing_mat.normal_scale = 0.24
+	mira_wing_mat.uv1_triplanar = true
+	mira_wing_mat.uv1_scale = Vector3(5.5, 2.2, 5.5)
 	mira_wing_mat.emission_enabled = true
-	mira_wing_mat.emission = Color("#F2E6D2")
-	mira_wing_mat.emission_energy_multiplier = 0.03
+	mira_wing_mat.emission = Color("#F4E8D4")
+	mira_wing_mat.emission_energy_multiplier = 0.025
 
 	var mira_wing_tip_mat: StandardMaterial3D = StandardMaterial3D.new()
-	mira_wing_tip_mat.albedo_color = COLOR_SATIN_GOLD
-	mira_wing_tip_mat.metallic = 0.78
-	mira_wing_tip_mat.roughness = 0.36
+	mira_wing_tip_mat.albedo_color = Color("#E4C072")
+	mira_wing_tip_mat.metallic = 0.86
+	mira_wing_tip_mat.roughness = 0.28
 	mira_wing_tip_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	mira_wing_tip_mat.normal_enabled = true
+	mira_wing_tip_mat.normal_texture = feather_bump_tex
+	mira_wing_tip_mat.normal_scale = 0.18
+	mira_wing_tip_mat.uv1_triplanar = true
+	mira_wing_tip_mat.uv1_scale = Vector3(4.5, 2.0, 4.5)
 	mira_wing_tip_mat.emission_enabled = true
 	mira_wing_tip_mat.emission = COLOR_BRIGHT_GOLD
 	mira_wing_tip_mat.emission_energy_multiplier = BASE_GOLD_EMISSION
 
-	# Alatea: Sunlit champagne-beige & antique-gold angel with celestial sapphire crystal accents
+	# Alatea: Warm porcelain-beige angel, honey-beige hair, luminous sapphire-amber irises, celestial sapphire accents
 	_alatea_mats = _create_mentor_material_set(
 		_alatea_body_mat,
-		Color("#E8D3BE"),
-		Color("#D2B896"),
+		Color("#EAD5C0"),
+		Color("#D4B892"),
 		Color("#DEC6A6"),
-		Color(0.93, 0.87, 0.78, 0.44),
-		Color("#F5E9D6"),
+		Color("#5A8AC2"),
+		Color("#C69E68"),
+		Color(0.96, 0.93, 0.88, 0.42),
+		Color("#F7EFE2"),
 		Color("#74B0E2"),
 		Color("#8AC2F0"),
 		alatea_wing_mat,
-		alatea_wing_tip_mat
+		alatea_wing_tip_mat,
+		skin_bump_tex,
+		hair_bump_tex,
+		silk_bump_tex
 	)
 
-	# Mira: Warm sand-cream & antique-gold angel with warm champagne-pearl crystal accents
+	# Mira: Warm porcelain-beige angel, soft chestnut-gold hair, warm honey-hazel irises, champagne-pearl accents
 	_mira_mats = _create_mentor_material_set(
 		_mira_body_mat,
-		Color("#EAD4BE"),
-		Color("#C9AC88"),
-		Color("#D8BC98"),
-		Color(0.93, 0.87, 0.78, 0.44),
-		Color("#F3E5D0"),
+		Color("#ECD6C0"),
+		Color("#B5895C"),
+		Color("#CCA476"),
+		Color("#987042"),
+		Color("#CFA262"),
+		Color(0.96, 0.93, 0.88, 0.42),
+		Color("#F7EFE2"),
 		Color("#E8CEB0"),
 		Color("#F2DEC4"),
 		mira_wing_mat,
-		mira_wing_tip_mat
+		mira_wing_tip_mat,
+		skin_bump_tex,
+		hair_bump_tex,
+		silk_bump_tex
 	)
 
 	# Keep legacy references bound to Alatea's gold & starlight materials for procedural fallbacks
@@ -361,62 +403,147 @@ func _init_materials() -> void:
 	_mira_halo_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 
 
+func _make_procedural_normal_tex(
+	tex_size: int,
+	freq: float,
+	octaves: int,
+	bump_strength: float
+) -> NoiseTexture2D:
+	var noise: FastNoiseLite = FastNoiseLite.new()
+	noise.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
+	noise.frequency = freq
+	noise.fractal_octaves = octaves
+
+	var tex: NoiseTexture2D = NoiseTexture2D.new()
+	tex.width = tex_size
+	tex.height = tex_size
+	tex.seamless = true
+	tex.as_normal_map = true
+	tex.bump_strength = bump_strength
+	tex.noise = noise
+	return tex
+
+
 func _create_mentor_material_set(
 	robe_mat: ShaderMaterial,
 	skin_albedo: Color,
 	hair_albedo: Color,
 	hair_emission: Color,
+	iris_albedo: Color,
+	iris_emission: Color,
 	veil_albedo: Color,
 	veil_emission: Color,
 	crystal_albedo: Color,
 	crystal_emission: Color,
 	wing_ivory_mat: StandardMaterial3D,
-	wing_gold_tip_mat: StandardMaterial3D
+	wing_gold_tip_mat: StandardMaterial3D,
+	skin_bump_tex: NoiseTexture2D,
+	hair_bump_tex: NoiseTexture2D,
+	silk_bump_tex: NoiseTexture2D
 ) -> MentorMaterialSet:
 	var mat_set: MentorMaterialSet = MentorMaterialSet.new()
 	mat_set.robe = robe_mat
 	mat_set.wing_ivory = wing_ivory_mat
 	mat_set.wing_gold_tip = wing_gold_tip_mat
 
-	# 1. Mat_MentorSkin: realistic sunlit natural beige-ivory porcelain skin with real 3D shadows
+	# 1. Mat_MentorSkin: realistic warm porcelain-beige skin with SSS & micro-normal detail (ref_7.jpg)
 	var skin_mat: StandardMaterial3D = StandardMaterial3D.new()
 	skin_mat.albedo_color = skin_albedo
 	skin_mat.roughness = 0.42
 	skin_mat.metallic = 0.0
-	skin_mat.clearcoat_enabled = false
+	skin_mat.subsurf_scatter_enabled = true
+	skin_mat.subsurf_scatter_strength = 0.35
+	skin_mat.subsurf_scatter_skin_mode = true
+	skin_mat.normal_enabled = true
+	skin_mat.normal_texture = skin_bump_tex
+	skin_mat.normal_scale = 0.12
+	skin_mat.uv1_triplanar = true
+	skin_mat.uv1_scale = Vector3(8.0, 8.0, 8.0)
 	skin_mat.emission_enabled = true
 	skin_mat.emission = Color("#EBD2B8")
-	skin_mat.emission_energy_multiplier = 0.04
+	skin_mat.emission_energy_multiplier = 0.03
 	mat_set.skin = skin_mat
 
-	# 2. Mat_MentorHair: realistic warm honey-beige / wheat-champagne sculpted hair
+	# 1b. Mat_MentorLips: soft warm dusty-rose satin lips (ref_7.jpg)
+	var lips_mat: StandardMaterial3D = StandardMaterial3D.new()
+	lips_mat.albedo_color = Color("#C9897E")
+	lips_mat.roughness = 0.28
+	lips_mat.metallic = 0.0
+	lips_mat.subsurf_scatter_enabled = true
+	lips_mat.subsurf_scatter_strength = 0.25
+	lips_mat.subsurf_scatter_skin_mode = true
+	mat_set.lips = lips_mat
+
+	# 1c. Mat_EyeSclera: glossy wet sclera & cornea
+	var sclera_mat: StandardMaterial3D = StandardMaterial3D.new()
+	sclera_mat.albedo_color = Color("#F5F1EA")
+	sclera_mat.roughness = 0.04
+	sclera_mat.metallic = 0.0
+	sclera_mat.clearcoat_enabled = true
+	sclera_mat.clearcoat = 1.0
+	sclera_mat.clearcoat_roughness = 0.03
+	mat_set.eye_sclera = sclera_mat
+
+	# 1d. Mat_EyeIris: glossy wet luminous iris (sapphire-amber for Alatea, honey-hazel for Mira)
+	var iris_mat: StandardMaterial3D = StandardMaterial3D.new()
+	iris_mat.albedo_color = iris_albedo
+	iris_mat.roughness = 0.04
+	iris_mat.metallic = 0.06
+	iris_mat.clearcoat_enabled = true
+	iris_mat.clearcoat = 1.0
+	iris_mat.clearcoat_roughness = 0.03
+	iris_mat.emission_enabled = true
+	iris_mat.emission = iris_emission
+	iris_mat.emission_energy_multiplier = 0.16
+	mat_set.eye_iris = iris_mat
+
+	# 1e. Mat_MentorLash: delicate warm espresso-taupe eyelashes, eyebrows & pupil
+	var lash_mat: StandardMaterial3D = StandardMaterial3D.new()
+	lash_mat.albedo_color = Color("#3F2E22")
+	lash_mat.roughness = 0.44
+	lash_mat.metallic = 0.0
+	mat_set.eyelash = lash_mat
+
+	# 2. Mat_MentorHair: realistic anisotropic flowing hair with fine strand bump
 	var hair_mat: StandardMaterial3D = StandardMaterial3D.new()
 	hair_mat.albedo_color = hair_albedo
-	hair_mat.roughness = 0.46
-	hair_mat.metallic = 0.10
+	hair_mat.roughness = 0.32
+	hair_mat.metallic = 0.08
+	hair_mat.anisotropy_enabled = true
+	hair_mat.anisotropy = 0.65
+	hair_mat.normal_enabled = true
+	hair_mat.normal_texture = hair_bump_tex
+	hair_mat.normal_scale = 0.30
+	hair_mat.uv1_triplanar = true
+	hair_mat.uv1_scale = Vector3(1.8, 7.5, 1.8)
 	hair_mat.emission_enabled = true
 	hair_mat.emission = hair_emission
-	hair_mat.emission_energy_multiplier = 0.03
+	hair_mat.emission_energy_multiplier = 0.025
 	mat_set.hair = hair_mat
 
-	# 4. Mat_MentorSilkVeil: delicate sheer warm champagne-beige organza
+	# 4. Mat_MentorSilkVeil: semi-transparent shimmering pearl-ivory silk organza (ref_7.jpg)
 	var veil_mat: StandardMaterial3D = StandardMaterial3D.new()
 	veil_mat.albedo_color = veil_albedo
 	veil_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	veil_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
 	veil_mat.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_OPAQUE_ONLY
-	veil_mat.roughness = 0.36
-	veil_mat.metallic = 0.02
+	veil_mat.roughness = 0.24
+	veil_mat.metallic = 0.04
+	veil_mat.normal_enabled = true
+	veil_mat.normal_texture = silk_bump_tex
+	veil_mat.normal_scale = 0.16
+	veil_mat.uv1_triplanar = true
+	veil_mat.uv1_scale = Vector3(9.0, 9.0, 9.0)
 	veil_mat.emission_enabled = true
 	veil_mat.emission = veil_emission
-	veil_mat.emission_energy_multiplier = 0.05
+	veil_mat.emission_energy_multiplier = 0.055
 	mat_set.silk_veil = veil_mat
 
 	# 7. Mat_MentorGold: realistic antique brushed champagne gold filigree
 	var gold_mat: StandardMaterial3D = StandardMaterial3D.new()
-	gold_mat.albedo_color = COLOR_SATIN_GOLD
-	gold_mat.metallic = 0.78
-	gold_mat.roughness = 0.36
+	gold_mat.albedo_color = Color("#E4C072")
+	gold_mat.metallic = 0.86
+	gold_mat.roughness = 0.28
 	gold_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
 	gold_mat.emission_enabled = true
 	gold_mat.emission = COLOR_BRIGHT_GOLD
@@ -499,6 +626,14 @@ func _resolve_mentor_surface_material(
 	mat_set: MentorMaterialSet
 ) -> Material:
 	# Explicit semantic material names first (order prevents substring collisions like WingGoldTip vs Gold)
+	if mat_name.contains("Mat_MentorLips"):
+		return mat_set.lips
+	if mat_name.contains("Mat_EyeSclera"):
+		return mat_set.eye_sclera
+	if mat_name.contains("Mat_EyeIris"):
+		return mat_set.eye_iris
+	if mat_name.contains("Mat_MentorLash"):
+		return mat_set.eyelash
 	if mat_name.contains("Mat_MentorSkin"):
 		return mat_set.skin
 	if mat_name.contains("Mat_MentorHair"):
@@ -519,7 +654,15 @@ func _resolve_mentor_surface_material(
 		return mat_set.robe
 
 	# Legacy / heuristic surface & node name fallbacks
-	if mat_name.contains("WingGold") or node_name_lower.contains("winggold") or node_name_lower.contains("wing_gold"):
+	if mat_name.contains("Lips") or node_name_lower.contains("lips"):
+		return mat_set.lips
+	if mat_name.contains("Sclera") or node_name_lower.contains("sclera"):
+		return mat_set.eye_sclera
+	if mat_name.contains("Iris") or node_name_lower.contains("iris"):
+		return mat_set.eye_iris
+	if mat_name.contains("Lash") or node_name_lower.contains("lash") or node_name_lower.contains("brow"):
+		return mat_set.eyelash
+	if mat_name.contains("WingGold") or node_name_lower.contains("winggold") or node_name_lower.contains("wing_gold") or node_name_lower.contains("wingcovertsgold"):
 		return mat_set.wing_gold_tip
 	if mat_name.contains("Wing") or node_name_lower.contains("wing") or node_name_lower.contains("feather"):
 		return mat_set.wing_ivory
@@ -531,7 +674,7 @@ func _resolve_mentor_surface_material(
 		return mat_set.skin
 	if mat_name.contains("Hair") or node_name_lower.contains("hair"):
 		return mat_set.hair
-	if mat_name.contains("Gold") or node_name_lower.contains("gold") or node_name_lower.contains("halo") or node_name_lower.contains("astrolabe") or node_name_lower.contains("crown"):
+	if mat_name.contains("Gold") or node_name_lower.contains("gold") or node_name_lower.contains("halo") or node_name_lower.contains("astrolabe") or node_name_lower.contains("crown") or node_name_lower.contains("tiara"):
 		return mat_set.gold
 	if mat_name.contains("Star") or node_name_lower.contains("star") or node_name_lower.contains("orb_core"):
 		return mat_set.star

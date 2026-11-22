@@ -78,6 +78,7 @@ func populate_garden(architecture: Node3D = null) -> void:
 	_init_shared_resources()
 
 	_decorate_starting_plaza()
+	_decorate_twin_viaducts()
 	_decorate_floating_islands(architecture)
 	_decorate_cathedral_sanctuary()
 
@@ -259,6 +260,52 @@ func _decorate_starting_plaza() -> void:
 
 
 # ---------------------------------------------------------------------------
+# 1b. Symmetrical Twin Flanking Celestial Viaducts (x = -56.0 & +56.0, y = 14.0)
+# ---------------------------------------------------------------------------
+
+func _decorate_twin_viaducts() -> void:
+	var root: Node3D = Node3D.new()
+	root.name = "TwinViaductsGarden"
+	add_child(root)
+
+	var vine_root: Node3D = Node3D.new()
+	vine_root.name = "ViaductHangingVines"
+	root.add_child(vine_root)
+
+	var planter_zs: Array[float] = [6.0, -36.0, -80.0, -124.0, -168.0, -212.0]
+	var vine_zs: Array[float] = [10.0, -14.0, -38.0, -62.0, -86.0, -110.0, -134.0, -158.0, -182.0, -206.0, -230.0]
+
+	for side_idx: int in range(2):
+		var side_sign: float = -1.0 if side_idx == 0 else 1.0
+		var side_tag: String = "W" if side_sign < 0.0 else "E"
+		var inward_dir: Vector3 = Vector3(-side_sign, 0.0, 0.0)
+		var planter_x: float = side_sign * 52.2
+		var vine_x: float = side_sign * 50.9
+		var yaw_inward: float = deg_to_rad(90.0 if side_sign < 0.0 else -90.0)
+
+		for i: int in range(planter_zs.size()):
+			var pz: float = planter_zs[i]
+			_place_garden_planter(
+				root,
+				"ViaductPlanter_%s_%02d" % [side_tag, i],
+				Vector3(planter_x, 14.0, pz),
+				yaw_inward,
+				1.05
+			)
+
+		for j: int in range(vine_zs.size()):
+			var vz: float = vine_zs[j]
+			var drop_len: float = 2.6 + fmod(float(side_idx * 13 + j * 7 + 2) * 0.6180339, 1.0) * 2.4
+			_build_vine_garland(
+				vine_root,
+				Vector3(vine_x, 13.9, vz),
+				inward_dir,
+				drop_len,
+				300 + side_idx * 20 + j
+			)
+
+
+# ---------------------------------------------------------------------------
 # 2. Five Floating Temple Islands
 # ---------------------------------------------------------------------------
 
@@ -387,17 +434,17 @@ func _resolve_island_positions(architecture: Node3D) -> Array[Vector3]:
 
 func _get_default_island_positions() -> Array[Vector3]:
 	var defaults: Array[Vector3] = [
-		Vector3(-26.0, 6.0, -32.0),
-		Vector3(22.0, 10.0, -88.0),
-		Vector3(-32.0, 14.0, -148.0),
-		Vector3(18.0, 4.0, -195.0),
-		Vector3(-16.0, -2.0, -105.0),
+		Vector3(-28.0, 3.5, -36.0),
+		Vector3(28.0, 3.5, -36.0),
+		Vector3(0.0, 6.5, -106.0),
+		Vector3(-34.0, 9.5, -176.0),
+		Vector3(34.0, 9.5, -176.0),
 	]
 	return defaults
 
 
 # ---------------------------------------------------------------------------
-# 3. Fairytale Castle Grand Staircase, Lower Terrace & Courtyard (z = -280)
+# 3. Walkable Fairytale Castle Outer Terraces, Grand Staircase & Panoramic Galleries (z = -280)
 # ---------------------------------------------------------------------------
 
 func _decorate_cathedral_sanctuary() -> void:
@@ -406,92 +453,80 @@ func _decorate_cathedral_sanctuary() -> void:
 	add_child(root)
 
 	# 12 majestic Castle Trees (6 pink Sakura + 6 lush verdant emerald palace trees, scale 1.15..1.44)
-	# Enveloping lower castle terraces (x = +-20..+-38, y = 4.0) and upper courtyard flanks (x = +-24..+-32, y = 8.0)
-	_place_sakura_tree(root, "CathedralSakura_LowerL", Vector3(-22.0, 4.0, -252.0), deg_to_rad(28.0), 1.20)
-	_place_sakura_tree(root, "CathedralSakura_LowerR", Vector3(22.0, 4.0, -252.0), deg_to_rad(-28.0), 1.22)
-	_place_verdant_tree(root, "CathedralVerdant_MidL", Vector3(-27.5, 4.0, -250.5), deg_to_rad(42.0), 1.28)
-	_place_verdant_tree(root, "CathedralVerdant_MidR", Vector3(27.5, 4.0, -250.5), deg_to_rad(-42.0), 1.30)
-	_place_sakura_tree(root, "CathedralSakura_OuterL", Vector3(-31.5, 4.0, -264.0), deg_to_rad(52.0), 1.34)
-	_place_sakura_tree(root, "CathedralSakura_OuterR", Vector3(31.5, 4.0, -264.0), deg_to_rad(-52.0), 1.36)
-	_place_verdant_tree(root, "CathedralVerdant_FarL", Vector3(-36.5, 4.0, -256.5), deg_to_rad(64.0), 1.42)
-	_place_verdant_tree(root, "CathedralVerdant_FarR", Vector3(36.5, 4.0, -256.5), deg_to_rad(-64.0), 1.44)
+	# Strictly on the outer lower castle garden terraces (y = 4.0, x = +-21..+-42, z = -250..-294)
+	# keeping the Rotunda interior, front stairs, panoramic galleries, and all 3 relic spots 100% clear!
+	_place_sakura_tree(root, "CathedralSakura_LowerL", Vector3(-21.5, 4.0, -251.5), deg_to_rad(28.0), 1.20)
+	_place_sakura_tree(root, "CathedralSakura_LowerR", Vector3(21.5, 4.0, -251.5), deg_to_rad(-28.0), 1.20)
+	_place_verdant_tree(root, "CathedralVerdant_MidL", Vector3(-28.5, 4.0, -250.5), deg_to_rad(42.0), 1.28)
+	_place_verdant_tree(root, "CathedralVerdant_MidR", Vector3(28.5, 4.0, -250.5), deg_to_rad(-42.0), 1.28)
+	_place_sakura_tree(root, "CathedralSakura_OuterFrontL", Vector3(-36.5, 4.0, -252.5), deg_to_rad(52.0), 1.34)
+	_place_sakura_tree(root, "CathedralSakura_OuterFrontR", Vector3(36.5, 4.0, -252.5), deg_to_rad(-52.0), 1.34)
+	_place_verdant_tree(root, "CathedralVerdant_FlankFrontL", Vector3(-41.5, 4.0, -264.0), deg_to_rad(64.0), 1.40)
+	_place_verdant_tree(root, "CathedralVerdant_FlankFrontR", Vector3(41.5, 4.0, -264.0), deg_to_rad(-64.0), 1.40)
+	_place_sakura_tree(root, "CathedralSakura_FlankMidL", Vector3(-41.5, 4.0, -278.0), deg_to_rad(78.0), 1.32)
+	_place_sakura_tree(root, "CathedralSakura_FlankMidR", Vector3(41.5, 4.0, -278.0), deg_to_rad(-78.0), 1.32)
+	_place_verdant_tree(root, "CathedralVerdant_FlankRearL", Vector3(-41.0, 4.0, -292.0), deg_to_rad(106.0), 1.36)
+	_place_verdant_tree(root, "CathedralVerdant_FlankRearR", Vector3(41.0, 4.0, -292.0), deg_to_rad(-106.0), 1.36)
 
-	_place_sakura_tree(root, "CathedralSakura_UpperL", Vector3(-25.0, 8.0, -262.0), deg_to_rad(38.0), 1.15)
-	_place_sakura_tree(root, "CathedralSakura_UpperR", Vector3(25.0, 8.0, -262.0), deg_to_rad(-38.0), 1.18)
-	_place_verdant_tree(root, "CathedralVerdant_UpperL", Vector3(-30.5, 8.0, -271.0), deg_to_rad(56.0), 1.26)
-	_place_verdant_tree(root, "CathedralVerdant_UpperR", Vector3(30.5, 8.0, -271.0), deg_to_rad(-56.0), 1.30)
-
-	# 12 lush rose-and-emerald hedges:
-	# - 6 hugging BOTH sides of the grand staircase cheek walls (x = +-16.8, stepping y = 0 -> 4 -> 8)
+	# 12 lush rose-and-emerald hedges framing the staircase cheek walls & lower terrace edges
+	# (Zero obstruction of the x = -13..+13 grand staircase or x = -12..+12 portal doorway)
 	_place_lush_bush(root, "CathedralHedge_StairBaseL", Vector3(-16.8, 0.0, -242.5), deg_to_rad(90.0), 1.10)
 	_place_lush_bush(root, "CathedralHedge_StairBaseR", Vector3(16.8, 0.0, -242.5), deg_to_rad(-90.0), 1.10)
 	_place_lush_bush(root, "CathedralHedge_StairMidL", Vector3(-16.8, 4.0, -248.8), deg_to_rad(90.0), 1.12)
 	_place_lush_bush(root, "CathedralHedge_StairMidR", Vector3(16.8, 4.0, -248.8), deg_to_rad(-90.0), 1.12)
-	_place_lush_bush(root, "CathedralHedge_StairTopL", Vector3(-16.8, 8.0, -255.0), deg_to_rad(90.0), 1.12)
-	_place_lush_bush(root, "CathedralHedge_StairTopR", Vector3(16.8, 8.0, -255.0), deg_to_rad(-90.0), 1.12)
-	# - 4 lining front edges of lower terrace (y = 4.0)
-	_place_lush_bush(root, "CathedralHedge_LowerFrontInL", Vector3(-21.5, 4.0, -247.6), deg_to_rad(4.0), 1.18)
-	_place_lush_bush(root, "CathedralHedge_LowerFrontInR", Vector3(21.5, 4.0, -247.6), deg_to_rad(-4.0), 1.18)
-	_place_lush_bush(root, "CathedralHedge_LowerFrontOutL", Vector3(-28.5, 4.0, -247.6), deg_to_rad(-6.0), 1.22)
-	_place_lush_bush(root, "CathedralHedge_LowerFrontOutR", Vector3(28.5, 4.0, -247.6), deg_to_rad(6.0), 1.22)
-	# - 2 lining front edges of upper courtyard (y = 8.0)
-	_place_lush_bush(root, "CathedralHedge_UpperFrontL", Vector3(-21.0, 8.0, -254.6), deg_to_rad(5.0), 1.15)
-	_place_lush_bush(root, "CathedralHedge_UpperFrontR", Vector3(21.0, 8.0, -254.6), deg_to_rad(-5.0), 1.15)
+	_place_lush_bush(root, "CathedralHedge_StairTopL", Vector3(-17.4, 8.0, -256.8), deg_to_rad(90.0), 1.05)
+	_place_lush_bush(root, "CathedralHedge_StairTopR", Vector3(17.4, 8.0, -256.8), deg_to_rad(-90.0), 1.05)
+	# Front edges of lower terrace (y = 4.0)
+	_place_lush_bush(root, "CathedralHedge_LowerFrontInL", Vector3(-22.5, 4.0, -248.4), deg_to_rad(4.0), 1.18)
+	_place_lush_bush(root, "CathedralHedge_LowerFrontInR", Vector3(22.5, 4.0, -248.4), deg_to_rad(-4.0), 1.18)
+	_place_lush_bush(root, "CathedralHedge_LowerFrontOutL", Vector3(-31.5, 4.0, -248.4), deg_to_rad(-6.0), 1.22)
+	_place_lush_bush(root, "CathedralHedge_LowerFrontOutR", Vector3(31.5, 4.0, -248.4), deg_to_rad(6.0), 1.22)
+	# Outer front corners of the panoramic side galleries (y = 8.0, well clear of (-24,8,-276) & (+24,8,-276))
+	_place_lush_bush(root, "CathedralHedge_GalleryFrontL", Vector3(-34.8, 8.0, -261.6), deg_to_rad(18.0), 1.02)
+	_place_lush_bush(root, "CathedralHedge_GalleryFrontR", Vector3(34.8, 8.0, -261.6), deg_to_rad(-18.0), 1.02)
 
-	# 8 blooming marble planters (scale 1.15) lining staircase cheek walls & upper courtyard approach
+	# 10 blooming marble planters (scale 1.08..1.15) lining staircase cheek walls, gallery corners & North Terrace entrance
+	# Completely clear of Mentors (0,8,-267), Earth Mirror (0,8,-278), Fountain (-24,8,-276), Book (+24,8,-276), Astrolabe (0,8,-304)
 	_place_garden_planter(root, "CathedralPlanter_BaseL", Vector3(-15.5, 0.0, -242.0), deg_to_rad(90.0), 1.15)
 	_place_garden_planter(root, "CathedralPlanter_BaseR", Vector3(15.5, 0.0, -242.0), deg_to_rad(-90.0), 1.15)
-	_place_garden_planter(root, "CathedralPlanter_MidL", Vector3(-15.5, 4.0, -248.5), deg_to_rad(90.0), 1.15)
-	_place_garden_planter(root, "CathedralPlanter_MidR", Vector3(15.5, 4.0, -248.5), deg_to_rad(-90.0), 1.15)
-	_place_garden_planter(root, "CathedralPlanter_TopL", Vector3(-15.5, 8.0, -255.0), deg_to_rad(90.0), 1.15)
-	_place_garden_planter(root, "CathedralPlanter_TopR", Vector3(15.5, 8.0, -255.0), deg_to_rad(-90.0), 1.15)
-	_place_garden_planter(root, "CathedralPlanter_CourtL", Vector3(-17.5, 8.0, -261.5), deg_to_rad(82.0), 1.15)
-	_place_garden_planter(root, "CathedralPlanter_CourtR", Vector3(17.5, 8.0, -261.5), deg_to_rad(-82.0), 1.15)
+	_place_garden_planter(root, "CathedralPlanter_MidL", Vector3(-15.5, 4.0, -248.8), deg_to_rad(90.0), 1.15)
+	_place_garden_planter(root, "CathedralPlanter_MidR", Vector3(15.5, 4.0, -248.8), deg_to_rad(-90.0), 1.15)
+	_place_garden_planter(root, "CathedralPlanter_TopL", Vector3(-15.6, 8.0, -255.8), deg_to_rad(90.0), 1.12)
+	_place_garden_planter(root, "CathedralPlanter_TopR", Vector3(15.6, 8.0, -255.8), deg_to_rad(-90.0), 1.12)
+	_place_garden_planter(root, "CathedralPlanter_GalleryRearL", Vector3(-35.2, 8.0, -295.8), deg_to_rad(135.0), 1.08)
+	_place_garden_planter(root, "CathedralPlanter_GalleryRearR", Vector3(35.2, 8.0, -295.8), deg_to_rad(-135.0), 1.08)
+	_place_garden_planter(root, "CathedralPlanter_NorthTerraceL", Vector3(-13.8, 8.0, -300.2), deg_to_rad(90.0), 1.08)
+	_place_garden_planter(root, "CathedralPlanter_NorthTerraceR", Vector3(13.8, 8.0, -300.2), deg_to_rad(-90.0), 1.08)
 
-	# 4 celestial silk-and-crystal ornaments (scale 1.15) framing the Sanctuary Mentors & Earth Mirror
-	_place_celestial_ornament(root, "SanctuaryOrnament_MentorL", Vector3(-13.5, 8.0, -266.0), deg_to_rad(78.0), 1.15, 0.5)
-	_place_celestial_ornament(root, "SanctuaryOrnament_MentorR", Vector3(13.5, 8.0, -266.0), deg_to_rad(-78.0), 1.15, 2.2)
-	_place_celestial_ornament(root, "SanctuaryOrnament_MirrorL", Vector3(-12.5, 8.0, -276.0), deg_to_rad(104.0), 1.15, 3.6)
-	_place_celestial_ornament(root, "SanctuaryOrnament_MirrorR", Vector3(12.5, 8.0, -276.0), deg_to_rad(-104.0), 1.15, 5.1)
+	# 4 celestial silk-and-crystal ornaments framing the Rotunda diagonal bays (all 4 cardinal archways 100% open!)
+	_place_celestial_ornament(root, "SanctuaryOrnament_SouthDiagL", Vector3(-14.2, 8.0, -264.8), deg_to_rad(64.0), 1.12, 0.5)
+	_place_celestial_ornament(root, "SanctuaryOrnament_SouthDiagR", Vector3(14.2, 8.0, -264.8), deg_to_rad(-64.0), 1.12, 2.2)
+	_place_celestial_ornament(root, "SanctuaryOrnament_NorthDiagL", Vector3(-14.2, 8.0, -294.2), deg_to_rad(118.0), 1.12, 3.6)
+	_place_celestial_ornament(root, "SanctuaryOrnament_NorthDiagR", Vector3(14.2, 8.0, -294.2), deg_to_rad(-118.0), 1.12, 5.1)
 
-	# Dense cascading green ivy walls along the castle terrace parapets
+	# Dense cascading emerald ivy walls along the castle lower terrace parapets
 	var vine_root: Node3D = Node3D.new()
 	vine_root.name = "CathedralHangingVines"
 	root.add_child(vine_root)
 
 	var forward_dir: Vector3 = Vector3(0.0, 0.0, 1.0)
 	var lower_x_coords: Array[float] = [
-		-37.0, -35.0, -33.0, -31.0, -29.0, -27.0, -25.0, -23.0, -21.0, -19.0, -17.0,
-		17.0, 19.0, 21.0, 23.0, 25.0, 27.0, 29.0, 31.0, 33.0, 35.0, 37.0,
+		-42.0, -39.0, -36.0, -33.0, -30.0, -27.0, -24.0, -21.0, -18.0,
+		18.0, 21.0, 24.0, 27.0, 30.0, 33.0, 36.0, 39.0, 42.0,
 	]
 	for i: int in range(lower_x_coords.size()):
 		var x_val: float = lower_x_coords[i]
 		var drop_len: float = 2.4 + fmod(float(i * 7 + 5) * 0.6180339, 1.0) * 1.95 # 2.4m .. 4.35m
 		_build_vine_garland(
 			vine_root,
-			Vector3(x_val, 3.9, -247.0),
+			Vector3(x_val, 3.9, -247.8),
 			forward_dir,
 			drop_len,
 			100 + i
 		)
 
-	var upper_x_coords: Array[float] = [
-		-30.5, -28.5, -26.5, -24.5, -22.5, -20.5, -18.5, -16.8,
-		16.8, 18.5, 20.5, 22.5, 24.5, 26.5, 28.5, 30.5,
-	]
-	for i: int in range(upper_x_coords.size()):
-		var x_val: float = upper_x_coords[i]
-		var drop_len: float = 2.2 + fmod(float(i * 11 + 3) * 0.6180339, 1.0) * 1.85 # 2.2m .. 4.05m
-		_build_vine_garland(
-			vine_root,
-			Vector3(x_val, 7.9, -254.0),
-			forward_dir,
-			drop_len,
-			150 + i
-		)
-
-	# Outer lower terrace side parapet ivy curtains (x = +-37.8, z = -250..-266)
-	var side_z_coords: Array[float] = [-250.0, -254.0, -258.0, -262.0, -266.0]
+	# Outer lower terrace side parapet ivy curtains (x = +-43.9, z = -252..-296)
+	var side_z_coords: Array[float] = [-252.0, -258.0, -264.0, -270.0, -276.0, -282.0, -288.0, -294.0]
 	for side_idx: int in range(2):
 		var s_sign: float = -1.0 if side_idx == 0 else 1.0
 		var s_dir: Vector3 = Vector3(s_sign, 0.0, 0.0)
@@ -499,7 +534,7 @@ func _decorate_cathedral_sanctuary() -> void:
 			var drop_len: float = 2.6 + fmod(float(side_idx * 9 + j * 5 + 1) * 0.6180339, 1.0) * 1.9
 			_build_vine_garland(
 				vine_root,
-				Vector3(s_sign * 37.8, 3.9, side_z_coords[j]),
+				Vector3(s_sign * 43.9, 3.9, side_z_coords[j]),
 				s_dir,
 				drop_len,
 				200 + side_idx * 10 + j
