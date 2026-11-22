@@ -130,6 +130,7 @@ var _trail_right_points: Array[Vector3] = []
 var _trail_right_ages: Array[float] = []
 
 const SPARK_MODEL_PATH: String = "res://assets/models/characters/spark.glb"
+const SPARK_ENERGY_SHADER_PATH: String = "res://shaders/spark_energy.gdshader"
 
 var _base_halo_y: float = 1.18
 var _base_light_energy: float = 2.4
@@ -139,7 +140,8 @@ var _cape_shader_mat: ShaderMaterial = null
 var _wing_flare_mat: StandardMaterial3D = null
 var _spark_model_instance: Node3D = null
 var _spark_halo_node: Node3D = null
-var _spark_halo_base_y: float = 1.50
+var _spark_halo_base_y: float = 1.75
+var _spark_energy_materials: Array[ShaderMaterial] = []
 
 
 func _ready() -> void:
@@ -210,6 +212,8 @@ func _load_spark_model() -> void:
 	if _spark_halo_node != null:
 		_spark_halo_base_y = _spark_halo_node.position.y
 
+	_apply_spark_energy_shader(_spark_model_instance)
+
 	# Hide legacy procedural body/cape/halo meshes while keeping WingFlare, CallPulseMesh,
 	# SparkLight, and WingTipLeft/WingTipRight (for ImmediateMesh trails) active and aligned.
 	var legacy_paths: Array[String] = [
@@ -227,6 +231,63 @@ func _load_spark_model() -> void:
 		var legacy_node: Node3D = visual_pivot.get_node_or_null(rel_path) as Node3D
 		if legacy_node != null:
 			legacy_node.visible = false
+
+
+func _apply_spark_energy_shader(root: Node) -> void:
+	if not ResourceLoader.exists(SPARK_ENERGY_SHADER_PATH):
+		return
+	var energy_shader: Shader = load(SPARK_ENERGY_SHADER_PATH) as Shader
+	if energy_shader == null:
+		return
+
+	_spark_energy_materials.clear()
+	_apply_spark_energy_shader_recursive(root, energy_shader)
+
+
+func _apply_spark_energy_shader_recursive(node: Node, energy_shader: Shader) -> void:
+	if node is MeshInstance3D:
+		var mesh_inst: MeshInstance3D = node as MeshInstance3D
+		var mesh_res: Mesh = mesh_inst.mesh
+		if mesh_res != null:
+			var is_halo: bool = mesh_inst.name == "SparkStarHalo"
+			var surface_count: int = mesh_res.get_surface_count()
+			for i: int in range(surface_count):
+				var src_mat: Material = mesh_inst.get_active_material(i)
+				if src_mat == null:
+					src_mat = mesh_res.surface_get_material(i)
+
+				var smat: ShaderMaterial = ShaderMaterial.new()
+				smat.shader = energy_shader
+
+				var albedo_col: Color = Color(0.969, 0.788, 0.282, 1.0)
+				var emit_col: Color = albedo_col
+				var emit_str: float = 1.45
+				var metallic_v: float = 0.06
+				var roughness_v: float = 0.22
+
+				if src_mat is StandardMaterial3D:
+					var std_mat: StandardMaterial3D = src_mat as StandardMaterial3D
+					albedo_col = std_mat.albedo_color
+					if std_mat.emission_enabled:
+						emit_col = std_mat.emission
+						emit_str = maxf(std_mat.emission_energy_multiplier, 0.85)
+					else:
+						emit_col = albedo_col
+					metallic_v = std_mat.metallic
+					roughness_v = std_mat.roughness
+
+				smat.set_shader_parameter("base_albedo", Vector3(albedo_col.r, albedo_col.g, albedo_col.b))
+				smat.set_shader_parameter("emission_color", Vector3(emit_col.r, emit_col.g, emit_col.b))
+				smat.set_shader_parameter("emission_strength", emit_str)
+				smat.set_shader_parameter("metallic_val", metallic_v)
+				smat.set_shader_parameter("roughness_val", roughness_v)
+				smat.set_shader_parameter("sway_scale", 0.0 if is_halo else 1.0)
+
+				mesh_inst.set_surface_override_material(i, smat)
+				_spark_energy_materials.append(smat)
+
+	for child: Node in node.get_children():
+		_apply_spark_energy_shader_recursive(child, energy_shader)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -550,6 +611,13 @@ func _update_visual_rig(delta: float) -> void:
 		var wind_val: float = lerpf(2.4, 10.5, speed_ratio)
 		_cape_shader_mat.set_shader_parameter("wind_speed", wind_val)
 		_cape_shader_mat.set_shader_parameter("flap_burst", flap_burst)
+
+	if not _spark_energy_materials.is_empty():
+		var current_speed: float = velocity.length()
+		var combined_flare: float = _energy_flare + flap_burst * 0.65
+		for smat: ShaderMaterial in _spark_energy_materials:
+			smat.set_shader_parameter("flight_speed", current_speed)
+			smat.set_shader_parameter("energy_flare", combined_flare)
 
 	# Procedural billowing animation on left & right 3D cape wings + radiant light-wing flares
 	if cape_left and cape_right:
