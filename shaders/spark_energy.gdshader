@@ -2,9 +2,10 @@ shader_type spatial;
 render_mode blend_mix, depth_draw_opaque, cull_back;
 
 // Spark Celestial Flame & Silk Ribbon Shader (Godot 4.3 Forward+ ACES)
-// Sculptural 3D cel-wrap shading with warm honey-caramel shadow tinting and a crisp
-// warm-gold Fresnel silhouette rim so head, neck, lotus collar, torso, diamonds,
-// and silk ribbons remain unmistakably distinct from every camera angle.
+// Stray-grade magical depth: warm amber-gold subsurface transillumination radiating
+// from within the translucent flame body, swirling internal starlight shimmer inside
+// the core and silk ribbons, and a delicate crisp warm-ivory Fresnel silhouette rim
+// that reads cleanly against both twilight stone and bright golden skies without blowout.
 
 uniform vec3 base_albedo : source_color = vec3(0.949, 0.706, 0.220);
 uniform vec3 shadow_tint : source_color = vec3(0.76, 0.34, 0.08);
@@ -21,10 +22,40 @@ uniform float sway_scale : hint_range(0.0, 2.0) = 1.0;
 varying float v_local_y;
 varying float v_ribbon_mask;
 varying vec3 v_local_normal;
+varying vec3 v_local_pos;
+
+float spark_hash(vec3 p) {
+	p = fract(p * vec3(443.8975, 397.2973, 491.1871));
+	p += dot(p.zxy, p.yxz + 19.19);
+	return fract(p.x * p.y * p.z);
+}
+
+float spark_noise(vec3 p) {
+	vec3 i = floor(p);
+	vec3 f = fract(p);
+	f = f * f * (3.0 - 2.0 * f);
+
+	float n000 = spark_hash(i + vec3(0.0, 0.0, 0.0));
+	float n100 = spark_hash(i + vec3(1.0, 0.0, 0.0));
+	float n010 = spark_hash(i + vec3(0.0, 1.0, 0.0));
+	float n110 = spark_hash(i + vec3(1.0, 1.0, 0.0));
+	float n001 = spark_hash(i + vec3(0.0, 0.0, 1.0));
+	float n101 = spark_hash(i + vec3(1.0, 0.0, 1.0));
+	float n011 = spark_hash(i + vec3(0.0, 1.0, 1.0));
+	float n111 = spark_hash(i + vec3(1.0, 1.0, 1.0));
+
+	float nx00 = mix(n000, n100, f.x);
+	float nx10 = mix(n010, n110, f.x);
+	float nx01 = mix(n001, n101, f.x);
+	float nx11 = mix(n011, n111, f.x);
+
+	return mix(mix(nx00, nx10, f.y), mix(nx01, nx11, f.y), f.z);
+}
 
 void vertex() {
 	v_local_y = VERTEX.y;
 	v_local_normal = NORMAL;
+	v_local_pos = VERTEX;
 
 	float speed_norm = clamp(flight_speed / 28.0, 0.0, 1.35);
 	float t = TIME * (2.6 + speed_norm * 4.2);
@@ -65,7 +96,9 @@ void vertex() {
 
 void fragment() {
 	float ndotv = clamp(dot(normalize(NORMAL), normalize(VIEW)), 0.0, 1.0);
-	float fresnel = pow(1.0 - ndotv, 3.0);
+	float fresnel_soft = pow(1.0 - ndotv, 2.35);
+	float fresnel_crisp = pow(1.0 - ndotv, 4.1);
+	float speed_norm = clamp(flight_speed / 28.0, 0.0, 1.35);
 
 	// Sculptural hemisphere crevice shading in object space:
 	// deepens neck indentation, underside of lotus collar, and ribbon folds with warm honey-caramel
@@ -73,27 +106,74 @@ void fragment() {
 	float crevice_factor = (1.0 - smoothstep(0.08, 0.78, up_bias)) * 0.42;
 	vec3 sculpted_albedo = base_albedo * mix(vec3(1.0), shadow_tint, crevice_factor);
 
-	// Keep interior material colors crisp; add only a whisper of warm rim tint at grazing edges
-	ALBEDO = mix(sculpted_albedo, rim_color, fresnel * 0.12);
-	METALLIC = metallic_val;
-	ROUGHNESS = roughness_val;
+	// Soft internal amber-gold subsurface warmth radiating from the core outward
+	vec3 amber_sss = mix(shadow_tint, emission_color, 0.64);
+	float core_trans = pow(ndotv, 1.35) * (1.0 - v_ribbon_mask * 0.35);
+	float thin_trans = clamp(
+		v_ribbon_mask * 0.75
+		+ smoothstep(1.16, 1.60, v_local_y) * 0.55
+		+ smoothstep(0.54, 0.08, v_local_y) * 0.45,
+		0.0, 1.0
+	);
 
-	// Gentle living shimmer + controlled emission + crisp warm-gold Fresnel silhouette rim
-	float shimmer = 0.96 + 0.04 * sin(TIME * 3.2 - v_local_y * 4.5);
-	vec3 core_emit = emission_color * (emission_strength + energy_flare * 0.36);
-	vec3 rim_emit = rim_color * (fresnel * 0.42 + v_ribbon_mask * fresnel * 0.10 + energy_flare * fresnel * 0.22);
-	EMISSION = (core_emit + rim_emit) * shimmer;
+	// Subtle swirling internal starlight shimmer inside the flame core & silk ribbons
+	float swirl_t = TIME * (1.35 + speed_norm * 1.65);
+	float swirl_ang = swirl_t + v_local_y * 3.4;
+	float cs = cos(swirl_ang * 0.35);
+	float sn = sin(swirl_ang * 0.35);
+	vec3 swirl_p = vec3(
+		v_local_pos.x * cs - v_local_pos.z * sn,
+		v_local_pos.y - swirl_t * 0.42,
+		v_local_pos.x * sn + v_local_pos.z * cs
+	);
+	float star_layer_a = spark_noise(swirl_p * 6.8);
+	float star_layer_b = spark_noise(swirl_p * 13.5 + vec3(4.7, -TIME * 1.1, 8.2));
+	float star_motes = smoothstep(0.68, 0.94, star_layer_a * 0.55 + star_layer_b * 0.45);
+	float ribbon_flow = 0.5 + 0.5 * sin(abs(v_local_pos.x) * 14.0 - swirl_t * 2.2 + star_layer_a * 3.0);
+	float starlight_mask = (star_motes * (0.55 + core_trans * 0.45) + v_ribbon_mask * ribbon_flow * star_layer_b * 0.45);
+
+	// Delicate warm-ivory rim tint (never flat blown-out white)
+	vec3 warm_ivory_rim = mix(rim_color, vec3(1.0, 0.96, 0.84), 0.42);
+
+	ALBEDO = mix(sculpted_albedo, warm_ivory_rim, fresnel_soft * 0.14);
+	METALLIC = metallic_val;
+	ROUGHNESS = clamp(roughness_val - star_motes * 0.06, 0.22, 0.95);
+
+	// Compose living internal glow + starlight shimmer + crisp warm-ivory silhouette rim
+	float shimmer = 0.95 + 0.05 * sin(TIME * 3.2 - v_local_y * 4.5);
+	vec3 inner_glow = mix(emission_color, amber_sss, 0.32 * (1.0 - core_trans))
+		* (emission_strength + core_trans * 0.14 + thin_trans * 0.08 + energy_flare * 0.34);
+	vec3 starlight_emit = warm_ivory_rim * starlight_mask * (0.20 + energy_flare * 0.18);
+	vec3 rim_emit = warm_ivory_rim * (
+		fresnel_soft * 0.24
+		+ fresnel_crisp * 0.34
+		+ v_ribbon_mask * fresnel_soft * 0.12
+		+ energy_flare * fresnel_soft * 0.18
+	);
+
+	// Gentle soft-shoulder compression keeps Spark luminous without ever clipping to flat white
+	vec3 raw_emit = (inner_glow + starlight_emit + rim_emit) * shimmer;
+	EMISSION = raw_emit / (vec3(1.0) + raw_emit * 0.20);
 }
 
 void light() {
 	// Real 3D directional lighting with soft stylized cel-wrap shading
 	float ndotl = dot(NORMAL, LIGHT);
-	float wrap_ndotl = clamp((ndotl + 0.25) / 1.25, 0.0, 1.0);
-	float cel_band = mix(smoothstep(0.14, 0.64, wrap_ndotl), wrap_ndotl, 0.42);
+	float wrap_ndotl = clamp((ndotl + 0.28) / 1.28, 0.0, 1.0);
+	float cel_band = mix(smoothstep(0.14, 0.64, wrap_ndotl), wrap_ndotl, 0.45);
 
 	// Warm painterly honey-caramel shadow side vs sunlit cream-gold lit side
 	vec3 shaded_albedo = mix(ALBEDO * shadow_tint, ALBEDO, cel_band);
-	DIFFUSE_LIGHT += shaded_albedo * ATTENUATION * LIGHT_COLOR / PI;
+
+	// Soft subsurface scattering wrap along the shadow terminator + backlit transillumination
+	float sss_wrap = clamp((ndotl + 0.58) / 1.58, 0.0, 1.0);
+	float sss_terminator = smoothstep(0.02, 0.58, sss_wrap) * (1.0 - smoothstep(0.32, 0.92, wrap_ndotl));
+	vec3 back_scatter_dir = normalize(LIGHT + NORMAL * 0.42);
+	float backlit = pow(clamp(dot(VIEW, -back_scatter_dir), 0.0, 1.0), 3.2);
+	vec3 sss_tint = mix(shadow_tint, emission_color, 0.58);
+	vec3 sss_contrib = sss_tint * (sss_terminator * 0.34 + backlit * (0.26 + v_ribbon_mask * 0.24));
+
+	DIFFUSE_LIGHT += (shaded_albedo + sss_contrib) * ATTENUATION * LIGHT_COLOR / PI;
 
 	// Crisp silky specular accent on curved flame head, collar rim, and ribbon folds
 	vec3 half_vec = normalize(LIGHT + VIEW);

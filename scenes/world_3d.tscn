@@ -1,4 +1,4 @@
-[gd_scene load_steps=15 format=3]
+[gd_scene load_steps=16 format=3]
 
 [ext_resource type="Script" path="res://scripts/world_3d.gd" id="1_world_script"]
 [ext_resource type="Environment" path="res://resources/world_env_akasha.tres" id="2_world_env"]
@@ -14,12 +14,14 @@
 [ext_resource type="Script" path="res://scripts/dialogue_manager.gd" id="12_dialogue_mgr"]
 [ext_resource type="PackedScene" path="res://scenes/interactables/sanctuary_mentors_3d.tscn" id="13_mentors"]
 [ext_resource type="PackedScene" path="res://scenes/interactables/earth_mirror_3d.tscn" id="14_earth_mirror"]
+[ext_resource type="CameraAttributesPractical" path="res://resources/camera_attributes_akasha.tres" id="15_cam_attrs"]
 
 [node name="World3D" type="Node3D"]
 script = ExtResource("1_world_script")
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
 environment = ExtResource("2_world_env")
+camera_attributes = ExtResource("15_cam_attrs")
 
 [node name="SunLight" type="DirectionalLight3D" parent="."]
 transform = Transform3D(0.984808, -0.059391, 0.163176, 0, 0.939693, 0.34202, -0.173648, -0.336824, 0.925417, 0, 95, -260)
