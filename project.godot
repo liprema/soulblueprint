@@ -60,3 +60,5 @@ soul_spark={
 
 renderer/rendering_method="forward_plus"
 renderer/rendering_method.mobile="gl_compatibility"
+scaling_3d/mode=1
+scaling_3d/scale=0.75

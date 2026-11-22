@@ -35,7 +35,7 @@ light_volumetric_fog_energy = 1.8
 shadow_enabled = true
 shadow_bias = 0.035
 shadow_blur = 1.45
-directional_shadow_mode = 2
+directional_shadow_mode = 1
 
 [node name="NightRimLight" type="DirectionalLight3D" parent="."]
 transform = Transform3D(-0.984808, 0.073387, -0.157379, 0, 0.906308, 0.422618, 0.173648, 0.416198, -0.892539, 0, 80, 120)
