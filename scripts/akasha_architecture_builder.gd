@@ -1061,17 +1061,31 @@ func _cubic_bezier_tangent(p0: Vector3, p1: Vector3, p2: Vector3, p3: Vector3, t
 # ---------------------------------------------------------------------------
 
 func _build_ethereal_mentor_silhouettes() -> void:
-	var root := Node3D.new()
+	var root: Node3D = Node3D.new()
 	root.name = "EtherealMentorSilhouettes"
 	add_child(root)
 
-	var specs := [
-		{"name": "CelestialMentorLeft", "pos": Vector3(-62.0, -10.0, -236.0), "yaw": 26.0, "scale": 1.05},
-		{"name": "CelestialMentorRight", "pos": Vector3(64.0, -8.0, -242.0), "yaw": -28.0, "scale": 1.0},
+	var specs: Array = [
+		{
+			"name": "CelestialMentorLeft",
+			"pos": Vector3(-62.0, -10.0, -236.0),
+			"yaw": 26.0,
+			"scale": 1.05,
+			"glb": "res://assets/models/characters/mentor_alatea.glb",
+			"halo_node": "AlateaHaloPivot",
+		},
+		{
+			"name": "CelestialMentorRight",
+			"pos": Vector3(64.0, -8.0, -242.0),
+			"yaw": -28.0,
+			"scale": 1.0,
+			"glb": "res://assets/models/characters/mentor_mira.glb",
+			"halo_node": "MiraHaloPivot",
+		},
 	]
 
 	for spec in specs:
-		var mentor := Node3D.new()
+		var mentor: Node3D = Node3D.new()
 		mentor.name = spec["name"]
 		mentor.position = spec["pos"]
 		mentor.rotation_degrees.y = spec["yaw"]
@@ -1079,44 +1093,77 @@ func _build_ethereal_mentor_silhouettes() -> void:
 		mentor.scale = Vector3(sc, sc, sc)
 		root.add_child(mentor)
 
-		# Flowing towering celestial robe silhouette (~62m tall)
-		_add_cylinder_mesh(mentor, "LowerRobe", 4.6, 11.5, 34.0, 16, Vector3(0.0, 17.0, 0.0), _mat_mentor_body, false)
-		_add_cylinder_mesh(mentor, "UpperTorso", 5.8, 4.4, 16.0, 14, Vector3(0.0, 41.0, 0.0), _mat_mentor_body, false)
+		var glb_path: String = spec["glb"]
+		var loaded_sculpt: bool = false
+		if ResourceLoader.exists(glb_path):
+			var packed: PackedScene = load(glb_path) as PackedScene
+			if packed != null:
+				var inst: Node = packed.instantiate()
+				if inst is Node3D:
+					var model_node: Node3D = inst as Node3D
+					model_node.name = "ColossalSculpt"
+					# Base mentor models are ~6.8m tall; scale 8.4x -> ~57m-65m colossal horizon presence
+					model_node.scale = Vector3(8.4, 8.4, 8.4)
+					mentor.add_child(model_node)
+					_apply_colossal_mentor_materials(model_node)
 
-		# Draped luminous mantle / wing-like shoulder cape
-		var mantle := _add_cylinder_mesh(mentor, "MantleCape", 2.8, 9.8, 12.0, 14, Vector3(0.0, 45.0, -1.2), _mat_mentor_body, false)
-		mantle.scale = Vector3(1.35, 1.0, 0.72)
+					var halo_name: String = spec["halo_node"]
+					var halo_pivot: Node3D = model_node.find_child(halo_name, true, false) as Node3D
+					if halo_pivot != null:
+						_mentor_halos.append(halo_pivot)
+					loaded_sculpt = true
+				else:
+					inst.queue_free()
 
-		# Gently raised welcoming arms
-		for side: float in [-1.0, 1.0]:
-			var arm := _add_cylinder_mesh(
-				mentor, "EtherealArm_%s" % ("L" if side < 0 else "R"),
-				0.9, 1.8, 14.5, 10,
-				Vector3(side * 6.8, 43.5, 2.4),
-				_mat_mentor_body, false
-			)
-			arm.rotation_degrees = Vector3(24.0, 0.0, side * 38.0)
-
-		# Luminous hooded head
-		_add_sphere_mesh(mentor, "Head", 3.4, 18, 12, Vector3(0.0, 53.5, 0.4), _mat_mentor_body, false)
-
-		# Radiant inner chest starlight core
-		_add_sphere_mesh(mentor, "HeartStar", 1.8, 14, 10, Vector3(0.0, 44.0, 2.6), _mat_mentor_halo, false)
-
-		# Art Deco celestial halo ring behind the Mentor's head
-		var halo_pivot := Node3D.new()
-		halo_pivot.name = "CelestialHalo"
-		halo_pivot.position = Vector3(0.0, 54.5, -2.6)
-		mentor.add_child(halo_pivot)
-
-		var outer_halo := _add_torus_mesh(halo_pivot, "OuterHaloRing", 7.8, 8.4, 36, 10, Vector3.ZERO, _mat_mentor_halo, false)
-		outer_halo.rotation_degrees.x = 90.0
-		var inner_halo := _add_torus_mesh(halo_pivot, "InnerHaloRing", 5.2, 5.5, 28, 8, Vector3.ZERO, _mat_mentor_halo, false)
-		inner_halo.rotation_degrees.x = 90.0
+		if not loaded_sculpt:
+			# Fallback procedural silhouette (~62m tall)
+			_add_cylinder_mesh(mentor, "LowerRobe", 4.6, 11.5, 34.0, 16, Vector3(0.0, 17.0, 0.0), _mat_mentor_body, false)
+			_add_cylinder_mesh(mentor, "UpperTorso", 5.8, 4.4, 16.0, 14, Vector3(0.0, 41.0, 0.0), _mat_mentor_body, false)
+			var mantle: MeshInstance3D = _add_cylinder_mesh(mentor, "MantleCape", 2.8, 9.8, 12.0, 14, Vector3(0.0, 45.0, -1.2), _mat_mentor_body, false)
+			mantle.scale = Vector3(1.35, 1.0, 0.72)
+			for side: float in [-1.0, 1.0]:
+				var arm: MeshInstance3D = _add_cylinder_mesh(
+					mentor, "EtherealArm_%s" % ("L" if side < 0.0 else "R"),
+					0.9, 1.8, 14.5, 10,
+					Vector3(side * 6.8, 43.5, 2.4),
+					_mat_mentor_body, false,
+				)
+				arm.rotation_degrees = Vector3(24.0, 0.0, side * 38.0)
+			_add_sphere_mesh(mentor, "Head", 3.4, 18, 12, Vector3(0.0, 53.5, 0.4), _mat_mentor_body, false)
+			_add_sphere_mesh(mentor, "HeartStar", 1.8, 14, 10, Vector3(0.0, 44.0, 2.6), _mat_mentor_halo, false)
+			var halo_pivot_fb: Node3D = Node3D.new()
+			halo_pivot_fb.name = "CelestialHalo"
+			halo_pivot_fb.position = Vector3(0.0, 54.5, -2.6)
+			mentor.add_child(halo_pivot_fb)
+			var outer_halo: MeshInstance3D = _add_torus_mesh(halo_pivot_fb, "OuterHaloRing", 7.8, 8.4, 36, 10, Vector3.ZERO, _mat_mentor_halo, false)
+			outer_halo.rotation_degrees.x = 90.0
+			var inner_halo: MeshInstance3D = _add_torus_mesh(halo_pivot_fb, "InnerHaloRing", 5.2, 5.5, 28, 8, Vector3.ZERO, _mat_mentor_halo, false)
+			inner_halo.rotation_degrees.x = 90.0
+			_mentor_halos.append(halo_pivot_fb)
 
 		_mentor_nodes.append(mentor)
 		_mentor_base_y.append(mentor.position.y)
-		_mentor_halos.append(halo_pivot)
+
+
+func _apply_colossal_mentor_materials(node: Node) -> void:
+	if node is MeshInstance3D:
+		var mesh_inst: MeshInstance3D = node as MeshInstance3D
+		mesh_inst.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		var mesh: Mesh = mesh_inst.mesh
+		if mesh != null:
+			var surface_count: int = mesh.get_surface_count()
+			for surface_idx: int in range(surface_count):
+				var src_mat: Material = mesh_inst.get_active_material(surface_idx)
+				var mat_name: String = src_mat.resource_name if src_mat != null else ""
+				if mat_name.findn("Gold") >= 0:
+					mesh_inst.set_surface_override_material(surface_idx, _mat_gold_thread)
+				elif mat_name.findn("Star") >= 0:
+					mesh_inst.set_surface_override_material(surface_idx, _mat_light_core)
+				else:
+					mesh_inst.set_surface_override_material(surface_idx, _mat_mentor_body)
+	for child: Node in node.get_children():
+		_apply_colossal_mentor_materials(child)
+
 
 
 # ---------------------------------------------------------------------------

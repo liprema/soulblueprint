@@ -16,6 +16,7 @@ signal player_entered_portal
 
 const MIRROR_SHADER_PATH: String = "res://shaders/earth_mirror.gdshader"
 const MARBLE_SHADER_PATH: String = "res://shaders/akasha_marble.gdshader"
+const MIRROR_FRAME_MODEL_PATH: String = "res://assets/models/props/earth_mirror_frame.glb"
 
 const MIRROR_CENTER_Y: float = 4.6
 const CALL_RESPONSE_RADIUS: float = 28.0
@@ -48,6 +49,7 @@ var _starlight_particles: GPUParticles3D = null
 var _particle_process_mat: ParticleProcessMaterial = null
 var _filigree_pivot: Node3D = null
 var _portal_area: Area3D = null
+var _frame_model_instance: Node3D = null
 
 var _state_tween: Tween = null
 var _pulse_tween: Tween = null
@@ -61,8 +63,9 @@ var _portal_entered_emitted: bool = false
 func _ready() -> void:
 	add_to_group("earth_mirror")
 	_init_materials()
-	_build_pedestal()
-	_build_arch_frame()
+	if not _load_sculpted_frame_model():
+		_build_pedestal()
+		_build_arch_frame()
 	_build_mirror_disc()
 	_build_lighting_and_particles()
 	_build_portal_trigger()
@@ -343,6 +346,60 @@ func _create_pedestal_stone_material() -> Material:
 	fallback.roughness = 0.82
 	fallback.metallic = 0.04
 	return fallback
+
+
+func _load_sculpted_frame_model() -> bool:
+	if not ResourceLoader.exists(MIRROR_FRAME_MODEL_PATH):
+		return false
+
+	var packed: PackedScene = load(MIRROR_FRAME_MODEL_PATH) as PackedScene
+	if packed == null:
+		return false
+
+	var inst: Node = packed.instantiate()
+	if not (inst is Node3D):
+		if inst != null:
+			inst.queue_free()
+		return false
+
+	_frame_model_instance = inst as Node3D
+	_frame_model_instance.name = "EarthMirrorFrameModel"
+	add_child(_frame_model_instance)
+
+	var stone_mat: Material = _create_pedestal_stone_material()
+	_apply_frame_materials_recursive(_frame_model_instance, stone_mat)
+
+	var pivot_node: Node = _frame_model_instance.find_child("InnerFiligreePivot", true, false)
+	if pivot_node is Node3D:
+		_filigree_pivot = pivot_node as Node3D
+
+	return true
+
+
+func _apply_frame_materials_recursive(node: Node, stone_mat: Material) -> void:
+	if node is MeshInstance3D:
+		var mesh_inst: MeshInstance3D = node as MeshInstance3D
+		if mesh_inst.mesh != null:
+			var surface_count: int = mesh_inst.mesh.get_surface_count()
+			for s_idx: int in range(surface_count):
+				var surf_mat: Material = mesh_inst.mesh.surface_get_material(s_idx)
+				var mat_name: String = ""
+				if surf_mat != null:
+					mat_name = surf_mat.resource_name
+				if mat_name.is_empty():
+					mat_name = mesh_inst.mesh.surface_get_name(s_idx)
+
+				if mat_name.begins_with("Mat_MirrorStone"):
+					mesh_inst.set_surface_override_material(s_idx, stone_mat)
+				elif mat_name.begins_with("Mat_MirrorGold"):
+					mesh_inst.set_surface_override_material(s_idx, _gold_frame_mat)
+				elif mat_name.begins_with("Mat_MirrorFiligree"):
+					mesh_inst.set_surface_override_material(s_idx, _filigree_ring_mat)
+				elif mat_name.begins_with("Mat_MirrorAccent"):
+					mesh_inst.set_surface_override_material(s_idx, _finial_accent_mat)
+
+	for child: Node in node.get_children():
+		_apply_frame_materials_recursive(child, stone_mat)
 
 
 func _build_pedestal() -> void:

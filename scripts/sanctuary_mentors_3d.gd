@@ -5,16 +5,20 @@ class_name SanctuaryMentors3D
 ## Positioned in front of the Earth Mirror to welcome Spark and guide the dialogue.
 
 const MENTOR_SHADER_PATH: String = "res://shaders/ethereal_mentor.gdshader"
+const ALATEA_GLB_PATH: String = "res://assets/models/characters/mentor_alatea.glb"
+const MIRA_GLB_PATH: String = "res://assets/models/characters/mentor_mira.glb"
 
 const TALK_RANGE_RADIUS: float = 20.0
 const SOUL_CALL_RADIUS: float = 24.0
 
-const COLOR_ALATEA_BODY: Color = Color(0.16, 0.56, 0.92, 1.0)
+const COLOR_ALATEA_BODY: Color = Color("#041028")
 const COLOR_ALATEA_RIM: Color = Color("#58C4FF")
+const COLOR_ALATEA_RIM_HI: Color = Color("#B5F0FF")
 const COLOR_ALATEA_LIGHT: Color = Color(0.45, 0.80, 1.0, 1.0)
 
-const COLOR_MIRA_BODY: Color = Color(0.42, 0.72, 0.94, 1.0)
-const COLOR_MIRA_RIM: Color = Color("#A8E0FF")
+const COLOR_MIRA_BODY: Color = Color("#061634")
+const COLOR_MIRA_RIM: Color = Color("#74D0FF")
+const COLOR_MIRA_RIM_HI: Color = Color("#CCF2FF")
 const COLOR_MIRA_HALO: Color = Color("#F6D36B")
 const COLOR_MIRA_LIGHT: Color = Color(0.86, 0.88, 0.74, 1.0)
 
@@ -25,8 +29,8 @@ const BASE_LIGHT_ENERGY: float = 1.45
 const HIGHLIGHT_LIGHT_ENERGY: float = 2.45
 const DIMMED_LIGHT_ENERGY: float = 1.05
 
-const BASE_EMISSION_STRENGTH: float = 1.45
-const HIGHLIGHT_EMISSION_STRENGTH: float = 2.15
+const BASE_EMISSION_STRENGTH: float = 1.50
+const HIGHLIGHT_EMISSION_STRENGTH: float = 2.25
 const DIMMED_EMISSION_STRENGTH: float = 1.15
 
 var _alatea_root: Node3D = null
@@ -34,14 +38,18 @@ var _mira_root: Node3D = null
 
 var _alatea_body_mat: ShaderMaterial = null
 var _mira_body_mat: ShaderMaterial = null
+var _gold_mat: StandardMaterial3D = null
 var _alatea_halo_mat: StandardMaterial3D = null
 var _mira_halo_mat: StandardMaterial3D = null
 var _fate_orb_mat: StandardMaterial3D = null
 
+var _alatea_halo_pivot: Node3D = null
 var _alatea_outer_halo: Node3D = null
 var _alatea_inner_halo: Node3D = null
 var _alatea_fate_orb: Node3D = null
 var _alatea_orb_ring: Node3D = null
+var _alatea_orb_base_y: float = 4.75
+var _mira_halo_pivot: Node3D = null
 var _mira_sunburst_halo: Node3D = null
 
 var _alatea_light: OmniLight3D = null
@@ -93,20 +101,30 @@ func _process(delta: float) -> void:
 	if _mira_root != null:
 		_mira_root.position.y = 0.22 + sin(_anim_time * 1.08 + 1.85) * 0.18
 
-	# Slow orbital Art Deco double halo rotation for Alatea
+	# Sculpted GLB halo rotation for Alatea (spins cleanly in local ring plane)
+	if _alatea_halo_pivot != null:
+		_alatea_halo_pivot.rotate_object_local(Vector3.UP, delta * _alatea_halo_speed)
+
+	# Fallback procedural halo rotation for Alatea
 	if _alatea_outer_halo != null:
 		_alatea_outer_halo.rotation.z += delta * _alatea_halo_speed
 	if _alatea_inner_halo != null:
 		_alatea_inner_halo.rotation.z -= delta * (_alatea_halo_speed * 1.45)
 
-	# Floating golden fate-orb in front of Alatea's palms
+	# Floating golden fate-orb in front of Alatea's cupped palms
 	if _alatea_fate_orb != null:
-		_alatea_fate_orb.position.y = 4.68 + sin(_anim_time * 2.15) * 0.09
+		_alatea_fate_orb.position.y = _alatea_orb_base_y + sin(_anim_time * 2.15) * 0.09
+		if _alatea_orb_ring == null:
+			_alatea_fate_orb.rotation.y += delta * (0.55 + _alatea_halo_speed * 0.85)
 	if _alatea_orb_ring != null:
 		_alatea_orb_ring.rotation.y += delta * 0.85
 		_alatea_orb_ring.rotation.x += delta * 0.42
 
-	# Radiant sunburst crown halo slow rotation for Mira
+	# Sculpted GLB sunburst solar halo rotation for Mira
+	if _mira_halo_pivot != null:
+		_mira_halo_pivot.rotate_object_local(Vector3.UP, -delta * _mira_halo_speed)
+
+	# Fallback procedural sunburst halo rotation for Mira
 	if _mira_sunburst_halo != null:
 		_mira_sunburst_halo.rotation.z -= delta * _mira_halo_speed
 
@@ -124,10 +142,13 @@ func _process(delta: float) -> void:
 	if _mira_body_mat != null:
 		_mira_body_mat.set_shader_parameter("emission_strength", _mira_current_emission + pulse_emission_add)
 
+	if _gold_mat != null:
+		_gold_mat.emission_energy_multiplier = 1.35 + pulse_emission_add * 0.65
+
 	if _fate_orb_mat != null:
-		var orb_boost: float = 1.45 + pulse_emission_add * 0.8
+		var orb_boost: float = 2.15 + pulse_emission_add * 0.85
 		if _active_speaker == "alatea":
-			orb_boost += 0.45
+			orb_boost += 0.55
 		_fate_orb_mat.emission_energy_multiplier = orb_boost
 
 
@@ -204,20 +225,37 @@ func _init_materials() -> void:
 		_alatea_body_mat.shader = mentor_shader
 	_alatea_body_mat.set_shader_parameter("body_color", COLOR_ALATEA_BODY)
 	_alatea_body_mat.set_shader_parameter("rim_color", COLOR_ALATEA_RIM)
-	_alatea_body_mat.set_shader_parameter("base_opacity", 0.26)
-	_alatea_body_mat.set_shader_parameter("fresnel_power", 2.0)
+	_alatea_body_mat.set_shader_parameter("rim_highlight_color", COLOR_ALATEA_RIM_HI)
+	_alatea_body_mat.set_shader_parameter("base_opacity", 0.84)
+	_alatea_body_mat.set_shader_parameter("fresnel_power", 2.35)
 	_alatea_body_mat.set_shader_parameter("emission_strength", BASE_EMISSION_STRENGTH)
-	_alatea_body_mat.set_shader_parameter("shimmer_speed", 0.9)
+	_alatea_body_mat.set_shader_parameter("shimmer_speed", 0.88)
+	_alatea_body_mat.set_shader_parameter("stardust_intensity", 0.55)
+	_alatea_body_mat.set_shader_parameter("hem_fade_start", 0.0)
+	_alatea_body_mat.set_shader_parameter("hem_fade_end", 1.05)
 
 	_mira_body_mat = ShaderMaterial.new()
 	if mentor_shader != null:
 		_mira_body_mat.shader = mentor_shader
 	_mira_body_mat.set_shader_parameter("body_color", COLOR_MIRA_BODY)
 	_mira_body_mat.set_shader_parameter("rim_color", COLOR_MIRA_RIM)
-	_mira_body_mat.set_shader_parameter("base_opacity", 0.26)
-	_mira_body_mat.set_shader_parameter("fresnel_power", 1.95)
+	_mira_body_mat.set_shader_parameter("rim_highlight_color", COLOR_MIRA_RIM_HI)
+	_mira_body_mat.set_shader_parameter("base_opacity", 0.82)
+	_mira_body_mat.set_shader_parameter("fresnel_power", 2.25)
 	_mira_body_mat.set_shader_parameter("emission_strength", BASE_EMISSION_STRENGTH)
-	_mira_body_mat.set_shader_parameter("shimmer_speed", 0.78)
+	_mira_body_mat.set_shader_parameter("shimmer_speed", 0.76)
+	_mira_body_mat.set_shader_parameter("stardust_intensity", 0.62)
+	_mira_body_mat.set_shader_parameter("hem_fade_start", 0.0)
+	_mira_body_mat.set_shader_parameter("hem_fade_end", 1.05)
+
+	_gold_mat = StandardMaterial3D.new()
+	_gold_mat.albedo_color = COLOR_SATIN_GOLD
+	_gold_mat.metallic = 0.88
+	_gold_mat.roughness = 0.24
+	_gold_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	_gold_mat.emission_enabled = true
+	_gold_mat.emission = COLOR_BRIGHT_GOLD
+	_gold_mat.emission_energy_multiplier = 1.35
 
 	_alatea_halo_mat = StandardMaterial3D.new()
 	_alatea_halo_mat.albedo_color = Color(COLOR_ALATEA_RIM.r, COLOR_ALATEA_RIM.g, COLOR_ALATEA_RIM.b, 0.72)
@@ -234,12 +272,55 @@ func _init_materials() -> void:
 	_mira_halo_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 
 	_fate_orb_mat = StandardMaterial3D.new()
-	_fate_orb_mat.albedo_color = Color("#FFF4CE")
-	_fate_orb_mat.roughness = 0.18
-	_fate_orb_mat.metallic = 0.25
+	_fate_orb_mat.albedo_color = Color("#FFF7DC")
+	_fate_orb_mat.roughness = 0.14
+	_fate_orb_mat.metallic = 0.15
 	_fate_orb_mat.emission_enabled = true
-	_fate_orb_mat.emission = COLOR_BRIGHT_GOLD
-	_fate_orb_mat.emission_energy_multiplier = 1.45
+	_fate_orb_mat.emission = Color("#FFE28A")
+	_fate_orb_mat.emission_energy_multiplier = 2.15
+
+
+func _try_instantiate_mentor_glb(glb_path: String, parent: Node3D, body_mat: Material) -> Node3D:
+	if not ResourceLoader.exists(glb_path):
+		return null
+	var packed: PackedScene = load(glb_path) as PackedScene
+	if packed == null:
+		return null
+	var instance: Node3D = packed.instantiate() as Node3D
+	if instance == null:
+		return null
+	parent.add_child(instance)
+	_apply_mentor_materials(instance, body_mat, _gold_mat, _fate_orb_mat)
+	return instance
+
+
+func _apply_mentor_materials(
+	node: Node,
+	body_mat: Material,
+	gold_mat: Material,
+	star_mat: Material
+) -> void:
+	if node is MeshInstance3D:
+		var mi: MeshInstance3D = node as MeshInstance3D
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		var mesh: Mesh = mi.mesh
+		if mesh != null:
+			var surf_count: int = mesh.get_surface_count()
+			for s_idx: int in range(surf_count):
+				var surf_mat: Material = mesh.surface_get_material(s_idx)
+				var mat_name: String = ""
+				if surf_mat != null:
+					mat_name = surf_mat.resource_name
+				var node_name_lower: String = mi.name.to_lower()
+				if mat_name.contains("Mat_MentorGold") or mat_name.contains("Gold") or node_name_lower.contains("gold") or node_name_lower.contains("halo") or node_name_lower.contains("astrolabe") or node_name_lower.contains("crown"):
+					mi.set_surface_override_material(s_idx, gold_mat)
+				elif mat_name.contains("Mat_MentorStar") or mat_name.contains("Star") or node_name_lower.contains("star") or node_name_lower.contains("orb_core"):
+					mi.set_surface_override_material(s_idx, star_mat)
+				else:
+					mi.set_surface_override_material(s_idx, body_mat)
+
+	for child: Node in node.get_children():
+		_apply_mentor_materials(child, body_mat, gold_mat, star_mat)
 
 
 func _build_alatea() -> void:
@@ -249,9 +330,57 @@ func _build_alatea() -> void:
 	_alatea_root.rotation_degrees.y = 24.0
 	add_child(_alatea_root)
 
+	var model_root: Node3D = _try_instantiate_mentor_glb(ALATEA_GLB_PATH, _alatea_root, _alatea_body_mat)
+	if model_root != null:
+		model_root.name = "AlateaModel"
+		_alatea_halo_pivot = model_root.find_child("AlateaHaloPivot", true, false) as Node3D
+		_alatea_fate_orb = model_root.find_child("AlateaFateOrbPivot", true, false) as Node3D
+		if _alatea_fate_orb != null:
+			_alatea_orb_base_y = _alatea_fate_orb.position.y
+	else:
+		_build_alatea_fallback()
+
+	# Soft cyan-gold aura OmniLight3D for Alatea
+	_alatea_light = OmniLight3D.new()
+	_alatea_light.name = "AlateaAuraLight"
+	_alatea_light.position = Vector3(0.0, 4.8, 0.9)
+	_alatea_light.light_color = COLOR_ALATEA_LIGHT
+	_alatea_light.light_energy = BASE_LIGHT_ENERGY
+	_alatea_light.omni_range = 14.5
+	_alatea_light.omni_attenuation = 1.5
+	_alatea_light.shadow_enabled = false
+	_alatea_root.add_child(_alatea_light)
+
+
+func _build_mira() -> void:
+	_mira_root = Node3D.new()
+	_mira_root.name = "Mira"
+	_mira_root.position = Vector3(7.5, 0.22, 0.0)
+	_mira_root.rotation_degrees.y = -24.0
+	add_child(_mira_root)
+
+	var model_root: Node3D = _try_instantiate_mentor_glb(MIRA_GLB_PATH, _mira_root, _mira_body_mat)
+	if model_root != null:
+		model_root.name = "MiraModel"
+		_mira_halo_pivot = model_root.find_child("MiraHaloPivot", true, false) as Node3D
+	else:
+		_build_mira_fallback()
+
+	# Soft warm gold-cyan aura OmniLight3D for Mira
+	_mira_light = OmniLight3D.new()
+	_mira_light.name = "MiraAuraLight"
+	_mira_light.position = Vector3(0.0, 4.8, 0.9)
+	_mira_light.light_color = COLOR_MIRA_LIGHT
+	_mira_light.light_energy = BASE_LIGHT_ENERGY
+	_mira_light.omni_range = 14.5
+	_mira_light.omni_attenuation = 1.5
+	_mira_light.shadow_enabled = false
+	_mira_root.add_child(_mira_light)
+
+
+func _build_alatea_fallback() -> void:
 	_build_mentor_body(_alatea_root, _alatea_body_mat, _alatea_halo_mat, false)
 
-	# Orbital Art Deco double halo rings behind Alatea's head
 	var halo_anchor: Node3D = Node3D.new()
 	halo_anchor.name = "OrbitalDoubleHalo"
 	halo_anchor.position = Vector3(0.0, 6.42, -0.42)
@@ -266,7 +395,6 @@ func _build_alatea() -> void:
 	)
 	outer_ring.rotation_degrees.x = 90.0
 
-	# 4 delicate Art Deco cardinal ticks on Alatea's outer halo
 	for i: int in range(4):
 		var angle_rad: float = float(i) * (PI * 0.5)
 		var tick: MeshInstance3D = _add_box(
@@ -288,10 +416,10 @@ func _build_alatea() -> void:
 	)
 	inner_ring.rotation_degrees.x = 90.0
 
-	# Glowing golden fate-orb floating in front of Alatea's palms
 	_alatea_fate_orb = Node3D.new()
 	_alatea_fate_orb.name = "GoldenFateOrb"
 	_alatea_fate_orb.position = Vector3(0.0, 4.68, 1.18)
+	_alatea_orb_base_y = 4.68
 	_alatea_root.add_child(_alatea_fate_orb)
 
 	_add_sphere(_alatea_fate_orb, "OrbCore", 0.22, 16, 12, Vector3.ZERO, _fate_orb_mat)
@@ -301,28 +429,10 @@ func _build_alatea() -> void:
 	_alatea_fate_orb.add_child(_alatea_orb_ring)
 	_add_torus(_alatea_orb_ring, "OrbEquatorialRing", 0.34, 0.37, 24, 8, Vector3.ZERO, _mira_halo_mat)
 
-	# Soft cyan-gold aura OmniLight3D for Alatea
-	_alatea_light = OmniLight3D.new()
-	_alatea_light.name = "AlateaAuraLight"
-	_alatea_light.position = Vector3(0.0, 4.8, 0.9)
-	_alatea_light.light_color = COLOR_ALATEA_LIGHT
-	_alatea_light.light_energy = BASE_LIGHT_ENERGY
-	_alatea_light.omni_range = 14.5
-	_alatea_light.omni_attenuation = 1.5
-	_alatea_light.shadow_enabled = false
-	_alatea_root.add_child(_alatea_light)
 
-
-func _build_mira() -> void:
-	_mira_root = Node3D.new()
-	_mira_root.name = "Mira"
-	_mira_root.position = Vector3(7.5, 0.22, 0.0)
-	_mira_root.rotation_degrees.y = -24.0
-	add_child(_mira_root)
-
+func _build_mira_fallback() -> void:
 	_build_mentor_body(_mira_root, _mira_body_mat, _mira_halo_mat, true)
 
-	# Radiant sunburst crown halo behind Mira's head
 	_mira_sunburst_halo = Node3D.new()
 	_mira_sunburst_halo.name = "SunburstCrownHalo"
 	_mira_sunburst_halo.position = Vector3(0.0, 6.46, -0.40)
@@ -353,17 +463,6 @@ func _build_mira() -> void:
 		)
 		ray.rotation.z = angle_rad - PI * 0.5
 
-	# Soft warm gold-cyan aura OmniLight3D for Mira
-	_mira_light = OmniLight3D.new()
-	_mira_light.name = "MiraAuraLight"
-	_mira_light.position = Vector3(0.0, 4.8, 0.9)
-	_mira_light.light_color = COLOR_MIRA_LIGHT
-	_mira_light.light_energy = BASE_LIGHT_ENERGY
-	_mira_light.omni_range = 14.5
-	_mira_light.omni_attenuation = 1.5
-	_mira_light.shadow_enabled = false
-	_mira_root.add_child(_mira_light)
-
 
 func _build_mentor_body(
 	parent: Node3D,
@@ -371,23 +470,17 @@ func _build_mentor_body(
 	accent_mat: Material,
 	open_welcome_arms: bool
 ) -> void:
-	# Flowing lower robe silhouette (base ~0.15m -> y = 3.95m)
 	_add_cylinder(parent, "LowerRobe", 0.52, 1.26, 3.8, 16, Vector3(0.0, 2.05, 0.0), body_mat)
-
-	# Slender upper torso (y = 3.90m -> y = 5.75m)
 	_add_cylinder(parent, "UpperTorso", 0.68, 0.48, 1.85, 14, Vector3(0.0, 4.82, 0.0), body_mat)
 
-	# Draped luminous mantle / shoulder cape
 	var mantle: MeshInstance3D = _add_cylinder(
 		parent, "MantleCape", 0.34, 1.14, 1.45, 14, Vector3(0.0, 5.34, -0.14), body_mat
 	)
 	mantle.scale = Vector3(1.32, 1.0, 0.72)
 
-	# Graceful welcoming arms
 	for side_val: float in [-1.0, 1.0]:
 		var arm_name: String = "EtherealArm_%s" % ("L" if side_val < 0.0 else "R")
 		if open_welcome_arms:
-			# Mira: softly outstretched welcoming gesture
 			var arm_m: MeshInstance3D = _add_cylinder(
 				parent,
 				arm_name,
@@ -400,7 +493,6 @@ func _build_mentor_body(
 			)
 			arm_m.rotation_degrees = Vector3(26.0, 0.0, side_val * 44.0)
 		else:
-			# Alatea: arms angled gently forward toward her floating golden fate-orb
 			var arm_a: MeshInstance3D = _add_cylinder(
 				parent,
 				arm_name,
@@ -413,10 +505,7 @@ func _build_mentor_body(
 			)
 			arm_a.rotation_degrees = Vector3(52.0, side_val * -18.0, side_val * 24.0)
 
-	# Luminous hooded head (top ~6.82m; with halo reaches ~7.5m-7.8m)
 	_add_sphere(parent, "Head", 0.44, 18, 12, Vector3(0.0, 6.38, 0.05), body_mat)
-
-	# Soft inner heart starlight core
 	_add_sphere(parent, "HeartStar", 0.21, 14, 10, Vector3(0.0, 5.15, 0.34), accent_mat)
 
 
