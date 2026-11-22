@@ -141,9 +141,9 @@ func _process(delta: float) -> void:
 			var wing_y: float = sc * (0.65 + 0.45 * flap)
 			var bank: float = clampf(sin(t) * 0.28, -0.35, 0.35)
 
-			var basis: Basis = Basis(Vector3.UP, yaw) * Basis(Vector3.FORWARD, bank)
-			basis = basis.scaled(Vector3(wing_x, maxf(0.28, absf(wing_y)), sc))
-			mm.set_instance_transform(i, Transform3D(basis, Vector3(px, py, pz)))
+			var b_basis: Basis = Basis(Vector3.UP, yaw) * Basis(Vector3.FORWARD, bank)
+			b_basis = b_basis.scaled(Vector3(wing_x, maxf(0.28, absf(wing_y)), sc))
+			mm.set_instance_transform(i, Transform3D(b_basis, Vector3(px, py, pz)))
 
 
 ## Populates the entire Prologue world with reflecting turquoise lakes, lily pads, lotuses,
@@ -1023,11 +1023,12 @@ func _create_sanctuary_pond_ring(
 		_lily_xforms.append(Transform3D(pad_basis, center + Vector3(lx, 0.028, lz)))
 		_lily_colors.append(lily_palette[i % lily_palette.size()])
 
-		if i % 2 == 0 and (i / 2) < lotus_count:
+		var lotus_idx: int = int(floorf(float(i) * 0.5))
+		if i % 2 == 0 and lotus_idx < lotus_count:
 			var l_scale: float = 0.70 + _hash01(801 + i * 13) * 0.38
 			var l_basis: Basis = Basis(Vector3.UP, a).scaled(Vector3(l_scale, l_scale, l_scale))
 			_lotus_xforms.append(Transform3D(l_basis, center + Vector3(lx, 0.048, lz)))
-			_lotus_colors.append(lotus_palette[(i / 2) % lotus_palette.size()])
+			_lotus_colors.append(lotus_palette[lotus_idx % lotus_palette.size()])
 
 	_add_water_sparkle_mist(pond, Vector3(r_outer * 0.78, 0.22, r_outer * 0.78), 16)
 
@@ -1179,8 +1180,8 @@ func _populate_meadow_grass_and_flowerbeds(island_positions: Array[Vector3]) -> 
 
 		var yaw: float = _hash01(seed_id * 13) * TAU
 		var sc: float = 0.75 + _hash01(seed_id * 37) * 0.85
-		var basis: Basis = Basis(Vector3.UP, yaw).scaled(Vector3(sc, sc * (0.85 + _hash01(seed_id * 41) * 0.4), sc))
-		_grass_xforms.append(Transform3D(basis, Vector3(gx, 4.0, gz)))
+		var g_basis_a: Basis = Basis(Vector3.UP, yaw).scaled(Vector3(sc, sc * (0.85 + _hash01(seed_id * 41) * 0.4), sc))
+		_grass_xforms.append(Transform3D(g_basis_a, Vector3(gx, 4.0, gz)))
 		_grass_colors.append(grass_palette[seed_id % grass_palette.size()])
 
 		if _hash01(seed_id * 53 + 11) < 0.72:
@@ -1229,8 +1230,9 @@ func _populate_meadow_grass_and_flowerbeds(island_positions: Array[Vector3]) -> 
 
 			var f_sc: float = 0.82 + _hash01(seed_id * 31) * 0.68
 			var f_basis: Basis = Basis(Vector3.UP, ang * 1.4 + 0.5).scaled(Vector3(f_sc, f_sc, f_sc))
+			var shore_col_idx: int = (int(floorf(float(k) / 3.0)) + l_idx * 2) % flower_palette.size()
 			_flower_xforms.append(Transform3D(f_basis, Vector3(sx, 4.03, sz)))
-			_flower_colors.append(flower_palette[(k / 3 + l_idx * 2) % flower_palette.size()])
+			_flower_colors.append(flower_palette[shore_col_idx])
 
 	# C. Castle Lower Arrival Apron (y = 0.0, flanking front staircase base)
 	for i: int in range(120):
@@ -1239,8 +1241,8 @@ func _populate_meadow_grass_and_flowerbeds(island_positions: Array[Vector3]) -> 
 		var ax: float = side_sign * lerpf(16.2, 41.0, _hash01(seed_id * 17))
 		var az: float = lerpf(-240.5, -247.0, _hash01(seed_id * 23))
 		var sc: float = 0.80 + _hash01(seed_id * 31) * 0.75
-		var basis: Basis = Basis(Vector3.UP, _hash01(seed_id * 13) * TAU).scaled(Vector3(sc, sc, sc))
-		_grass_xforms.append(Transform3D(basis, Vector3(ax, 0.0, az)))
+		var g_basis_c: Basis = Basis(Vector3.UP, _hash01(seed_id * 13) * TAU).scaled(Vector3(sc, sc, sc))
+		_grass_xforms.append(Transform3D(g_basis_c, Vector3(ax, 0.0, az)))
 		_grass_colors.append(grass_palette[seed_id % grass_palette.size()])
 		if i % 2 == 0:
 			var f_basis: Basis = Basis(Vector3.UP, _hash01(seed_id * 19) * TAU).scaled(Vector3(sc, sc, sc))
@@ -1264,8 +1266,8 @@ func _populate_meadow_grass_and_flowerbeds(island_positions: Array[Vector3]) -> 
 			var px: float = center.x + cos(ang) * r_val
 			var pz: float = center.z + sin(ang) * r_val
 			var sc: float = 0.72 + _hash01(seed_id * 37) * 0.68
-			var basis: Basis = Basis(Vector3.UP, ang * 2.0).scaled(Vector3(sc, sc, sc))
-			_grass_xforms.append(Transform3D(basis, Vector3(px, center.y, pz)))
+			var g_basis_d: Basis = Basis(Vector3.UP, ang * 2.0).scaled(Vector3(sc, sc, sc))
+			_grass_xforms.append(Transform3D(g_basis_d, Vector3(px, center.y, pz)))
 			_grass_colors.append(grass_palette[seed_id % grass_palette.size()])
 
 			if _hash01(seed_id * 43) < 0.74:
@@ -1281,8 +1283,8 @@ func _populate_meadow_grass_and_flowerbeds(island_positions: Array[Vector3]) -> 
 		var px: float = side_sign * lerpf(5.85, 7.65, _hash01(seed_id * 17))
 		var pz: float = lerpf(24.4, 45.0, _hash01(seed_id * 29))
 		var sc: float = 0.68 + _hash01(seed_id * 31) * 0.56
-		var basis: Basis = Basis(Vector3.UP, _hash01(seed_id * 13) * TAU).scaled(Vector3(sc, sc, sc))
-		_grass_xforms.append(Transform3D(basis, Vector3(px, 0.0, pz)))
+		var g_basis_e: Basis = Basis(Vector3.UP, _hash01(seed_id * 13) * TAU).scaled(Vector3(sc, sc, sc))
+		_grass_xforms.append(Transform3D(g_basis_e, Vector3(px, 0.0, pz)))
 		_grass_colors.append(grass_palette[seed_id % grass_palette.size()])
 
 		if _hash01(seed_id * 41) < 0.78:
@@ -1298,8 +1300,8 @@ func _populate_meadow_grass_and_flowerbeds(island_positions: Array[Vector3]) -> 
 		var vx: float = side_sign * lerpf(51.2, 54.0, _hash01(seed_id * 17))
 		var vz: float = lerpf(10.0, -232.0, _hash01(seed_id * 29))
 		var sc: float = 0.78 + _hash01(seed_id * 37) * 0.68
-		var basis: Basis = Basis(Vector3.UP, _hash01(seed_id * 13) * TAU).scaled(Vector3(sc, sc, sc))
-		_grass_xforms.append(Transform3D(basis, Vector3(vx, 14.0, vz)))
+		var g_basis_f: Basis = Basis(Vector3.UP, _hash01(seed_id * 13) * TAU).scaled(Vector3(sc, sc, sc))
+		_grass_xforms.append(Transform3D(g_basis_f, Vector3(vx, 14.0, vz)))
 		_grass_colors.append(grass_palette[seed_id % grass_palette.size()])
 
 		if _hash01(seed_id * 43) < 0.68:
