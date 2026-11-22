@@ -22,8 +22,8 @@ const COLOR_MIRA_RIM_HI: Color = Color("#FFF8EC")
 const COLOR_MIRA_HALO: Color = Color("#DFC48E")
 const COLOR_MIRA_LIGHT: Color = Color(1.0, 0.94, 0.86, 1.0)
 
-const COLOR_SATIN_GOLD: Color = Color("#DFC48E")
-const COLOR_BRIGHT_GOLD: Color = Color("#F0DCAA")
+const COLOR_SATIN_GOLD: Color = Color("#E5BC74")
+const COLOR_BRIGHT_GOLD: Color = Color("#F2CA8A")
 
 const BASE_LIGHT_ENERGY: float = 1.10
 const HIGHLIGHT_LIGHT_ENERGY: float = 1.65
@@ -33,11 +33,30 @@ const BASE_EMISSION_STRENGTH: float = 0.65
 const HIGHLIGHT_EMISSION_STRENGTH: float = 0.95
 const DIMMED_EMISSION_STRENGTH: float = 0.48
 
+const BASE_GOLD_EMISSION: float = 0.28
+const BASE_CRYSTAL_EMISSION: float = 0.55
+const BASE_STAR_EMISSION: float = 1.35
+
+
+class MentorMaterialSet:
+	var skin: StandardMaterial3D = null
+	var hair: StandardMaterial3D = null
+	var robe: ShaderMaterial = null
+	var silk_veil: StandardMaterial3D = null
+	var wing_ivory: StandardMaterial3D = null
+	var wing_gold_tip: StandardMaterial3D = null
+	var gold: StandardMaterial3D = null
+	var crystal: StandardMaterial3D = null
+	var star: StandardMaterial3D = null
+
+
 var _alatea_root: Node3D = null
 var _mira_root: Node3D = null
 
 var _alatea_body_mat: ShaderMaterial = null
 var _mira_body_mat: ShaderMaterial = null
+var _alatea_mats: MentorMaterialSet = null
+var _mira_mats: MentorMaterialSet = null
 var _gold_mat: StandardMaterial3D = null
 var _alatea_halo_mat: StandardMaterial3D = null
 var _mira_halo_mat: StandardMaterial3D = null
@@ -142,14 +161,24 @@ func _process(delta: float) -> void:
 	if _mira_body_mat != null:
 		_mira_body_mat.set_shader_parameter("emission_strength", _mira_current_emission + pulse_emission_add)
 
-	if _gold_mat != null:
-		_gold_mat.emission_energy_multiplier = 0.45 + pulse_emission_add * 0.45
+	var alatea_speak_delta: float = _alatea_current_emission - BASE_EMISSION_STRENGTH
+	var mira_speak_delta: float = _mira_current_emission - BASE_EMISSION_STRENGTH
 
-	if _fate_orb_mat != null:
-		var orb_boost: float = 1.35 + pulse_emission_add * 0.55
-		if _active_speaker == "alatea":
-			orb_boost += 0.35
-		_fate_orb_mat.emission_energy_multiplier = orb_boost
+	if _alatea_mats != null:
+		if _alatea_mats.gold != null:
+			_alatea_mats.gold.emission_energy_multiplier = BASE_GOLD_EMISSION + clampf(alatea_speak_delta * 0.60, -0.08, 0.20) + pulse_emission_add * 0.45
+		if _alatea_mats.crystal != null:
+			_alatea_mats.crystal.emission_energy_multiplier = BASE_CRYSTAL_EMISSION + clampf(alatea_speak_delta * 0.70, -0.12, 0.25) + pulse_emission_add * 0.45
+		if _alatea_mats.star != null:
+			_alatea_mats.star.emission_energy_multiplier = BASE_STAR_EMISSION + clampf(alatea_speak_delta * 1.15, -0.15, 0.35) + pulse_emission_add * 0.55
+
+	if _mira_mats != null:
+		if _mira_mats.gold != null:
+			_mira_mats.gold.emission_energy_multiplier = BASE_GOLD_EMISSION + clampf(mira_speak_delta * 0.60, -0.08, 0.20) + pulse_emission_add * 0.45
+		if _mira_mats.crystal != null:
+			_mira_mats.crystal.emission_energy_multiplier = BASE_CRYSTAL_EMISSION + clampf(mira_speak_delta * 0.70, -0.12, 0.25) + pulse_emission_add * 0.45
+		if _mira_mats.star != null:
+			_mira_mats.star.emission_energy_multiplier = BASE_STAR_EMISSION + clampf(mira_speak_delta * 1.15, -0.15, 0.35) + pulse_emission_add * 0.55
 
 
 ## Highlights the currently speaking mentor ("alatea", "mira", or "" for neutral).
@@ -248,14 +277,54 @@ func _init_materials() -> void:
 	_mira_body_mat.set_shader_parameter("hem_fade_start", 0.0)
 	_mira_body_mat.set_shader_parameter("hem_fade_end", 1.05)
 
-	_gold_mat = StandardMaterial3D.new()
-	_gold_mat.albedo_color = COLOR_SATIN_GOLD
-	_gold_mat.metallic = 0.78
-	_gold_mat.roughness = 0.38
-	_gold_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
-	_gold_mat.emission_enabled = true
-	_gold_mat.emission = COLOR_BRIGHT_GOLD
-	_gold_mat.emission_energy_multiplier = 0.45
+	# Shared angelic wing materials (ivory feather blades + brushed champagne-gold tips)
+	var wing_ivory_mat: StandardMaterial3D = StandardMaterial3D.new()
+	wing_ivory_mat.albedo_color = Color("#FCF7F0")
+	wing_ivory_mat.roughness = 0.42
+	wing_ivory_mat.metallic = 0.04
+	wing_ivory_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	wing_ivory_mat.emission_enabled = true
+	wing_ivory_mat.emission = Color("#FFF2DF")
+	wing_ivory_mat.emission_energy_multiplier = 0.10
+
+	var wing_gold_tip_mat: StandardMaterial3D = StandardMaterial3D.new()
+	wing_gold_tip_mat.albedo_color = Color("#E5BC74")
+	wing_gold_tip_mat.metallic = 0.78
+	wing_gold_tip_mat.roughness = 0.36
+	wing_gold_tip_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	wing_gold_tip_mat.emission_enabled = true
+	wing_gold_tip_mat.emission = Color("#F2CA8A")
+	wing_gold_tip_mat.emission_energy_multiplier = 0.14
+
+	_alatea_mats = _create_mentor_material_set(
+		_alatea_body_mat,
+		Color("#F4F0F4"),
+		Color("#DCECF8"),
+		Color("#C8E8FF"),
+		Color(0.84, 0.94, 1.0, 0.52),
+		Color("#D8F0FF"),
+		Color("#74D4EC"),
+		Color("#A6ECFF"),
+		wing_ivory_mat,
+		wing_gold_tip_mat
+	)
+
+	_mira_mats = _create_mentor_material_set(
+		_mira_body_mat,
+		Color("#F9F1EB"),
+		Color("#F2DCE2"),
+		Color("#FFE0D8"),
+		Color(1.0, 0.90, 0.93, 0.52),
+		Color("#FFE4EC"),
+		Color("#F7A8C4"),
+		Color("#FFD0E2"),
+		wing_ivory_mat,
+		wing_gold_tip_mat
+	)
+
+	# Keep legacy references bound to Alatea's gold & starlight materials for procedural fallbacks
+	_gold_mat = _alatea_mats.gold
+	_fate_orb_mat = _alatea_mats.star
 
 	_alatea_halo_mat = StandardMaterial3D.new()
 	_alatea_halo_mat.albedo_color = Color(COLOR_ALATEA_RIM.r, COLOR_ALATEA_RIM.g, COLOR_ALATEA_RIM.b, 0.72)
@@ -271,16 +340,96 @@ func _init_materials() -> void:
 	_mira_halo_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
 	_mira_halo_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 
-	_fate_orb_mat = StandardMaterial3D.new()
-	_fate_orb_mat.albedo_color = Color("#FFF7DC")
-	_fate_orb_mat.roughness = 0.18
-	_fate_orb_mat.metallic = 0.15
-	_fate_orb_mat.emission_enabled = true
-	_fate_orb_mat.emission = Color("#F6DFAC")
-	_fate_orb_mat.emission_energy_multiplier = 1.35
+
+func _create_mentor_material_set(
+	robe_mat: ShaderMaterial,
+	skin_albedo: Color,
+	hair_albedo: Color,
+	hair_emission: Color,
+	veil_albedo: Color,
+	veil_emission: Color,
+	crystal_albedo: Color,
+	crystal_emission: Color,
+	wing_ivory_mat: StandardMaterial3D,
+	wing_gold_tip_mat: StandardMaterial3D
+) -> MentorMaterialSet:
+	var mat_set: MentorMaterialSet = MentorMaterialSet.new()
+	mat_set.robe = robe_mat
+	mat_set.wing_ivory = wing_ivory_mat
+	mat_set.wing_gold_tip = wing_gold_tip_mat
+
+	# 1. Mat_MentorSkin: luminous sculpted porcelain-alabaster / pearl goddess skin
+	var skin_mat: StandardMaterial3D = StandardMaterial3D.new()
+	skin_mat.albedo_color = skin_albedo
+	skin_mat.roughness = 0.34
+	skin_mat.metallic = 0.02
+	skin_mat.emission_enabled = true
+	skin_mat.emission = Color("#FFE8DC")
+	skin_mat.emission_energy_multiplier = 0.14
+	mat_set.skin = skin_mat
+
+	# 2. Mat_MentorHair: silky spun-pearl flowing hair
+	var hair_mat: StandardMaterial3D = StandardMaterial3D.new()
+	hair_mat.albedo_color = hair_albedo
+	hair_mat.roughness = 0.32
+	hair_mat.metallic = 0.18
+	hair_mat.emission_enabled = true
+	hair_mat.emission = hair_emission
+	hair_mat.emission_energy_multiplier = 0.12
+	mat_set.hair = hair_mat
+
+	# 4. Mat_MentorSilkVeil: ethereal translucent silk-organza
+	var veil_mat: StandardMaterial3D = StandardMaterial3D.new()
+	veil_mat.albedo_color = veil_albedo
+	veil_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	veil_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	veil_mat.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_OPAQUE_ONLY
+	veil_mat.roughness = 0.28
+	veil_mat.metallic = 0.04
+	veil_mat.emission_enabled = true
+	veil_mat.emission = veil_emission
+	veil_mat.emission_energy_multiplier = 0.18
+	mat_set.silk_veil = veil_mat
+
+	# 7. Mat_MentorGold: ornate brushed satin champagne gold filigree
+	var gold_mat: StandardMaterial3D = StandardMaterial3D.new()
+	gold_mat.albedo_color = COLOR_SATIN_GOLD
+	gold_mat.metallic = 0.80
+	gold_mat.roughness = 0.36
+	gold_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	gold_mat.emission_enabled = true
+	gold_mat.emission = COLOR_BRIGHT_GOLD
+	gold_mat.emission_energy_multiplier = BASE_GOLD_EMISSION
+	mat_set.gold = gold_mat
+
+	# 8. Mat_MentorCrystal: faceted celestial crystal teardrops & tiara gems
+	var crystal_mat: StandardMaterial3D = StandardMaterial3D.new()
+	crystal_mat.albedo_color = crystal_albedo
+	crystal_mat.roughness = 0.14
+	crystal_mat.metallic = 0.15
+	crystal_mat.emission_enabled = true
+	crystal_mat.emission = crystal_emission
+	crystal_mat.emission_energy_multiplier = BASE_CRYSTAL_EMISSION
+	mat_set.crystal = crystal_mat
+
+	# 9. Mat_MentorStar: serene radiant starlight heart & Fate Orb core
+	var star_mat: StandardMaterial3D = StandardMaterial3D.new()
+	star_mat.albedo_color = Color("#FFF8E6")
+	star_mat.roughness = 0.18
+	star_mat.metallic = 0.15
+	star_mat.emission_enabled = true
+	star_mat.emission = Color("#FFE8B8")
+	star_mat.emission_energy_multiplier = BASE_STAR_EMISSION
+	mat_set.star = star_mat
+
+	return mat_set
 
 
-func _try_instantiate_mentor_glb(glb_path: String, parent: Node3D, body_mat: Material) -> Node3D:
+func _try_instantiate_mentor_glb(
+	glb_path: String,
+	parent: Node3D,
+	mat_set: MentorMaterialSet
+) -> Node3D:
 	if not ResourceLoader.exists(glb_path):
 		return null
 	var packed: PackedScene = load(glb_path) as PackedScene
@@ -290,37 +439,76 @@ func _try_instantiate_mentor_glb(glb_path: String, parent: Node3D, body_mat: Mat
 	if instance == null:
 		return null
 	parent.add_child(instance)
-	_apply_mentor_materials(instance, body_mat, _gold_mat, _fate_orb_mat)
+	_apply_mentor_materials_recursive(instance, mat_set)
 	return instance
 
 
-func _apply_mentor_materials(
-	node: Node,
-	body_mat: Material,
-	gold_mat: Material,
-	star_mat: Material
-) -> void:
+func _apply_mentor_materials_recursive(node: Node, mat_set: MentorMaterialSet) -> void:
 	if node is MeshInstance3D:
 		var mi: MeshInstance3D = node as MeshInstance3D
 		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		var mesh: Mesh = mi.mesh
 		if mesh != null:
 			var surf_count: int = mesh.get_surface_count()
+			var node_name_lower: String = mi.name.to_lower()
 			for s_idx: int in range(surf_count):
 				var surf_mat: Material = mesh.surface_get_material(s_idx)
 				var mat_name: String = ""
 				if surf_mat != null:
 					mat_name = surf_mat.resource_name
-				var node_name_lower: String = mi.name.to_lower()
-				if mat_name.contains("Mat_MentorGold") or mat_name.contains("Gold") or node_name_lower.contains("gold") or node_name_lower.contains("halo") or node_name_lower.contains("astrolabe") or node_name_lower.contains("crown"):
-					mi.set_surface_override_material(s_idx, gold_mat)
-				elif mat_name.contains("Mat_MentorStar") or mat_name.contains("Star") or node_name_lower.contains("star") or node_name_lower.contains("orb_core"):
-					mi.set_surface_override_material(s_idx, star_mat)
-				else:
-					mi.set_surface_override_material(s_idx, body_mat)
+				var chosen_mat: Material = _resolve_mentor_surface_material(
+					mat_name, node_name_lower, mat_set
+				)
+				mi.set_surface_override_material(s_idx, chosen_mat)
 
 	for child: Node in node.get_children():
-		_apply_mentor_materials(child, body_mat, gold_mat, star_mat)
+		_apply_mentor_materials_recursive(child, mat_set)
+
+
+func _resolve_mentor_surface_material(
+	mat_name: String,
+	node_name_lower: String,
+	mat_set: MentorMaterialSet
+) -> Material:
+	# Explicit semantic material names first (order prevents substring collisions like WingGoldTip vs Gold)
+	if mat_name.contains("Mat_MentorSkin"):
+		return mat_set.skin
+	if mat_name.contains("Mat_MentorHair"):
+		return mat_set.hair
+	if mat_name.contains("Mat_MentorSilkVeil"):
+		return mat_set.silk_veil
+	if mat_name.contains("Mat_WingGoldTip"):
+		return mat_set.wing_gold_tip
+	if mat_name.contains("Mat_WingIvory"):
+		return mat_set.wing_ivory
+	if mat_name.contains("Mat_MentorCrystal"):
+		return mat_set.crystal
+	if mat_name.contains("Mat_MentorGold"):
+		return mat_set.gold
+	if mat_name.contains("Mat_MentorStar"):
+		return mat_set.star
+	if mat_name.contains("Mat_MentorRobe") or mat_name.contains("Mat_MentorBody"):
+		return mat_set.robe
+
+	# Legacy / heuristic surface & node name fallbacks
+	if mat_name.contains("WingGold") or node_name_lower.contains("winggold") or node_name_lower.contains("wing_gold"):
+		return mat_set.wing_gold_tip
+	if mat_name.contains("Wing") or node_name_lower.contains("wing") or node_name_lower.contains("feather"):
+		return mat_set.wing_ivory
+	if mat_name.contains("Silk") or mat_name.contains("Veil") or node_name_lower.contains("veil") or node_name_lower.contains("silk"):
+		return mat_set.silk_veil
+	if mat_name.contains("Crystal") or mat_name.contains("Gem") or node_name_lower.contains("crystal") or node_name_lower.contains("gem"):
+		return mat_set.crystal
+	if mat_name.contains("Skin") or node_name_lower.contains("skin") or node_name_lower.contains("face"):
+		return mat_set.skin
+	if mat_name.contains("Hair") or node_name_lower.contains("hair"):
+		return mat_set.hair
+	if mat_name.contains("Gold") or node_name_lower.contains("gold") or node_name_lower.contains("halo") or node_name_lower.contains("astrolabe") or node_name_lower.contains("crown"):
+		return mat_set.gold
+	if mat_name.contains("Star") or node_name_lower.contains("star") or node_name_lower.contains("orb_core"):
+		return mat_set.star
+
+	return mat_set.robe
 
 
 func _build_alatea() -> void:
@@ -330,7 +518,7 @@ func _build_alatea() -> void:
 	_alatea_root.rotation_degrees.y = 24.0
 	add_child(_alatea_root)
 
-	var model_root: Node3D = _try_instantiate_mentor_glb(ALATEA_GLB_PATH, _alatea_root, _alatea_body_mat)
+	var model_root: Node3D = _try_instantiate_mentor_glb(ALATEA_GLB_PATH, _alatea_root, _alatea_mats)
 	if model_root != null:
 		model_root.name = "AlateaModel"
 		_alatea_halo_pivot = model_root.find_child("AlateaHaloPivot", true, false) as Node3D
@@ -359,7 +547,7 @@ func _build_mira() -> void:
 	_mira_root.rotation_degrees.y = -24.0
 	add_child(_mira_root)
 
-	var model_root: Node3D = _try_instantiate_mentor_glb(MIRA_GLB_PATH, _mira_root, _mira_body_mat)
+	var model_root: Node3D = _try_instantiate_mentor_glb(MIRA_GLB_PATH, _mira_root, _mira_mats)
 	if model_root != null:
 		model_root.name = "MiraModel"
 		_mira_halo_pivot = model_root.find_child("MiraHaloPivot", true, false) as Node3D
