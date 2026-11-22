@@ -1,0 +1,14 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/akasha_audio_manager.gd" id="1_audio_mgr"]
+
+[sub_resource type="AudioStreamGenerator" id="AudioStreamGenerator_akasha"]
+mix_rate = 22050.0
+buffer_length = 0.1
+
+[node name="AkashaAudioManager" type="Node"]
+script = ExtResource("1_audio_mgr")
+
+[node name="AudioStreamPlayer" type="AudioStreamPlayer" parent="."]
+stream = SubResource("AudioStreamGenerator_akasha")
+volume_db = -2.0

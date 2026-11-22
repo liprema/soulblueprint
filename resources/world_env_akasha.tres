@@ -1,0 +1,36 @@
+[gd_resource type="Environment" load_steps=4 format=3]
+
+[ext_resource type="Shader" path="res://shaders/akasha_sky.gdshader" id="1_akasha_sky"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_akasha_sky"]
+shader = ExtResource("1_akasha_sky")
+
+[sub_resource type="Sky" id="Sky_akasha"]
+sky_material = SubResource("ShaderMaterial_akasha_sky")
+
+[resource]
+background_mode = 2
+sky = SubResource("Sky_akasha")
+ambient_light_source = 3
+ambient_light_color = Color(0.118, 0.294, 0.604, 1)
+ambient_light_sky_contribution = 0.7
+ambient_light_energy = 0.85
+reflected_light_source = 2
+tonemap_mode = 3
+tonemap_exposure = 1.05
+glow_enabled = true
+glow_intensity = 0.45
+glow_strength = 0.9
+glow_bloom = 0.35
+glow_blend_mode = 1
+glow_hdr_threshold = 0.85
+glow_hdr_scale = 1.8
+volumetric_fog_enabled = true
+volumetric_fog_density = 0.008
+volumetric_fog_albedo = Color(0.24, 0.38, 0.68, 1)
+volumetric_fog_emission = Color(0.22, 0.2, 0.24, 1)
+volumetric_fog_emission_energy = 0.22
+volumetric_fog_gi_inject = 0.5
+volumetric_fog_anisotropy = 0.45
+volumetric_fog_length = 280.0
+volumetric_fog_sky_affect = 0.35

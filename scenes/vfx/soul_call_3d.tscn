@@ -1,0 +1,57 @@
+[gd_scene load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://scripts/soul_call_3d.gd" id="1_script"]
+[ext_resource type="Shader" path="res://shaders/soul_call_sphere.gdshader" id="2_shader"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_sphere"]
+resource_local_to_scene = true
+render_priority = 1
+shader = ExtResource("2_shader")
+shader_parameter/rim_color = Color(1, 0.964706, 0.8, 1)
+shader_parameter/core_color = Color(0.964706, 0.827451, 0.419608, 1)
+shader_parameter/alpha_fade = 1.0
+shader_parameter/fresnel_power = 2.6
+shader_parameter/emission_strength = 2.6
+shader_parameter/ripple_speed = 2.4
+shader_parameter/ripple_density = 10.0
+
+[sub_resource type="SphereMesh" id="SphereMesh_call"]
+material = SubResource("ShaderMaterial_sphere")
+radius = 1.0
+height = 2.0
+radial_segments = 48
+rings = 24
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_ring"]
+resource_local_to_scene = true
+transparency = 1
+blend_mode = 1
+cull_mode = 2
+depth_draw_mode = 2
+shading_mode = 0
+albedo_color = Color(1, 0.945098, 0.721569, 0.95)
+
+[sub_resource type="TorusMesh" id="TorusMesh_ring"]
+material = SubResource("StandardMaterial3D_ring")
+inner_radius = 0.88
+outer_radius = 1.0
+rings = 48
+ring_segments = 16
+
+[node name="SoulCall3D" type="Node3D"]
+script = ExtResource("1_script")
+
+[node name="CallSphere" type="MeshInstance3D" parent="."]
+cast_shadow = 0
+mesh = SubResource("SphereMesh_call")
+
+[node name="RunicRing" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.28, 0, 0, 0, 1, 0, 0, 0)
+cast_shadow = 0
+mesh = SubResource("TorusMesh_ring")
+
+[node name="CallLight" type="OmniLight3D" parent="."]
+light_color = Color(1, 0.890196, 0.560784, 1)
+light_energy = 0.0
+omni_range = 14.0
+omni_attenuation = 1.4

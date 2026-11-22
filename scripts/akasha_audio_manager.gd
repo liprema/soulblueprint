@@ -1,0 +1,357 @@
+class_name AkashaAudioManager
+extends Node
+
+## Pure-GDScript procedural celestial chime & harmonic pad synthesizer
+## using AudioStreamGenerator at 22050 Hz (zero external audio files required).
+
+const SAMPLE_RATE: float = 22050.0
+const INV_SAMPLE_RATE: float = 1.0 / SAMPLE_RATE
+const MAX_VOICES: int = 16
+
+## D-Major celestial pentatonic scale: D5, E5, F#5, A5, D6
+const PENTATONIC_FREQS: Array[float] = [587.33, 659.25, 739.99, 880.00, 1174.66]
+
+const VOICE_CHIME: int = 0
+const VOICE_PAD: int = 1
+const VOICE_FLAP: int = 2
+
+const DELAY_LEN_L: int = 3969 # ~180 ms at 22050 Hz
+const DELAY_LEN_R: int = 5292 # ~240 ms at 22050 Hz
+
+@export_range(0.0, 1.5, 0.01) var master_volume: float = 0.78
+@export var enabled: bool = true
+
+@onready var _player: AudioStreamPlayer = get_node_or_null("AudioStreamPlayer")
+
+var _playback: AudioStreamGeneratorPlayback
+var _voices: Array[Dictionary] = []
+
+var _delay_l: PackedFloat32Array = PackedFloat32Array()
+var _delay_r: PackedFloat32Array = PackedFloat32Array()
+var _delay_idx_l: int = 0
+var _delay_idx_r: int = 0
+var _delay_energy: float = 0.0
+
+var _frame_buffer: PackedVector2Array = PackedVector2Array()
+var _silence_buffer: PackedVector2Array = PackedVector2Array()
+var _noise_state: int = 2463534242
+
+
+func _ready() -> void:
+	_delay_l.resize(DELAY_LEN_L)
+	_delay_l.fill(0.0)
+	_delay_r.resize(DELAY_LEN_R)
+	_delay_r.fill(0.0)
+
+	if _player == null:
+		_player = AudioStreamPlayer.new()
+		_player.name = "AudioStreamPlayer"
+		add_child(_player)
+
+	var gen: AudioStreamGenerator = _player.stream as AudioStreamGenerator
+	if gen == null:
+		gen = AudioStreamGenerator.new()
+		_player.stream = gen
+
+	gen.mix_rate = SAMPLE_RATE
+	gen.buffer_length = 0.1
+
+	_player.play()
+	_playback = _player.get_stream_playback() as AudioStreamGeneratorPlayback
+	_fill_audio_buffer()
+
+
+func _process(_delta: float) -> void:
+	if not enabled or _playback == null:
+		return
+	if not _player.playing:
+		_player.play()
+		_playback = _player.get_stream_playback() as AudioStreamGeneratorPlayback
+		if _playback == null:
+			return
+	_fill_audio_buffer()
+
+
+## Radiant 3-note golden harmonic chord (D5 + F#5 + A5 with warm D4 resonance).
+func play_soul_call() -> void:
+	if not enabled:
+		return
+	# Warm foundational fifth/octave glow
+	_add_voice({
+		"type": VOICE_PAD,
+		"freq": 293.66, # D4
+		"freq_end": 293.66,
+		"phase": 0.0,
+		"phase2": 0.0,
+		"phase3": 0.0,
+		"age": 0.0,
+		"delay": 0.0,
+		"attack": 0.08,
+		"decay": 1.35,
+		"duration": 3.4,
+		"amp": 0.22,
+		"pan": 0.0,
+		"lp": 0.0,
+	})
+	# Radiant 3-note golden chord bloom (D5, F#5, A5)
+	var chord_freqs: Array[float] = [587.33, 739.99, 880.00]
+	var chord_pans: Array[float] = [-0.28, 0.0, 0.28]
+	for i in range(chord_freqs.size()):
+		_add_voice({
+			"type": VOICE_PAD,
+			"freq": chord_freqs[i],
+			"freq_end": chord_freqs[i],
+			"phase": 0.0,
+			"phase2": 0.0,
+			"phase3": 0.0,
+			"age": 0.0,
+			"delay": float(i) * 0.048,
+			"attack": 0.045,
+			"decay": 1.15,
+			"duration": 3.1,
+			"amp": 0.24,
+			"pan": chord_pans[i],
+			"lp": 0.0,
+		})
+
+
+## Soft airy rising shimmer for wing flaps and soaring impulses.
+func play_wing_flap() -> void:
+	if not enabled:
+		return
+	_add_voice({
+		"type": VOICE_FLAP,
+		"freq": 440.00, # A4 -> D5 gentle glide
+		"freq_end": 587.33,
+		"phase": 0.0,
+		"phase2": 0.0,
+		"phase3": 0.0,
+		"age": 0.0,
+		"delay": 0.0,
+		"attack": 0.06,
+		"decay": 0.25,
+		"duration": 0.42,
+		"amp": 0.24,
+		"pan": -0.1,
+		"lp": 0.0,
+	})
+	_add_voice({
+		"type": VOICE_FLAP,
+		"freq": 659.25, # E5 -> A5 airy shimmer harmonic
+		"freq_end": 880.00,
+		"phase": 0.0,
+		"phase2": 0.0,
+		"phase3": 0.0,
+		"age": 0.0,
+		"delay": 0.025,
+		"attack": 0.05,
+		"decay": 0.22,
+		"duration": 0.36,
+		"amp": 0.14,
+		"pan": 0.15,
+		"lp": 0.0,
+	})
+
+
+## Crystalline pentatonic bell note (D5, E5, F#5, A5, D6).
+func play_lantern_chime(index: int = 0) -> void:
+	if not enabled:
+		return
+	var note_idx: int = posmod(index, PENTATONIC_FREQS.size())
+	var freq: float = PENTATONIC_FREQS[note_idx]
+	var pan: float = lerpf(-0.32, 0.32, float(note_idx) / float(PENTATONIC_FREQS.size() - 1))
+
+	_add_voice({
+		"type": VOICE_CHIME,
+		"freq": freq,
+		"freq_end": freq,
+		"phase": 0.0,
+		"phase2": 0.0,
+		"phase3": 0.0,
+		"age": 0.0,
+		"delay": 0.0,
+		"attack": 0.007,
+		"decay": 0.92,
+		"duration": 2.8,
+		"amp": 0.34,
+		"pan": pan,
+		"lp": 0.0,
+	})
+
+
+func _add_voice(voice: Dictionary) -> void:
+	if _voices.size() >= MAX_VOICES:
+		_voices.remove_at(0)
+	_voices.append(voice)
+	_delay_energy = 1.0
+
+
+func _fill_audio_buffer() -> void:
+	var frames_available: int = _playback.get_frames_available()
+	if frames_available <= 0:
+		return
+
+	# Fast-path: push silence when all voices and shimmer tails have decayed
+	if _voices.is_empty() and _delay_energy < 0.0002:
+		if _silence_buffer.size() != frames_available:
+			_silence_buffer.resize(frames_available)
+			_silence_buffer.fill(Vector2.ZERO)
+		_playback.push_buffer(_silence_buffer)
+		return
+
+	if _frame_buffer.size() != frames_available:
+		_frame_buffer.resize(frames_available)
+
+	var voice_count: int = _voices.size()
+	var peak_tail: float = 0.0
+
+	for i in range(frames_available):
+		var dry_l: float = 0.0
+		var dry_r: float = 0.0
+
+		for v_idx in range(voice_count):
+			var v: Dictionary = _voices[v_idx]
+			var age: float = v["age"]
+			var delay: float = v["delay"]
+			var duration: float = v["duration"]
+
+			if age >= delay + duration:
+				continue
+
+			v["age"] = age + INV_SAMPLE_RATE
+			if age < delay:
+				continue
+
+			var t: float = age - delay
+			var v_type: int = v["type"]
+			var amp: float = v["amp"]
+			var pan: float = v["pan"]
+			var pan_l: float = 0.7071 * (1.0 - pan * 0.5)
+			var pan_r: float = 0.7071 * (1.0 + pan * 0.5)
+
+			if v_type == VOICE_CHIME:
+				var freq: float = v["freq"]
+				var attack: float = v["attack"]
+				var decay: float = v["decay"]
+				var env_a: float = clampf(t / attack, 0.0, 1.0)
+				var env_d: float = exp(-t / decay)
+				var env: float = env_a * env_d
+
+				var p1: float = v["phase"] + TAU * freq * INV_SAMPLE_RATE
+				var p2: float = v["phase2"] + TAU * (freq * 2.0) * INV_SAMPLE_RATE
+				var p3: float = v["phase3"] + TAU * (freq * 3.0) * INV_SAMPLE_RATE
+				if p1 > TAU:
+					p1 -= TAU
+				if p2 > TAU:
+					p2 -= TAU
+				if p3 > TAU:
+					p3 -= TAU
+				v["phase"] = p1
+				v["phase2"] = p2
+				v["phase3"] = p3
+
+				var h2_decay: float = exp(-t / (decay * 0.42))
+				var h3_decay: float = exp(-t / (decay * 0.22))
+				var sig: float = (sin(p1) + 0.28 * sin(p2) * h2_decay + 0.09 * sin(p3) * h3_decay) * env * amp
+				dry_l += sig * pan_l
+				dry_r += sig * pan_r
+
+			elif v_type == VOICE_PAD:
+				var freq: float = v["freq"]
+				var attack: float = v["attack"]
+				var decay: float = v["decay"]
+				var env_a: float = clampf(t / attack, 0.0, 1.0)
+				env_a = env_a * env_a * (3.0 - 2.0 * env_a)
+				var env_d: float = exp(-t / decay)
+				var env: float = env_a * env_d
+
+				# Slight stereo detune for warm celestial chorus
+				var p1: float = v["phase"] + TAU * (freq * 0.9985) * INV_SAMPLE_RATE
+				var p2: float = v["phase2"] + TAU * (freq * 1.0015) * INV_SAMPLE_RATE
+				var p3: float = v["phase3"] + TAU * (freq * 2.0) * INV_SAMPLE_RATE
+				if p1 > TAU:
+					p1 -= TAU
+				if p2 > TAU:
+					p2 -= TAU
+				if p3 > TAU:
+					p3 -= TAU
+				v["phase"] = p1
+				v["phase2"] = p2
+				v["phase3"] = p3
+
+				var overtone: float = 0.16 * sin(p3) * exp(-t / (decay * 0.55))
+				var sig_l: float = (sin(p1) + overtone) * env * amp
+				var sig_r: float = (sin(p2) + overtone) * env * amp
+				dry_l += sig_l * pan_l
+				dry_r += sig_r * pan_r
+
+			elif v_type == VOICE_FLAP:
+				var progress: float = clampf(t / duration, 0.0, 1.0)
+				var smooth_p: float = progress * progress * (3.0 - 2.0 * progress)
+				var cur_freq: float = lerpf(v["freq"], v["freq_end"], smooth_p)
+				var env: float = sin(PI * progress)
+				env = env * env
+
+				var p1: float = v["phase"] + TAU * cur_freq * INV_SAMPLE_RATE
+				var p2: float = v["phase2"] + TAU * (cur_freq * 1.5) * INV_SAMPLE_RATE
+				if p1 > TAU:
+					p1 -= TAU
+				if p2 > TAU:
+					p2 -= TAU
+				v["phase"] = p1
+				v["phase2"] = p2
+
+				# Soft lowpass-filtered airy breath noise
+				var white: float = _fast_noise()
+				var lp: float = lerpf(v["lp"], white, 0.13)
+				v["lp"] = lp
+
+				var shimmer: float = 0.52 * sin(p1) + 0.22 * sin(p2) + 0.55 * lp
+				var sig: float = shimmer * env * amp
+				dry_l += sig * pan_l
+				dry_r += sig * pan_r
+
+		# Lightweight cross-fed stereo celestial delay shimmer
+		var d_l: float = _delay_l[_delay_idx_l]
+		var d_r: float = _delay_r[_delay_idx_r]
+		_delay_l[_delay_idx_l] = dry_l + d_r * 0.28
+		_delay_r[_delay_idx_r] = dry_r + d_l * 0.28
+
+		_delay_idx_l += 1
+		if _delay_idx_l >= DELAY_LEN_L:
+			_delay_idx_l = 0
+		_delay_idx_r += 1
+		if _delay_idx_r >= DELAY_LEN_R:
+			_delay_idx_r = 0
+
+		var out_l: float = (dry_l + d_l * 0.36) * master_volume
+		var out_r: float = (dry_r + d_r * 0.36) * master_volume
+
+		var tail_mag: float = maxf(absf(d_l), absf(d_r))
+		if tail_mag > peak_tail:
+			peak_tail = tail_mag
+
+		# Gentle soft saturation prevents any digital clipping
+		out_l = out_l / (1.0 + absf(out_l))
+		out_r = out_r / (1.0 + absf(out_r))
+
+		_frame_buffer[i] = Vector2(out_l, out_r)
+
+	# Prune finished voices
+	for idx in range(_voices.size() - 1, -1, -1):
+		var v: Dictionary = _voices[idx]
+		if v["age"] >= v["delay"] + v["duration"]:
+			_voices.remove_at(idx)
+
+	_delay_energy = lerpf(_delay_energy, peak_tail, 0.25)
+	_playback.push_buffer(_frame_buffer)
+
+
+## Fast deterministic xorshift32 noise in [-1.0, 1.0] for airy wing shimmer.
+func _fast_noise() -> float:
+	var x: int = _noise_state
+	x = (x ^ ((x << 13) & 0xFFFFFFFF)) & 0xFFFFFFFF
+	x = (x ^ (x >> 17)) & 0xFFFFFFFF
+	x = (x ^ ((x << 5) & 0xFFFFFFFF)) & 0xFFFFFFFF
+	_noise_state = x
+	return (float(x & 0xFFFF) / 32767.5) - 1.0
