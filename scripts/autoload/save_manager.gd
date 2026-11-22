@@ -9,13 +9,13 @@ const TEMP_SAVE_FILENAME: String = "soulblueprint_save.json.tmp"
 const TEMP_SAVE_PATH: String = "user://soulblueprint_save.json.tmp"
 
 const DEFAULT_PLAYER_POS: Vector3 = Vector3(0.0, 1.3, 36.0)
-const VALID_PROLOGUE_STAGES: PackedStringArray = PackedStringArray([
+const VALID_PROLOGUE_STAGES := [
 	"intro",
 	"exploring",
 	"contract_spoken",
 	"mirror_awakened",
 	"prologue_complete",
-])
+]
 
 signal progress_saved
 signal progress_loaded
