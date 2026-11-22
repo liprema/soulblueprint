@@ -24,20 +24,24 @@ signal awakened(lantern: StoneLantern3D)
 @onready var awaken_burst: GPUParticles3D = $AwakenBurst
 @onready var proximity_area: Area3D = $ProximityArea
 
+const LANTERN_MODEL_PATH: String = "res://assets/models/props/stone_lantern.glb"
+
 var _is_awakened: bool = false
 var _orb_material: StandardMaterial3D
 var _tween: Tween
 var _nearby_bodies: Array[Node] = []
 var _pulse_time: float = 0.0
 var _base_orb_y: float = 2.48
+var _lantern_model_instance: Node3D = null
 
 
 func _ready() -> void:
 	add_to_group("stone_lanterns")
+	_load_lantern_model()
 
 	if core_orb:
 		_base_orb_y = core_orb.position.y
-		var mat := core_orb.get_active_material(0)
+		var mat: Material = core_orb.get_active_material(0)
 		if mat is StandardMaterial3D:
 			_orb_material = mat.duplicate() as StandardMaterial3D
 			core_orb.set_surface_override_material(0, _orb_material)
@@ -50,6 +54,42 @@ func _ready() -> void:
 		_apply_awakened_immediate()
 	else:
 		_apply_dormant_immediate()
+
+
+func _load_lantern_model() -> void:
+	if not ResourceLoader.exists(LANTERN_MODEL_PATH):
+		return
+
+	var packed: PackedScene = load(LANTERN_MODEL_PATH) as PackedScene
+	if packed == null:
+		return
+
+	var inst: Node = packed.instantiate()
+	if not (inst is Node3D):
+		inst.queue_free()
+		return
+
+	_lantern_model_instance = inst as Node3D
+	_lantern_model_instance.name = "StoneLanternModel"
+	add_child(_lantern_model_instance)
+
+	# Hide legacy procedural stone mesh nodes while keeping CoreOrb, LanternLight,
+	# GoldenEmbers, AwakenBurst, and ProximityArea intact.
+	var legacy_nodes: Array[String] = [
+		"PedestalBase",
+		"PedestalColumn",
+		"LanternDeck",
+		"PillarNW",
+		"PillarNE",
+		"PillarSW",
+		"PillarSE",
+		"LanternCap",
+		"CapFinial",
+	]
+	for node_name: String in legacy_nodes:
+		var legacy_node: Node3D = get_node_or_null(node_name) as Node3D
+		if legacy_node != null:
+			legacy_node.visible = false
 
 
 func _process(delta: float) -> void:

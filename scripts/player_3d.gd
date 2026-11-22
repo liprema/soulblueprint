@@ -129,12 +129,17 @@ var _trail_left_ages: Array[float] = []
 var _trail_right_points: Array[Vector3] = []
 var _trail_right_ages: Array[float] = []
 
+const SPARK_MODEL_PATH: String = "res://assets/models/characters/spark.glb"
+
 var _base_halo_y: float = 1.18
 var _base_light_energy: float = 2.4
 var _call_pulse_shader_mat: ShaderMaterial = null
 var _flame_shader_mat: ShaderMaterial = null
 var _cape_shader_mat: ShaderMaterial = null
 var _wing_flare_mat: StandardMaterial3D = null
+var _spark_model_instance: Node3D = null
+var _spark_halo_node: Node3D = null
+var _spark_halo_base_y: float = 1.50
 
 
 func _ready() -> void:
@@ -175,10 +180,53 @@ func _ready() -> void:
 			_call_pulse_shader_mat = (call_pulse_mesh.material_override as ShaderMaterial).duplicate() as ShaderMaterial
 			call_pulse_mesh.material_override = _call_pulse_shader_mat
 
+	_load_spark_model()
 	_setup_wingtip_trails()
 
 	wing_energy_changed.emit(wing_energy, max_wing_energy)
 	flight_mode_changed.emit(is_flying)
+
+
+func _load_spark_model() -> void:
+	if not visual_pivot or not ResourceLoader.exists(SPARK_MODEL_PATH):
+		return
+
+	var packed: PackedScene = load(SPARK_MODEL_PATH) as PackedScene
+	if packed == null:
+		return
+
+	var inst: Node = packed.instantiate()
+	if not (inst is Node3D):
+		inst.queue_free()
+		return
+
+	_spark_model_instance = inst as Node3D
+	_spark_model_instance.name = "SparkModel"
+	# VisualPivot sits at y = 0.9 while spark.glb has its base at y = 0.0
+	_spark_model_instance.position = Vector3(0.0, -0.9, 0.0)
+	visual_pivot.add_child(_spark_model_instance)
+
+	_spark_halo_node = _spark_model_instance.find_child("SparkStarHalo", true, false) as Node3D
+	if _spark_halo_node != null:
+		_spark_halo_base_y = _spark_halo_node.position.y
+
+	# Hide legacy procedural body/cape/halo meshes while keeping WingFlare, CallPulseMesh,
+	# SparkLight, and WingTipLeft/WingTipRight (for ImmediateMesh trails) active and aligned.
+	var legacy_paths: Array[String] = [
+		"CoreFlame",
+		"HeadCrown",
+		"FlameCrest",
+		"FlameTail",
+		"CollarRing",
+		"InnerMantle",
+		"StarHalo",
+		"CapeLeft/WingMesh",
+		"CapeRight/WingMesh",
+	]
+	for rel_path: String in legacy_paths:
+		var legacy_node: Node3D = visual_pivot.get_node_or_null(rel_path) as Node3D
+		if legacy_node != null:
+			legacy_node.visible = false
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -471,12 +519,19 @@ func _update_visual_rig(delta: float) -> void:
 	visual_pivot.position.y = 0.9 + hover_bob
 
 	# Orbiting celestial star-halo ring above Spark's head
-	if star_halo:
+	if star_halo and star_halo.visible:
 		var halo_spin: float = 1.5 + (_energy_flare * 4.2) + (1.1 if is_flying else 0.0)
 		star_halo.rotate_z(halo_spin * delta)
 		star_halo.position.y = _base_halo_y + sin(_anim_time * 3.4) * 0.045
 		var halo_scale: float = 1.0 + _energy_flare * 0.2
 		star_halo.scale = Vector3.ONE * halo_scale
+
+	if _spark_halo_node != null:
+		var model_halo_spin: float = 0.85 + (_energy_flare * 3.2) + (0.75 if is_flying else 0.0)
+		_spark_halo_node.rotate_object_local(Vector3.FORWARD, model_halo_spin * delta)
+		_spark_halo_node.position.y = _spark_halo_base_y + sin(_anim_time * 3.2) * 0.032
+		var model_halo_scale: float = 1.0 + _energy_flare * 0.16
+		_spark_halo_node.scale = Vector3.ONE * model_halo_scale
 
 	var speed_ratio: float = clampf(velocity.length() / maxf(flight_max_speed, 1.0), 0.0, 1.25)
 
