@@ -450,7 +450,7 @@ func _build_viaduct_arch_bay(
 	for s in range(segments):
 		var t0 := float(s) / float(segments)
 		var t1 := float(s + 1) / float(segments)
-		var angle := lerp(0.08 * PI, 0.92 * PI, (t0 + t1) * 0.5)
+		var angle: float = lerpf(0.08 * PI, 0.92 * PI, (t0 + t1) * 0.5)
 		var seg_len := (PI * 0.84 * arch_radius) / float(segments) + 0.45
 
 		var local_z := cos(angle) * arch_radius
@@ -665,7 +665,7 @@ func _build_colossal_cathedral() -> void:
 	var arch_center_y := 48.0
 	var arch_segments := 12
 	for s in range(arch_segments):
-		var angle := lerp(0.04 * PI, 0.96 * PI, (float(s) + 0.5) / float(arch_segments))
+		var angle: float = lerpf(0.04 * PI, 0.96 * PI, (float(s) + 0.5) / float(arch_segments))
 		var seg_len := (PI * 0.92 * arch_radius) / float(arch_segments) + 0.6
 		var ax := cos(angle) * arch_radius
 		var ay := arch_center_y + sin(angle) * arch_radius
@@ -989,9 +989,9 @@ func _build_ethereal_mentor_silhouettes() -> void:
 func _try_instantiate_override(res_path: String, parent: Node3D, local_pos: Vector3) -> bool:
 	if res_path.is_empty() or not ResourceLoader.exists(res_path):
 		return false
-	var loaded := ResourceLoader.load(res_path)
+	var loaded: Resource = ResourceLoader.load(res_path)
 	if loaded is PackedScene:
-		var inst := (loaded as PackedScene).instantiate()
+		var inst: Node = (loaded as PackedScene).instantiate()
 		if inst is Node3D:
 			(inst as Node3D).position = local_pos
 		parent.add_child(inst)

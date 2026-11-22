@@ -32,7 +32,7 @@ func _spawn_lanterns() -> void:
 	if architecture and architecture.has_method("get_lantern_anchor_positions"):
 		var anchors: Array = architecture.call("get_lantern_anchor_positions")
 		for idx in range(anchors.size()):
-			var lantern := STONE_LANTERN_SCENE.instantiate()
+			var lantern: Node3D = STONE_LANTERN_SCENE.instantiate() as Node3D
 			lantern.name = "StoneLantern_%02d" % idx
 			lantern.position = anchors[idx]
 			_lantern_container.add_child(lantern)
