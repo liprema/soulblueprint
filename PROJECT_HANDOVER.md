@@ -6,9 +6,15 @@
 ## 1. РЕПОЗИТОРИЙ И ОКРУЖЕНИЕ
 * **GitHub Repository:** `https://github.com/liprema/soulblueprint`
 * **Основная ветка:** `main`
-* **Движок:** Godot 4.3 (Forward Plus / GL Compatibility)
+* **Движок:** Godot 4.3 (Forward Plus)
 * **Разрешение вьюпорта:** 1024x576 (`canvas_items`, `keep`)
 * **Все коммиты и файлы актуальны и уже запушены в origin/main.**
+* **Доступные модели ИИ у пользователя (зафиксировано из UI):**
+  - `Gemini 4 Neon` (Medium) — **Рекомендуемая флагманская модель** для 3D-математики, шейдеров, видео-пайплайна и архитектурных задач.
+  - `Gemini 4 Carbon` (Medium) — Высокопроизводительная альтернатива 4-го поколения.
+  - `Gemini 4 Argon` (Medium)
+  - `Gemini 4 Hydrogen` (Medium)
+  - `Gemini 3.8 Flash` (Medium) — Быстрая легковесная модель для простых справок.
 
 ---
 
