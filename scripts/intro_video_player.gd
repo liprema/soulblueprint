@@ -41,7 +41,7 @@ func _input(event: InputEvent) -> void:
 		return
 
 	# Skip on Space, Enter or Escape
-	var is_skip_key := (
+	var is_skip_key: bool = (
 		event.is_action_pressed("ui_accept")
 		or event.is_action_pressed("ui_cancel")
 		or (event is InputEventKey and event.pressed and not event.echo and (event.keycode == KEY_ESCAPE or event.keycode == KEY_SPACE))

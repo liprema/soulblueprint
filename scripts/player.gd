@@ -19,7 +19,7 @@ var can_spark: bool = true
 var gravity: int = ProjectSettings.get_setting("physics/2d/default_gravity")
 
 @onready var sprite: Sprite2D = $Sprite2D
-@onready var anim_player: AnimationPlayer = $AnimationPlayer
+@onready var anim_player: AnimationPlayer = get_node_or_null("AnimationPlayer")
 @onready var trail: Line2D = $Trail
 
 # Флаг блокировки управления во время катсцены
