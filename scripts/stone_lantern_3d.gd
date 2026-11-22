@@ -30,6 +30,16 @@ signal awakened(lantern: StoneLantern3D)
 @onready var proximity_area: Area3D = $ProximityArea
 
 const LANTERN_MODEL_PATH: String = "res://assets/models/props/stone_lantern.glb"
+const MARBLE_SHADER: Shader = preload("res://shaders/akasha_marble.gdshader")
+
+const COLOR_AGED_GOLD: Color = Color("#D8A84E")
+const COLOR_AGED_BRASS: Color = Color("#C49642")
+const COLOR_WARM_BRASS_EMISSION: Color = Color("#E09F3E")
+
+const GOLD_EMISSION_DORMANT: float = 0.16
+const GOLD_EMISSION_AWAKENED: float = 0.62
+const BRASS_EMISSION_DORMANT: float = 0.08
+const BRASS_EMISSION_AWAKENED: float = 0.44
 
 var _is_awakened: bool = false
 var _orb_material: StandardMaterial3D
@@ -39,9 +49,16 @@ var _pulse_time: float = 0.0
 var _base_orb_y: float = 2.48
 var _lantern_model_instance: Node3D = null
 
+var _mat_obsidian_dark: ShaderMaterial = null
+var _mat_indigo_stone: ShaderMaterial = null
+var _mat_cobalt_trim: ShaderMaterial = null
+var _mat_artdeco_gold: StandardMaterial3D = null
+var _mat_artdeco_brass: StandardMaterial3D = null
+
 
 func _ready() -> void:
 	add_to_group("stone_lanterns")
+	_init_lantern_materials()
 	_load_lantern_model()
 
 	if core_orb:
@@ -61,6 +78,61 @@ func _ready() -> void:
 		_apply_dormant_immediate()
 
 
+func _create_wet_basalt_material(
+	base_col: Color,
+	highlight_col: Color,
+	pore_col: Color,
+	roughness_val: float,
+	fresnel_strength: float,
+	wetness_val: float,
+	block_scale_val: float,
+	seam_strength_val: float
+) -> ShaderMaterial:
+	var mat: ShaderMaterial = ShaderMaterial.new()
+	mat.shader = MARBLE_SHADER
+	mat.set_shader_parameter("stone_base_color", base_col)
+	mat.set_shader_parameter("stone_highlight_color", highlight_col)
+	mat.set_shader_parameter("stone_pore_color", pore_col)
+	mat.set_shader_parameter("base_roughness", roughness_val)
+	mat.set_shader_parameter("surface_specular", 0.42)
+	mat.set_shader_parameter("surface_metallic", 0.02)
+	mat.set_shader_parameter("fresnel_lift_strength", fresnel_strength)
+	mat.set_shader_parameter("wetness_strength", wetness_val)
+	mat.set_shader_parameter("block_scale", block_scale_val)
+	mat.set_shader_parameter("seam_strength", seam_strength_val)
+	return mat
+
+
+func _init_lantern_materials() -> void:
+	# Stray wet dark basalt & twilight slate stonework (matching Prologue architecture)
+	_mat_obsidian_dark = _create_wet_basalt_material(
+		Color("#11151E"), Color("#1B2230"), Color("#090C12"), 0.76, 0.08, 0.78, 1.65, 0.32
+	)
+	_mat_indigo_stone = _create_wet_basalt_material(
+		Color("#1A202C"), Color("#273042"), Color("#10141D"), 0.74, 0.10, 0.85, 1.85, 0.28
+	)
+	_mat_cobalt_trim = _create_wet_basalt_material(
+		Color("#1B283A"), Color("#283A52"), Color("#111A26"), 0.68, 0.10, 0.82, 2.00, 0.24
+	)
+
+	# Brushed aged temple gold & warm temple brass (per-instance so each lantern awakens independently)
+	_mat_artdeco_gold = StandardMaterial3D.new()
+	_mat_artdeco_gold.albedo_color = COLOR_AGED_GOLD
+	_mat_artdeco_gold.metallic = 0.92
+	_mat_artdeco_gold.roughness = 0.24
+	_mat_artdeco_gold.emission_enabled = true
+	_mat_artdeco_gold.emission = COLOR_WARM_BRASS_EMISSION
+	_mat_artdeco_gold.emission_energy_multiplier = GOLD_EMISSION_DORMANT
+
+	_mat_artdeco_brass = StandardMaterial3D.new()
+	_mat_artdeco_brass.albedo_color = COLOR_AGED_BRASS
+	_mat_artdeco_brass.metallic = 0.92
+	_mat_artdeco_brass.roughness = 0.24
+	_mat_artdeco_brass.emission_enabled = true
+	_mat_artdeco_brass.emission = COLOR_WARM_BRASS_EMISSION
+	_mat_artdeco_brass.emission_energy_multiplier = BRASS_EMISSION_DORMANT
+
+
 func _load_lantern_model() -> void:
 	if not ResourceLoader.exists(LANTERN_MODEL_PATH):
 		return
@@ -77,6 +149,7 @@ func _load_lantern_model() -> void:
 	_lantern_model_instance = inst as Node3D
 	_lantern_model_instance.name = "StoneLanternModel"
 	add_child(_lantern_model_instance)
+	_apply_lantern_materials_recursive(_lantern_model_instance)
 
 	# Hide legacy procedural stone mesh nodes while keeping CoreOrb, LanternLight,
 	# GoldenEmbers, AwakenBurst, and ProximityArea intact.
@@ -95,6 +168,48 @@ func _load_lantern_model() -> void:
 		var legacy_node: Node3D = get_node_or_null(node_name) as Node3D
 		if legacy_node != null:
 			legacy_node.visible = false
+
+
+func _apply_lantern_materials_recursive(node: Node) -> void:
+	if node is MeshInstance3D:
+		var mesh_inst: MeshInstance3D = node as MeshInstance3D
+		var mesh: Mesh = mesh_inst.mesh
+		if mesh != null:
+			var surface_count: int = mesh.get_surface_count()
+			for surface_idx: int in range(surface_count):
+				var surf_mat: Material = mesh.surface_get_material(surface_idx)
+				var mat_name: String = surf_mat.resource_name if surf_mat != null else ""
+				var override_mat: Material = _resolve_lantern_material(mat_name, mesh_inst.name)
+				if override_mat != null:
+					mesh_inst.set_surface_override_material(surface_idx, override_mat)
+
+	for child: Node in node.get_children():
+		_apply_lantern_materials_recursive(child)
+
+
+func _resolve_lantern_material(mat_name: String, node_name: String) -> Material:
+	match mat_name:
+		"Lantern_Obsidian_Dark":
+			return _mat_obsidian_dark
+		"Lantern_IndigoStone_Mid":
+			return _mat_indigo_stone
+		"Lantern_Cobalt_Trim":
+			return _mat_cobalt_trim
+		"Lantern_ArtDeco_Gold":
+			return _mat_artdeco_gold
+		"Lantern_ArtDeco_Brass":
+			return _mat_artdeco_brass
+
+	var key: String = (mat_name + " " + node_name).to_lower()
+	if key.contains("gold"):
+		return _mat_artdeco_gold
+	if key.contains("brass"):
+		return _mat_artdeco_brass
+	if key.contains("obsidian"):
+		return _mat_obsidian_dark
+	if key.contains("cobalt"):
+		return _mat_cobalt_trim
+	return _mat_indigo_stone
 
 
 func _process(delta: float) -> void:
@@ -182,6 +297,29 @@ func awaken() -> void:
 				_orb_material, "emission_energy_multiplier", awakened_emission_energy, 0.75
 			).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 
+	# Subtle warm aged-brass & gold emission boost when the lantern awakens
+	if _mat_artdeco_gold != null:
+		if first_time:
+			_tween.tween_property(
+				_mat_artdeco_gold, "emission_energy_multiplier", GOLD_EMISSION_AWAKENED, awaken_duration
+			).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+		else:
+			_mat_artdeco_gold.emission_energy_multiplier = GOLD_EMISSION_AWAKENED * 1.35
+			_tween.tween_property(
+				_mat_artdeco_gold, "emission_energy_multiplier", GOLD_EMISSION_AWAKENED, 0.75
+			).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+
+	if _mat_artdeco_brass != null:
+		if first_time:
+			_tween.tween_property(
+				_mat_artdeco_brass, "emission_energy_multiplier", BRASS_EMISSION_AWAKENED, awaken_duration
+			).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+		else:
+			_mat_artdeco_brass.emission_energy_multiplier = BRASS_EMISSION_AWAKENED * 1.35
+			_tween.tween_property(
+				_mat_artdeco_brass, "emission_energy_multiplier", BRASS_EMISSION_AWAKENED, 0.75
+			).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+
 	if core_orb:
 		core_orb.scale = Vector3.ONE * 1.18
 		_tween.tween_property(
@@ -208,6 +346,10 @@ func _apply_dormant_immediate() -> void:
 		_orb_material.albedo_color = Color(0.46, 0.56, 0.60, 1.0)
 		_orb_material.emission = Color(0.56, 0.68, 0.66, 1.0)
 		_orb_material.emission_energy_multiplier = dormant_emission_energy
+	if _mat_artdeco_gold != null:
+		_mat_artdeco_gold.emission_energy_multiplier = GOLD_EMISSION_DORMANT
+	if _mat_artdeco_brass != null:
+		_mat_artdeco_brass.emission_energy_multiplier = BRASS_EMISSION_DORMANT
 	if golden_embers:
 		golden_embers.emitting = false
 	if awaken_burst:
@@ -226,6 +368,10 @@ func _apply_awakened_immediate() -> void:
 		_orb_material.albedo_color = Color(1.0, 0.92, 0.72, 1.0)
 		_orb_material.emission = awakened_light_color
 		_orb_material.emission_energy_multiplier = awakened_emission_energy
+	if _mat_artdeco_gold != null:
+		_mat_artdeco_gold.emission_energy_multiplier = GOLD_EMISSION_AWAKENED
+	if _mat_artdeco_brass != null:
+		_mat_artdeco_brass.emission_energy_multiplier = BRASS_EMISSION_AWAKENED
 	if golden_embers:
 		golden_embers.emitting = true
 	if awaken_burst:
