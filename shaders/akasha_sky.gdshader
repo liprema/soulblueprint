@@ -1,25 +1,25 @@
 shader_type sky;
 
-// Akasha Celestial Sky Dome — Sky: Children of the Light / Journey inspired
-// Calibrated palette: #0A1F44 (Deep Space Blue), #122D6B (Indigo),
-// #1E4B9A (Rich Blue), #58C4FF (Ethereal Cyan), #F6D36B (Warm Radiant Gold)
+// Akasha Celestial Sky Dome — Stray-inspired moody cinematic twilight
+// Calibrated palette: #04070F (Deep Velvet Night), #0A1324 (Midnight Slate),
+// #13263E (Nocturnal Teal-Slate), #3898B8 (Misty Teal), #DDA052 (Warm Amber-Peach), #B86A32 (Copper-Amber)
 
 group_uniforms sky_palette;
-uniform vec3 zenith_color : source_color = vec3(0.039, 0.122, 0.267);      // #0A1F44 Deep Space Blue
-uniform vec3 upper_indigo_color : source_color = vec3(0.071, 0.176, 0.420); // #122D6B Indigo
-uniform vec3 mid_sky_color : source_color = vec3(0.118, 0.294, 0.604);      // #1E4B9A Rich Blue
-uniform vec3 cyan_mist_color : source_color = vec3(0.345, 0.769, 1.000);    // #58C4FF Ethereal Cyan
-uniform vec3 horizon_color : source_color = vec3(0.965, 0.827, 0.420);      // #F6D36B Soft Gold
-uniform vec3 horizon_amber : source_color = vec3(0.940, 0.675, 0.310);      // Warm golden-amber band
-uniform vec3 nadir_color : source_color = vec3(0.032, 0.088, 0.215);        // Deep abyss below clouds
+uniform vec3 zenith_color : source_color = vec3(0.016, 0.027, 0.059);      // #04070F Deep Velvet Night
+uniform vec3 upper_indigo_color : source_color = vec3(0.039, 0.075, 0.141); // #0A1324 Dark Midnight Slate
+uniform vec3 mid_sky_color : source_color = vec3(0.075, 0.149, 0.243);      // #13263E Muted Nocturnal Teal-Slate
+uniform vec3 cyan_mist_color : source_color = vec3(0.220, 0.596, 0.722);    // #3898B8 Atmospheric Misty Teal
+uniform vec3 horizon_color : source_color = vec3(0.867, 0.627, 0.322);      // #DDA052 Warm Amber-Peach Glow
+uniform vec3 horizon_amber : source_color = vec3(0.722, 0.416, 0.196);      // #B86A32 Deep Copper-Amber
+uniform vec3 nadir_color : source_color = vec3(0.012, 0.020, 0.043);        // #03050B Deep Abyss
 
 group_uniforms sun_and_halo;
 uniform vec3 sun_direction = vec3(0.0, 0.15, -1.0);                         // -Z toward the Astrolabe Cathedral
-uniform vec3 sun_color : source_color = vec3(1.0, 0.945, 0.74);             // Luminous gold-white
+uniform vec3 sun_color : source_color = vec3(1.0, 0.905, 0.710);            // Warm amber-cream corona
 uniform float sun_disk_size : hint_range(0.005, 0.15) = 0.036;
-uniform float sun_halo_intensity : hint_range(0.0, 4.0) = 1.55;
+uniform float sun_halo_intensity : hint_range(0.0, 4.0) = 1.15;
 uniform float sun_halo_spread : hint_range(1.0, 32.0) = 5.2;
-uniform float horizon_glow_strength : hint_range(0.0, 2.5) = 1.05;
+uniform float horizon_glow_strength : hint_range(0.0, 2.5) = 0.78;
 
 group_uniforms celestial_stars;
 uniform float star_density : hint_range(0.0, 1.0) = 0.72;
@@ -28,8 +28,8 @@ uniform float star_twinkle_speed : hint_range(0.0, 5.0) = 1.5;
 uniform float star_scale : hint_range(40.0, 300.0) = 148.0;
 
 group_uniforms aurora_and_nebula;
-uniform float nebula_strength : hint_range(0.0, 1.0) = 0.26;
-uniform float aurora_strength : hint_range(0.0, 1.0) = 0.22;
+uniform float nebula_strength : hint_range(0.0, 1.0) = 0.14;
+uniform float aurora_strength : hint_range(0.0, 1.0) = 0.12;
 
 float hash31(vec3 p) {
 	p = fract(p * vec3(443.8975, 397.2973, 491.1871));

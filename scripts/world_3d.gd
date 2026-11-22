@@ -25,6 +25,7 @@ var _prev_wing_energy: float = 5.0
 var _lantern_container: Node3D
 var _lantern_nodes: Array[Node3D] = []
 var _total_lanterns: int = 9
+var _dust_motes: GPUParticles3D = null
 
 var _is_in_gameplay: bool = false
 var _is_transitioning: bool = false
@@ -36,6 +37,7 @@ var _checkpoint_timer: float = 0.0
 
 func _ready() -> void:
 	_spawn_lanterns()
+	_setup_atmospheric_dust_motes()
 	_connect_signals()
 	_apply_audio_setting()
 	_enter_main_menu_immediate()
@@ -63,6 +65,107 @@ func _spawn_lanterns() -> void:
 			if lantern.has_signal("awakened"):
 				lantern.connect("awakened", _on_lantern_awakened.bind(idx))
 			_lantern_nodes.append(lantern)
+
+
+func _setup_atmospheric_dust_motes() -> void:
+	if _dust_motes != null and is_instance_valid(_dust_motes):
+		_dust_motes.queue_free()
+
+	var particles: GPUParticles3D = GPUParticles3D.new()
+	particles.name = "AtmosphericDustMotes"
+	particles.amount = 220
+	particles.lifetime = 9.0
+	particles.preprocess = 6.0
+	particles.local_coords = false
+	particles.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	particles.visibility_aabb = AABB(Vector3(-36.0, -18.0, -36.0), Vector3(72.0, 36.0, 72.0))
+
+	# Process material: 28x14x28 drifting volume with gentle turbulence and warm-amber / pale-cyan tint
+	var proc_mat: ParticleProcessMaterial = ParticleProcessMaterial.new()
+	proc_mat.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
+	proc_mat.emission_box_extents = Vector3(14.0, 7.0, 14.0)
+	proc_mat.gravity = Vector3(0.0, 0.04, 0.0)
+	proc_mat.direction = Vector3(0.25, 0.4, 0.15)
+	proc_mat.spread = 180.0
+	proc_mat.initial_velocity_min = 0.06
+	proc_mat.initial_velocity_max = 0.22
+	proc_mat.damping_min = 0.05
+	proc_mat.damping_max = 0.12
+	proc_mat.turbulence_enabled = true
+	proc_mat.turbulence_noise_strength = 0.35
+	proc_mat.turbulence_noise_scale = 2.8
+	proc_mat.turbulence_noise_speed_random = 0.35
+	proc_mat.turbulence_influence_min = 0.25
+	proc_mat.turbulence_influence_max = 0.65
+	proc_mat.scale_min = 0.55
+	proc_mat.scale_max = 1.45
+
+	# Per-particle tint variation between warm ivory-amber and pale nocturnal cyan
+	var init_grad: Gradient = Gradient.new()
+	init_grad.offsets = PackedFloat32Array([0.0, 0.55, 1.0])
+	init_grad.colors = PackedColorArray([
+		Color(1.0, 0.87, 0.66, 1.0),
+		Color(1.0, 0.94, 0.82, 1.0),
+		Color(0.68, 0.90, 1.0, 1.0),
+	])
+	var init_ramp: GradientTexture1D = GradientTexture1D.new()
+	init_ramp.gradient = init_grad
+	proc_mat.color_initial_ramp = init_ramp
+
+	# Soft lifetime fade-in and fade-out
+	var life_grad: Gradient = Gradient.new()
+	life_grad.offsets = PackedFloat32Array([0.0, 0.18, 0.78, 1.0])
+	life_grad.colors = PackedColorArray([
+		Color(1.0, 1.0, 1.0, 0.0),
+		Color(1.0, 1.0, 1.0, 0.72),
+		Color(1.0, 1.0, 1.0, 0.62),
+		Color(1.0, 1.0, 1.0, 0.0),
+	])
+	var life_ramp: GradientTexture1D = GradientTexture1D.new()
+	life_ramp.gradient = life_grad
+	proc_mat.color_ramp = life_ramp
+
+	particles.process_material = proc_mat
+
+	# Soft radial-fade billboard quad mesh
+	var radial_grad: Gradient = Gradient.new()
+	radial_grad.offsets = PackedFloat32Array([0.0, 0.32, 0.72, 1.0])
+	radial_grad.colors = PackedColorArray([
+		Color(1.0, 1.0, 1.0, 1.0),
+		Color(1.0, 1.0, 1.0, 0.55),
+		Color(1.0, 1.0, 1.0, 0.12),
+		Color(1.0, 1.0, 1.0, 0.0),
+	])
+	var radial_tex: GradientTexture2D = GradientTexture2D.new()
+	radial_tex.width = 64
+	radial_tex.height = 64
+	radial_tex.fill = GradientTexture2D.FILL_RADIAL
+	radial_tex.fill_from = Vector2(0.5, 0.5)
+	radial_tex.fill_to = Vector2(0.5, 0.0)
+	radial_tex.gradient = radial_grad
+
+	var quad_mat: StandardMaterial3D = StandardMaterial3D.new()
+	quad_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	quad_mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	quad_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	quad_mat.vertex_color_use_as_albedo = true
+	quad_mat.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	quad_mat.billboard_keep_scale = true
+	quad_mat.albedo_texture = radial_tex
+	quad_mat.albedo_color = Color(1.0, 0.96, 0.90, 0.78)
+	quad_mat.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED
+
+	var quad_mesh: QuadMesh = QuadMesh.new()
+	quad_mesh.size = Vector2(0.11, 0.11)
+	quad_mesh.material = quad_mat
+	particles.draw_pass_1 = quad_mesh
+
+	add_child(particles)
+	if player != null:
+		particles.global_position = player.global_position + Vector3(0.0, 3.0, 0.0)
+	else:
+		particles.global_position = START_PLAYER_POS + Vector3(0.0, 3.0, 0.0)
+	_dust_motes = particles
 
 
 func _connect_signals() -> void:
@@ -521,6 +624,14 @@ func _update_prompt(new_text: String) -> void:
 
 
 func _process(delta: float) -> void:
+	if _dust_motes != null and is_instance_valid(_dust_motes) and player != null:
+		var target_dust_pos: Vector3 = player.global_position + Vector3(0.0, 3.0, 0.0)
+		if _dust_motes.global_position.distance_squared_to(target_dust_pos) > 400.0:
+			_dust_motes.global_position = target_dust_pos
+		else:
+			var follow_weight: float = clampf(delta * 4.0, 0.0, 1.0)
+			_dust_motes.global_position = _dust_motes.global_position.lerp(target_dust_pos, follow_weight)
+
 	if not _is_in_gameplay or _is_transitioning or not player:
 		return
 

@@ -1,4 +1,4 @@
-[gd_scene load_steps=16 format=3]
+[gd_scene load_steps=18 format=3]
 
 [ext_resource type="Script" path="res://scripts/world_3d.gd" id="1_world_script"]
 [ext_resource type="Environment" path="res://resources/world_env_akasha.tres" id="2_world_env"]
@@ -15,6 +15,10 @@
 [ext_resource type="PackedScene" path="res://scenes/interactables/sanctuary_mentors_3d.tscn" id="13_mentors"]
 [ext_resource type="PackedScene" path="res://scenes/interactables/earth_mirror_3d.tscn" id="14_earth_mirror"]
 [ext_resource type="CameraAttributesPractical" path="res://resources/camera_attributes_akasha.tres" id="15_cam_attrs"]
+[ext_resource type="Shader" path="res://shaders/stray_postfx.gdshader" id="16_stray_postfx"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_stray_postfx"]
+shader = ExtResource("16_stray_postfx")
 
 [node name="World3D" type="Node3D"]
 script = ExtResource("1_world_script")
@@ -25,11 +29,20 @@ camera_attributes = ExtResource("15_cam_attrs")
 
 [node name="SunLight" type="DirectionalLight3D" parent="."]
 transform = Transform3D(0.984808, -0.059391, 0.163176, 0, 0.939693, 0.34202, -0.173648, -0.336824, 0.925417, 0, 95, -260)
-light_color = Color(1, 0.91, 0.76, 1)
-light_energy = 1.05
+light_color = Color(1, 0.78, 0.52, 1)
+light_energy = 1.65
+light_volumetric_fog_energy = 1.8
 shadow_enabled = true
-shadow_bias = 0.05
-shadow_blur = 2.0
+shadow_bias = 0.035
+shadow_blur = 1.45
+directional_shadow_mode = 2
+
+[node name="NightRimLight" type="DirectionalLight3D" parent="."]
+transform = Transform3D(-0.984808, 0.073387, -0.157379, 0, 0.906308, 0.422618, 0.173648, 0.416198, -0.892539, 0, 80, 120)
+light_color = Color(0.32, 0.62, 0.88, 1)
+light_energy = 0.34
+light_volumetric_fog_energy = 0.4
+shadow_enabled = false
 
 [node name="AkashaArchitecture" parent="." instance=ExtResource("3_arch")]
 
@@ -50,6 +63,18 @@ script = ExtResource("10_title_cam")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.3, 36)
 
 [node name="SoulCall3D" parent="." instance=ExtResource("7_soul_call")]
+
+[node name="StrayPostFX" type="CanvasLayer" parent="."]
+layer = 5
+
+[node name="PostFXRect" type="ColorRect" parent="StrayPostFX"]
+material = SubResource("ShaderMaterial_stray_postfx")
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
 
 [node name="SkyHUD" parent="." instance=ExtResource("8_sky_hud")]
 auto_show_prologue = false

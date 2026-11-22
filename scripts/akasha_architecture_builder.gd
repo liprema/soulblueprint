@@ -151,7 +151,9 @@ func _create_velvet_stone_material(
 	highlight_col: Color,
 	pore_col: Color,
 	roughness_val: float,
-	fresnel_strength: float
+	fresnel_strength: float,
+	wetness_val: float = 0.85,
+	block_scale_val: float = 1.0
 ) -> ShaderMaterial:
 	var mat: ShaderMaterial = ShaderMaterial.new()
 	mat.shader = MARBLE_SHADER
@@ -159,69 +161,73 @@ func _create_velvet_stone_material(
 	mat.set_shader_parameter("stone_highlight_color", highlight_col)
 	mat.set_shader_parameter("stone_pore_color", pore_col)
 	mat.set_shader_parameter("base_roughness", roughness_val)
-	mat.set_shader_parameter("surface_specular", 0.16)
+	mat.set_shader_parameter("surface_specular", 0.42)
 	mat.set_shader_parameter("surface_metallic", 0.02)
 	mat.set_shader_parameter("fresnel_lift_strength", fresnel_strength)
+	mat.set_shader_parameter("wetness_strength", wetness_val)
+	mat.set_shader_parameter("block_scale", block_scale_val)
 	return mat
 
 
 func _init_materials() -> void:
-	# Painterly, velvety matte-satin celestial slate/sandstone variants (ZERO mirror glare)
+	# Stray-inspired noble, desaturated twilight basalt & wet dark slate stonework
+	# (lets warm amber lanterns, cyan mentors, and volumetric lighting carry the color!)
 	_mat_dark_obsidian = _create_velvet_stone_material(
-		Color("#132244"), Color("#1C315C"), Color("#0D1833"), 0.85, 0.11
+		Color("#11151E"), Color("#1B2230"), Color("#090C12"), 0.76, 0.08, 0.72, 0.90
 	)
 	_mat_indigo_stone = _create_velvet_stone_material(
-		Color("#16284F"), Color("#203766"), Color("#0F1C3A"), 0.82, 0.12
+		Color("#1A202C"), Color("#273042"), Color("#10141D"), 0.74, 0.10, 0.82, 1.00
 	)
 	_mat_polished_marble = _create_velvet_stone_material(
-		Color("#1B305C"), Color("#264074"), Color("#132347"), 0.80, 0.13
+		Color("#242B38"), Color("#353F52"), Color("#161B25"), 0.66, 0.12, 0.95, 1.05
 	)
 	_mat_cobalt_trim = _create_velvet_stone_material(
-		Color("#223968"), Color("#2E4C85"), Color("#17284D"), 0.79, 0.14
+		Color("#1B283A"), Color("#283A52"), Color("#111A26"), 0.68, 0.10, 0.78, 1.25
 	)
 
-	# Calm satin metallic gold filigree & brass accents (poetic shimmer, never blinding)
-	var satin_gold_color := Color("#EBC86A")
-	var satin_brass_color := Color("#D8B458")
+	# Rich aged brushed gold & warm temple brass (high metallic, crisp specular, restrained amber glow)
+	var aged_gold_color := Color("#D8A84E")
+	var temple_brass_color := Color("#B88A3B")
+	var warm_amber_emission := Color("#E09F3E")
 
 	_mat_gold_filigree = StandardMaterial3D.new()
-	_mat_gold_filigree.albedo_color = satin_gold_color
-	_mat_gold_filigree.roughness = 0.34
-	_mat_gold_filigree.metallic = 0.86
+	_mat_gold_filigree.albedo_color = aged_gold_color
+	_mat_gold_filigree.roughness = 0.24
+	_mat_gold_filigree.metallic = 0.92
 	_mat_gold_filigree.emission_enabled = true
-	_mat_gold_filigree.emission = satin_gold_color
-	_mat_gold_filigree.emission_energy_multiplier = 0.45
+	_mat_gold_filigree.emission = warm_amber_emission
+	_mat_gold_filigree.emission_energy_multiplier = 0.32
 
 	_mat_gold_brass = StandardMaterial3D.new()
-	_mat_gold_brass.albedo_color = satin_brass_color
-	_mat_gold_brass.roughness = 0.38
-	_mat_gold_brass.metallic = 0.84
+	_mat_gold_brass.albedo_color = temple_brass_color
+	_mat_gold_brass.roughness = 0.30
+	_mat_gold_brass.metallic = 0.92
 	_mat_gold_brass.emission_enabled = true
-	_mat_gold_brass.emission = satin_gold_color
-	_mat_gold_brass.emission_energy_multiplier = 0.28
+	_mat_gold_brass.emission = warm_amber_emission
+	_mat_gold_brass.emission_energy_multiplier = 0.22
 
 	_mat_gold_glow_accent = StandardMaterial3D.new()
-	_mat_gold_glow_accent.albedo_color = Color("#F5DC93")
-	_mat_gold_glow_accent.roughness = 0.34
-	_mat_gold_glow_accent.metallic = 0.55
+	_mat_gold_glow_accent.albedo_color = Color("#E6BC6A")
+	_mat_gold_glow_accent.roughness = 0.28
+	_mat_gold_glow_accent.metallic = 0.68
 	_mat_gold_glow_accent.emission_enabled = true
-	_mat_gold_glow_accent.emission = satin_gold_color
-	_mat_gold_glow_accent.emission_energy_multiplier = 0.65
+	_mat_gold_glow_accent.emission = warm_amber_emission
+	_mat_gold_glow_accent.emission_energy_multiplier = 0.58
 
 	_mat_gold_thread = StandardMaterial3D.new()
-	_mat_gold_thread.albedo_color = satin_gold_color
-	_mat_gold_thread.roughness = 0.24
-	_mat_gold_thread.metallic = 0.45
+	_mat_gold_thread.albedo_color = aged_gold_color
+	_mat_gold_thread.roughness = 0.22
+	_mat_gold_thread.metallic = 0.55
 	_mat_gold_thread.cull_mode = BaseMaterial3D.CULL_DISABLED
 	_mat_gold_thread.emission_enabled = true
-	_mat_gold_thread.emission = satin_gold_color
-	_mat_gold_thread.emission_energy_multiplier = 1.15
+	_mat_gold_thread.emission = warm_amber_emission
+	_mat_gold_thread.emission_energy_multiplier = 1.10
 
 	_mat_light_core = StandardMaterial3D.new()
 	_mat_light_core.albedo_color = Color("#FFF6D4")
 	_mat_light_core.roughness = 0.16
 	_mat_light_core.emission_enabled = true
-	_mat_light_core.emission = satin_gold_color
+	_mat_light_core.emission = aged_gold_color
 	_mat_light_core.emission_energy_multiplier = 1.65
 
 	var mentor_mat: ShaderMaterial = ShaderMaterial.new()

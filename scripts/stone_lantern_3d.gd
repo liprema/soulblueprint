@@ -6,14 +6,19 @@ class_name StoneLantern3D
 
 signal awakened(lantern: StoneLantern3D)
 
-@export var dormant_light_energy: float = 0.35
-@export var dormant_light_range: float = 5.5
-@export var dormant_emission_energy: float = 0.45
+@export var dormant_light_energy: float = 0.55
+@export var dormant_light_range: float = 7.0
+@export var dormant_light_volumetric_fog_energy: float = 1.2
+@export var dormant_light_color: Color = Color("#7A9CA8")
+@export var dormant_emission_energy: float = 0.55
 
-@export var awakened_light_energy: float = 3.8
-@export var awakened_light_range: float = 17.0
-@export var awakened_emission_energy: float = 4.6
+@export var awakened_light_energy: float = 5.2
+@export var awakened_light_range: float = 22.0
+@export var awakened_light_volumetric_fog_energy: float = 2.6
+@export var awakened_light_color: Color = Color("#FFAA4A")
+@export var awakened_emission_energy: float = 4.8
 
+@export var lantern_omni_attenuation: float = 1.55
 @export var awaken_duration: float = 0.95
 @export var wing_recharge_rate: float = 0.35
 @export var start_awakened: bool = false
@@ -108,16 +113,16 @@ func _physics_process(delta: float) -> void:
 		return
 
 	var valid_bodies: Array[Node] = []
-	for body in _nearby_bodies:
+	for body: Node in _nearby_bodies:
 		if is_instance_valid(body) and body.has_method("recharge_wing_energy"):
 			body.call("recharge_wing_energy", wing_recharge_rate * delta)
 			valid_bodies.append(body)
 	_nearby_bodies = valid_bodies
 
 
-## Smoothly awakens the lantern into bright golden radiance and bursts golden embers.
+## Smoothly awakens the lantern into warm amber-honey volumetric radiance and bursts golden embers.
 func awaken() -> void:
-	var first_time := not _is_awakened
+	var first_time: bool = not _is_awakened
 	_is_awakened = true
 
 	if golden_embers:
@@ -134,15 +139,27 @@ func awaken() -> void:
 	_tween.set_parallel(true)
 
 	if lantern_light:
+		lantern_light.omni_attenuation = lantern_omni_attenuation
 		if first_time:
+			_tween.tween_property(
+				lantern_light, "light_color", awakened_light_color, awaken_duration * 0.7
+			).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 			_tween.tween_property(
 				lantern_light, "light_energy", awakened_light_energy, awaken_duration
 			).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 			_tween.tween_property(
 				lantern_light, "omni_range", awakened_light_range, awaken_duration
 			).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+			_tween.tween_property(
+				lantern_light,
+				"light_volumetric_fog_energy",
+				awakened_light_volumetric_fog_energy,
+				awaken_duration
+			).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 		else:
 			# Subtle radiant flare when re-resonated by another Soul Call.
+			lantern_light.light_color = awakened_light_color
+			lantern_light.light_volumetric_fog_energy = awakened_light_volumetric_fog_energy
 			lantern_light.light_energy = awakened_light_energy * 1.35
 			_tween.tween_property(
 				lantern_light, "light_energy", awakened_light_energy, 0.75
@@ -150,10 +167,10 @@ func awaken() -> void:
 
 	if _orb_material:
 		_tween.tween_property(
-			_orb_material, "albedo_color", Color(1.0, 0.965, 0.8, 1.0), awaken_duration * 0.7
+			_orb_material, "albedo_color", Color(1.0, 0.92, 0.72, 1.0), awaken_duration * 0.7
 		).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 		_tween.tween_property(
-			_orb_material, "emission", Color(1.0, 0.875, 0.45, 1.0), awaken_duration * 0.7
+			_orb_material, "emission", awakened_light_color, awaken_duration * 0.7
 		).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 		if first_time:
 			_tween.tween_property(
@@ -182,11 +199,14 @@ func is_awakened() -> bool:
 func _apply_dormant_immediate() -> void:
 	_is_awakened = false
 	if lantern_light:
+		lantern_light.light_color = dormant_light_color
 		lantern_light.light_energy = dormant_light_energy
 		lantern_light.omni_range = dormant_light_range
+		lantern_light.omni_attenuation = lantern_omni_attenuation
+		lantern_light.light_volumetric_fog_energy = dormant_light_volumetric_fog_energy
 	if _orb_material:
-		_orb_material.albedo_color = Color(0.55, 0.47, 0.30, 1.0)
-		_orb_material.emission = Color(0.85, 0.68, 0.32, 1.0)
+		_orb_material.albedo_color = Color(0.46, 0.56, 0.60, 1.0)
+		_orb_material.emission = Color(0.56, 0.68, 0.66, 1.0)
 		_orb_material.emission_energy_multiplier = dormant_emission_energy
 	if golden_embers:
 		golden_embers.emitting = false
@@ -197,11 +217,14 @@ func _apply_dormant_immediate() -> void:
 func _apply_awakened_immediate() -> void:
 	_is_awakened = true
 	if lantern_light:
+		lantern_light.light_color = awakened_light_color
 		lantern_light.light_energy = awakened_light_energy
 		lantern_light.omni_range = awakened_light_range
+		lantern_light.omni_attenuation = lantern_omni_attenuation
+		lantern_light.light_volumetric_fog_energy = awakened_light_volumetric_fog_energy
 	if _orb_material:
-		_orb_material.albedo_color = Color(1.0, 0.965, 0.8, 1.0)
-		_orb_material.emission = Color(1.0, 0.875, 0.45, 1.0)
+		_orb_material.albedo_color = Color(1.0, 0.92, 0.72, 1.0)
+		_orb_material.emission = awakened_light_color
 		_orb_material.emission_energy_multiplier = awakened_emission_energy
 	if golden_embers:
 		golden_embers.emitting = true
