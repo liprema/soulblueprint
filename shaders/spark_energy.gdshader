@@ -1,29 +1,30 @@
 shader_type spatial;
 render_mode blend_mix, depth_draw_opaque, cull_back;
 
-// Adorable Spirit Soul Iridescent Aqua-Lavender Shader (Godot 4.3+ Forward+ ACES)
-// - Translucent aqua-cyan (#6CE4FF) & orchid-lavender (#B88CFF) spirit body
-// - Warm golden-peach (#FFE09E) pulsing inner belly radiance around the heart core
+// Vivid Spirit Soul Iridescent Aqua-Lavender Shader (Godot 4.3+ Forward+ ACES)
+// - Richly saturated jewel aqua-turquoise (#16B4E8) & orchid-lavender (#784AE0) spirit body
+//   calibrated for ACES Filmic tonemapping so RGB channels never desaturate toward chalky white
+// - Warm golden-peach (#FFAE42) pulsing inner belly radiance around the heart core
 // - Delicate swirling internal starlight sparkles across the body and wisp tail
-// - Crisp periwinkle-blue (#3B78E0) inner contour + luminous aqua (#8AE8FF) outer Fresnel rim
+// - Deep sapphire-periwinkle (#1C4EC4) 3D underside/contour + saturated sky-cyan Fresnel glow
 //   for instant figure-ground readability against bright sunlit skies and white marble
 // - Gentle animated sway on upper flame tufts (y > 1.25), lower wisp tail (y < 0.35),
 //   buoyant droplets, and fluttering mini angel wings (is_wing_ribbon)
 
-uniform vec3 base_albedo : source_color = vec3(0.471, 0.933, 1.0);       // #78EEFF luminous aqua-cyan
-uniform vec3 shadow_tint : source_color = vec3(0.243, 0.455, 0.871);     // #3E74DE rich periwinkle 3D shadow
-uniform vec3 emission_color : source_color = vec3(0.769, 0.612, 1.0);    // #C49CFF luminous orchid-lavender
-uniform vec3 rim_color : source_color = vec3(0.604, 0.949, 1.0);         // #9AF2FF bright aqua rim
-uniform vec3 iridescence_tint : source_color = vec3(0.769, 0.612, 1.0);  // #C49CFF lavender-pearl shift
-uniform vec3 belly_glow_color : source_color = vec3(1.0, 0.886, 0.604);  // #FFE29A warm golden belly glow
+uniform vec3 base_albedo : source_color = vec3(0.086, 0.706, 0.910);       // #16B4E8 jewel aqua-turquoise
+uniform vec3 shadow_tint : source_color = vec3(0.110, 0.306, 0.769);       // #1C4EC4 deep sapphire-periwinkle shadow
+uniform vec3 emission_color : source_color = vec3(0.157, 0.659, 0.941);    // #28A8F0 saturated sky-aqua emission
+uniform vec3 rim_color : source_color = vec3(0.220, 0.784, 1.0);           // #38C8FF vivid sky-cyan rim
+uniform vec3 iridescence_tint : source_color = vec3(0.471, 0.290, 0.878);  // #784AE0 rich orchid-lavender
+uniform vec3 belly_glow_color : source_color = vec3(1.0, 0.682, 0.259);    // #FFAE42 warm golden-peach belly glow
 
-uniform float emission_strength : hint_range(0.0, 2.5) = 0.36;
-uniform float belly_glow_strength : hint_range(0.0, 2.5) = 0.95;
-uniform float metallic_val : hint_range(0.0, 1.0) = 0.08;
-uniform float roughness_val : hint_range(0.0, 1.0) = 0.12;
-uniform float clearcoat_val : hint_range(0.0, 1.0) = 0.94;
-uniform float alpha_base : hint_range(0.1, 1.0) = 0.88;
-uniform float iridescence_strength : hint_range(0.0, 2.0) = 1.05;
+uniform float emission_strength : hint_range(0.0, 2.5) = 0.28;
+uniform float belly_glow_strength : hint_range(0.0, 2.5) = 0.78;
+uniform float metallic_val : hint_range(0.0, 1.0) = 0.06;
+uniform float roughness_val : hint_range(0.0, 1.0) = 0.16;
+uniform float clearcoat_val : hint_range(0.0, 1.0) = 0.62;
+uniform float alpha_base : hint_range(0.1, 1.0) = 0.94;
+uniform float iridescence_strength : hint_range(0.0, 2.0) = 0.95;
 
 uniform float is_wing_ribbon : hint_range(0.0, 1.0) = 0.0;
 uniform float is_droplet : hint_range(0.0, 1.0) = 0.0;
@@ -66,12 +67,12 @@ float spirit_noise(vec3 p) {
 	return mix(mix(nx00, nx10, f.y), mix(nx01, nx11, f.y), f.z);
 }
 
-// Iridescent aqua-cyan -> periwinkle -> orchid-lavender -> pearl-pink thin-film shift
+// Linear-space deeply saturated aqua-turquoise -> sapphire-periwinkle -> orchid-lavender -> rose-violet shift
 vec3 spirit_iridescence(float phase) {
-	vec3 aqua_cyan = vec3(0.471, 0.933, 1.0);
-	vec3 periwinkle = vec3(0.54, 0.78, 1.0);
-	vec3 orchid_lav = vec3(0.769, 0.612, 1.0);
-	vec3 pearl_rose = vec3(0.98, 0.82, 0.96);
+	vec3 aqua_cyan = vec3(0.010, 0.460, 0.810);
+	vec3 periwinkle = vec3(0.028, 0.195, 0.840);
+	vec3 orchid_lav = vec3(0.190, 0.070, 0.740);
+	vec3 rose_violet = vec3(0.360, 0.095, 0.690);
 
 	float p = fract(phase);
 	if (p < 0.25) {
@@ -79,9 +80,9 @@ vec3 spirit_iridescence(float phase) {
 	} else if (p < 0.50) {
 		return mix(periwinkle, orchid_lav, smoothstep(0.25, 0.50, p));
 	} else if (p < 0.75) {
-		return mix(orchid_lav, pearl_rose, smoothstep(0.50, 0.75, p));
+		return mix(orchid_lav, rose_violet, smoothstep(0.50, 0.75, p));
 	}
-	return mix(pearl_rose, aqua_cyan, smoothstep(0.75, 1.0, p));
+	return mix(rose_violet, aqua_cyan, smoothstep(0.75, 1.0, p));
 }
 
 void vertex() {
@@ -149,33 +150,34 @@ void fragment() {
 	float fresnel_crisp = pow(1.0 - ndotv, 3.6);
 	float speed_norm = clamp(flight_speed / 26.0, 0.0, 1.35);
 
-	// 1. Bright iridescent aqua-cyan & orchid-lavender gradient + 3D volumetric dome shading
+	// 1. Vibrant jewel aqua-turquoise top/front -> rich orchid-lavender sides/lower tail
 	float dome_top = clamp(n_local.y * 0.5 + 0.5, 0.0, 1.0);
-	float lav_grad = smoothstep(0.75, 0.12, v_local_y) * 0.42
-		+ smoothstep(1.32, 1.72, v_local_y) * 0.25
-		+ fresnel_soft * 0.32
-		+ (1.0 - dome_top) * 0.22;
+	float lav_grad = smoothstep(0.76, 0.12, v_local_y) * 0.46
+		+ smoothstep(1.32, 1.72, v_local_y) * 0.26
+		+ fresnel_soft * 0.34
+		+ (1.0 - dome_top) * 0.18;
 	float film_phase = (1.0 - ndotv) * 0.65
 		+ v_local_y * 0.22
 		+ v_ribbon_span * 0.42
 		+ TIME * 0.065;
-	vec3 irid_col = mix(spirit_iridescence(film_phase), iridescence_tint, 0.24);
+	vec3 irid_col = mix(spirit_iridescence(film_phase), iridescence_tint, 0.36);
 
-	vec3 spirit_body_col = mix(base_albedo, emission_color, clamp(lav_grad, 0.0, 0.62));
+	vec3 spirit_body_col = mix(base_albedo, iridescence_tint, clamp(lav_grad, 0.0, 0.62));
 	spirit_body_col = mix(
 		spirit_body_col,
 		irid_col,
-		clamp((0.18 + fresnel_soft * 0.40) * iridescence_strength, 0.0, 0.66)
+		clamp((0.14 + fresnel_soft * 0.34) * iridescence_strength, 0.0, 0.56)
 	);
-	// Volumetric 3D underside depth tint vs luminous sunlit top dome
-	spirit_body_col = mix(spirit_body_col * mix(shadow_tint, vec3(0.68, 0.74, 1.0), 0.58), spirit_body_col * 1.08, smoothstep(0.12, 0.85, dome_top));
+	// Volumetric 3D deep sapphire-periwinkle underside depth vs saturated sunlit top dome
+	vec3 underside_col = mix(spirit_body_col * mix(shadow_tint, vec3(0.08, 0.22, 0.62), 0.45), shadow_tint, 0.38);
+	spirit_body_col = mix(underside_col, spirit_body_col * 1.03, smoothstep(0.14, 0.84, dome_top));
 
-	// 2. Soft periwinkle-blue inner contour for crisp figure-ground readability without flattening 3D form
-	float inner_contour = smoothstep(0.54, 0.22, ndotv) * smoothstep(0.05, 0.20, ndotv);
-	float contour_strength = inner_contour * mix(0.50, 0.40, is_wing_ribbon) * (1.0 - is_droplet * 0.35);
+	// 2. Deep sapphire-periwinkle inner contour for crisp 3D outline & figure-ground readability
+	float inner_contour = smoothstep(0.54, 0.20, ndotv) * smoothstep(0.04, 0.18, ndotv);
+	float contour_strength = inner_contour * mix(0.58, 0.44, is_wing_ribbon) * (1.0 - is_droplet * 0.35);
 	spirit_body_col = mix(spirit_body_col, shadow_tint, contour_strength);
 
-	// 3. Warm golden-peach inner belly radiance (#FFE29A) pulsing gently inside the plump 3D torso (y ≈ 0.56)
+	// 3. Warm golden-peach inner belly radiance (#FFAE42) pulsing gently inside the plump 3D torso (y ≈ 0.56)
 	float belly_dist = length((v_local_pos - vec3(0.0, 0.56, 0.0)) * vec3(1.10, 1.32, 1.10));
 	float belly_pulse = 0.90 + 0.10 * sin(TIME * 2.4);
 	float belly_mask = smoothstep(0.34, 0.04, belly_dist)
@@ -183,7 +185,7 @@ void fragment() {
 		* (1.0 - is_droplet)
 		* (0.35 + 0.65 * ndotv);
 	float belly_glow = belly_mask * belly_glow_strength * belly_pulse;
-	spirit_body_col = mix(spirit_body_col, belly_glow_color, clamp(belly_glow * 0.44, 0.0, 0.50));
+	spirit_body_col = mix(spirit_body_col, belly_glow_color, clamp(belly_glow * 0.52, 0.0, 0.58));
 
 	// 4. Delicate swirling internal starlight & shimmering galaxy wisps across body & tail
 	float swirl_t = TIME * (0.95 + speed_norm * 1.25);
@@ -199,86 +201,88 @@ void fragment() {
 	float w_a = spirit_noise(swirl_p * 7.2);
 	float w_b = spirit_noise(swirl_p * 12.5 + vec3(3.1, -TIME * 0.55, 4.7));
 	float wisp_ridge = 1.0 - abs((w_a * 0.6 + w_b * 0.4) * 2.0 - 1.0);
-	float swirl_ribbon = pow(clamp(wisp_ridge, 0.0, 1.0), 4.2);
+	float swirl_ribbon = pow(clamp(wisp_ridge, 0.0, 1.0), 4.4);
 
 	float star_grid = spirit_noise(v_local_pos * 28.0 + vec3(0.0, -TIME * 0.38, TIME * 0.28));
 	float star_twinkle = 0.5 + 0.5 * sin(TIME * 5.2 + star_grid * 30.0 + v_local_y * 10.0);
-	float star_pinpoint = smoothstep(0.76, 0.94, star_grid) * star_twinkle;
+	float star_pinpoint = smoothstep(0.78, 0.95, star_grid) * star_twinkle;
 
-	// Wing-specific pearlescent edge & tip shimmer
+	// Wing-specific iridescent edge & tip shimmer
 	float wing_edge_glow = smoothstep(0.45, 0.98, v_ribbon_edge) * is_wing_ribbon;
 	float wing_tip_glow = smoothstep(0.55, 1.0, v_ribbon_span) * is_wing_ribbon;
 
 	ALBEDO = spirit_body_col;
-	METALLIC = clamp(metallic_val + fresnel_crisp * 0.10, 0.0, 0.40);
-	ROUGHNESS = clamp(roughness_val - swirl_ribbon * 0.025 - star_pinpoint * 0.03, 0.06, 0.24);
-	SPECULAR = 0.88;
+	METALLIC = clamp(metallic_val + fresnel_crisp * 0.06, 0.0, 0.28);
+	ROUGHNESS = clamp(roughness_val - swirl_ribbon * 0.02 - star_pinpoint * 0.025, 0.10, 0.28);
+	SPECULAR = 0.42;
 	CLEARCOAT = clearcoat_val;
-	CLEARCOAT_ROUGHNESS = 0.05;
+	CLEARCOAT_ROUGHNESS = 0.12;
 
 	// Translucent spirit alpha: slightly clearer in the center of the belly so SparkHeartCore shines through!
 	float belly_window = smoothstep(0.28, 0.06, belly_dist) * (1.0 - is_wing_ribbon) * (1.0 - is_droplet) * ndotv;
 	float body_alpha = clamp(
-		mix(alpha_base - belly_window * 0.22, 0.98, clamp(fresnel_soft + inner_contour * 0.38, 0.0, 1.0)),
-		0.58, 0.98
+		mix(alpha_base - belly_window * 0.18, 0.98, clamp(fresnel_soft + inner_contour * 0.38, 0.0, 1.0)),
+		0.70, 0.98
 	);
 	float wing_alpha = clamp(
-		mix(alpha_base, alpha_base * 0.78, v_ribbon_span * 0.42) + fresnel_soft * 0.18 + wing_edge_glow * 0.14,
-		0.64, 0.96
+		mix(alpha_base, alpha_base * 0.80, v_ribbon_span * 0.40) + fresnel_soft * 0.14 + wing_edge_glow * 0.12,
+		0.68, 0.96
 	);
 	ALPHA = mix(body_alpha, wing_alpha, is_wing_ribbon);
 
-	// 5. Soft, cozy magical self-emission (modulated by 3D dome so roundness stays crisp, no harsh HDR bloom)
-	float contour_damp = 1.0 - contour_strength * 0.52;
-	float dome_emit_mod = mix(0.74, 1.12, smoothstep(0.08, 0.88, dome_top));
-	vec3 body_emit = mix(base_albedo, emission_color, 0.32)
-		* (emission_strength + energy_flare * 0.18 + is_droplet * 0.10)
+	// 5. Saturated, ACES-safe magical self-emission (no white-out; strictly capped to preserve chroma)
+	float contour_damp = 1.0 - contour_strength * 0.58;
+	float dome_emit_mod = mix(0.72, 1.06, smoothstep(0.08, 0.88, dome_top));
+	vec3 body_emit = mix(base_albedo, emission_color, 0.48)
+		* (emission_strength + energy_flare * 0.14 + is_droplet * 0.08)
 		* contour_damp
 		* dome_emit_mod;
-	vec3 warm_belly_emit = belly_glow_color * (belly_glow * 0.64);
-	vec3 sparkle_emit = mix(rim_color, vec3(1.0, 0.96, 0.88), 0.45)
-		* (swirl_ribbon * 0.18 + star_pinpoint * (0.46 + energy_flare * 0.24));
-	vec3 rim_emit = mix(rim_color, irid_col, 0.25)
+	vec3 warm_belly_emit = belly_glow_color * (belly_glow * 0.56);
+	vec3 sparkle_emit = mix(rim_color, belly_glow_color, 0.34)
+		* (swirl_ribbon * 0.14 + star_pinpoint * (0.34 + energy_flare * 0.18));
+	// Saturated sky-cyan & periwinkle-blue Fresnel glow (never pushes RGB toward chalky white)
+	vec3 fresnel_glow_tint = mix(rim_color, mix(shadow_tint, iridescence_tint, 0.50), 0.34);
+	vec3 rim_emit = fresnel_glow_tint
 		* (
-			fresnel_crisp * 0.58
-			+ fresnel_soft * 0.16 * contour_damp
-			+ wing_edge_glow * 0.24
-			+ wing_tip_glow * 0.20
-			+ energy_flare * fresnel_soft * 0.18
+			fresnel_crisp * 0.38
+			+ fresnel_soft * 0.12 * contour_damp
+			+ wing_edge_glow * 0.18
+			+ wing_tip_glow * 0.16
+			+ energy_flare * fresnel_soft * 0.14
 		);
 
 	vec3 raw_emit = body_emit + warm_belly_emit + sparkle_emit + rim_emit;
-	EMISSION = raw_emit / (vec3(1.0) + raw_emit * 0.68);
+	EMISSION = raw_emit / (vec3(1.0) + raw_emit * 1.15);
 }
 
 void light() {
-	// Strong volumetric 3D Pixar spirit lighting (NEVER use CLEARCOAT built-in inside light() — use uniform clearcoat_val)
+	// Saturated volumetric 3D spirit lighting (NEVER use CLEARCOAT built-in inside light() — use uniform clearcoat_val)
 	float ndotl = dot(NORMAL, LIGHT);
-	float wrap_ndotl = clamp((ndotl + 0.26) / 1.26, 0.0, 1.0);
+	float wrap_ndotl = clamp((ndotl + 0.24) / 1.24, 0.0, 1.0);
 
-	// Rich periwinkle-lavender 3D core-shadow vs luminous sunlit aqua-cyan top/front so roundness pops!
-	vec3 core_shadow = ALBEDO * mix(shadow_tint, vec3(0.42, 0.50, 0.88), 0.38);
-	vec3 sunlit_albedo = ALBEDO * 1.14;
-	vec3 shaded_albedo = mix(core_shadow, sunlit_albedo, smoothstep(0.05, 0.82, wrap_ndotl));
+	// Deep sapphire-periwinkle 3D core-shadow vs vibrant jewel aqua-cyan sunlit top/front
+	vec3 core_shadow = ALBEDO * mix(shadow_tint, vec3(0.12, 0.24, 0.64), 0.36);
+	vec3 sunlit_albedo = ALBEDO * 1.02;
+	vec3 shaded_albedo = mix(core_shadow, sunlit_albedo, smoothstep(0.06, 0.82, wrap_ndotl));
 
-	// Translucent backlit spirit glow
+	// Translucent backlit spirit glow (saturated aqua-cyan, no white washout)
 	vec3 back_dir = normalize(LIGHT + NORMAL * 0.42);
 	float backlit = pow(clamp(dot(VIEW, -back_dir), 0.0, 1.0), 3.0);
-	vec3 sss_color = mix(base_albedo, rim_color, 0.55);
-	vec3 sss_contrib = sss_color * (backlit * (0.30 + is_wing_ribbon * 0.24 + is_droplet * 0.18));
+	vec3 sss_color = mix(base_albedo, rim_color, 0.45);
+	vec3 sss_contrib = sss_color * (backlit * (0.22 + is_wing_ribbon * 0.18 + is_droplet * 0.14));
 
 	DIFFUSE_LIGHT += (shaded_albedo + sss_contrib) * ATTENUATION * LIGHT_COLOR / PI;
 
-	// Glossy spirit sheen + crisp glassy clearcoat specular glint
+	// Soft tinted aqua-cyan spirit sheen & glassy clearcoat glint (avoids white face bleach under ACES)
 	vec3 half_vec = normalize(LIGHT + VIEW);
 	float ndoth = clamp(dot(NORMAL, half_vec), 0.0, 1.0);
 	float ndotv = clamp(dot(NORMAL, VIEW), 0.0, 1.0);
 
-	float satin_spec = pow(ndoth, mix(22.0, 56.0, 1.0 - ROUGHNESS)) * 0.32;
-	float glass_glint = pow(ndoth, 150.0) * (0.76 + clearcoat_val * 0.50);
+	float satin_spec = pow(ndoth, mix(24.0, 56.0, 1.0 - ROUGHNESS)) * 0.18;
+	float glass_glint = pow(ndoth, 130.0) * (0.26 + clearcoat_val * 0.24);
 
-	vec3 glint_tint = mix(vec3(0.94, 0.99, 1.0), rim_color, 0.28 * (1.0 - ndotv));
-	vec3 satin_tint = mix(base_albedo, rim_color, 0.55);
+	vec3 glint_tint = mix(base_albedo, rim_color, 0.62 + 0.22 * (1.0 - ndotv));
+	vec3 satin_tint = mix(base_albedo, rim_color, 0.45);
 
 	SPECULAR_LIGHT += (satin_spec * satin_tint + glass_glint * glint_tint) * ATTENUATION * LIGHT_COLOR / PI;
 }

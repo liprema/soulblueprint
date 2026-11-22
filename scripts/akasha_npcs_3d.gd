@@ -1,35 +1,32 @@
 class_name AkashaNPCs3D
 extends Node3D
 
-## Living, friendly Akashic Spirit NPCs & Serene Chroniclers across the Prologue world.
-## Spawns 5 Fellow Cute Baby-Soul Spirits (spark.glb with custom pastel-jewel palettes)
-## and 3 procedurally sculpted ~2.6m tall Robed Akashic Chroniclers / Garden Keepers.
-## All NPCs gently bob/sway, turn smoothly to face Spark within 12.0m, and respond to
-## Soul Call [Q] within 16.0m with a joyful excited hop and warm golden-aqua light pulse.
+## Living, friendly Akashic Spirit NPCs & Six-Winged Seraph Archangels across the Prologue world.
+## Spawns 5 Fellow Cute Baby-Soul Spirits (spark.glb with deeply saturated jewel-pastel palettes)
+## and 2 majestic ~4.2m tall Six-Winged Seraph Archangels (archangel_solaris.glb & archangel_aether.glb)
+## guarding the Castle Sanctuary.
+## All NPCs gently hover/sway, turn smoothly to face Spark within 12.0m, and respond to
+## Soul Call [Q] within 16.0m with a joyful excited hop/elevation and warm golden-aqua light pulse.
 
 signal npc_interacted(npc_id: String, dialogue_sequence_id: String)
 
 const SPARK_MODEL_PATH: String = "res://assets/models/characters/spark.glb"
+const ARCHANGEL_SOLARIS_PATH: String = "res://assets/models/characters/archangel_solaris.glb"
+const ARCHANGEL_AETHER_PATH: String = "res://assets/models/characters/archangel_aether.glb"
 const SPARK_ENERGY_SHADER_PATH: String = "res://shaders/spark_energy.gdshader"
-const MENTOR_SHADER_PATH: String = "res://shaders/ethereal_mentor.gdshader"
 
 const INTERACT_RANGE: float = 6.2
+const ARCHANGEL_INTERACT_RANGE: float = 7.4
 const FACE_PLAYER_RANGE: float = 12.0
 const SOUL_CALL_RANGE: float = 16.0
 
-const PULSE_COLOR_WARM_AQUA: Color = Color("#FFE6A8")
-const PULSE_COLOR_AQUA_GOLD: Color = Color("#B8F6EE")
-
-# Shared materials for robed chroniclers
-var _gold_mat: StandardMaterial3D = null
-var _bright_gold_mat: StandardMaterial3D = null
-var _ivory_skin_mat: StandardMaterial3D = null
-var _parchment_mat: StandardMaterial3D = null
-var _lotus_pink_mat: StandardMaterial3D = null
+const PULSE_COLOR_WARM_GOLD: Color = Color("#FFE090")
+const PULSE_COLOR_AQUA_GOLD: Color = Color("#6CEAD8")
 
 var _spark_packed: PackedScene = null
+var _solaris_packed: PackedScene = null
+var _aether_packed: PackedScene = null
 var _spark_shader: Shader = null
-var _mentor_shader: Shader = null
 
 var _npcs: Array[Dictionary] = []
 var _npc_by_id: Dictionary = {}
@@ -42,71 +39,32 @@ var _anim_time: float = 0.0
 func _ready() -> void:
 	add_to_group("akasha_npcs")
 	_load_shared_resources()
-	_init_shared_materials()
 	_spawn_all_npcs()
 
 
 func _load_shared_resources() -> void:
 	if ResourceLoader.exists(SPARK_MODEL_PATH):
 		_spark_packed = load(SPARK_MODEL_PATH) as PackedScene
+	if ResourceLoader.exists(ARCHANGEL_SOLARIS_PATH):
+		_solaris_packed = load(ARCHANGEL_SOLARIS_PATH) as PackedScene
+	if ResourceLoader.exists(ARCHANGEL_AETHER_PATH):
+		_aether_packed = load(ARCHANGEL_AETHER_PATH) as PackedScene
 	if ResourceLoader.exists(SPARK_ENERGY_SHADER_PATH):
 		_spark_shader = load(SPARK_ENERGY_SHADER_PATH) as Shader
-	if ResourceLoader.exists(MENTOR_SHADER_PATH):
-		_mentor_shader = load(MENTOR_SHADER_PATH) as Shader
-
-
-func _init_shared_materials() -> void:
-	_gold_mat = StandardMaterial3D.new()
-	_gold_mat.albedo_color = Color("#DFC07A")
-	_gold_mat.metallic = 0.72
-	_gold_mat.roughness = 0.28
-	_gold_mat.emission_enabled = true
-	_gold_mat.emission = Color("#F5D890")
-	_gold_mat.emission_energy_multiplier = 0.22
-
-	_bright_gold_mat = StandardMaterial3D.new()
-	_bright_gold_mat.albedo_color = Color("#FCE4A6")
-	_bright_gold_mat.metallic = 0.48
-	_bright_gold_mat.roughness = 0.18
-	_bright_gold_mat.emission_enabled = true
-	_bright_gold_mat.emission = Color("#FFE49C")
-	_bright_gold_mat.emission_energy_multiplier = 0.65
-
-	_ivory_skin_mat = StandardMaterial3D.new()
-	_ivory_skin_mat.albedo_color = Color("#F8F2EA")
-	_ivory_skin_mat.roughness = 0.24
-	_ivory_skin_mat.emission_enabled = true
-	_ivory_skin_mat.emission = Color("#FFF4E2")
-	_ivory_skin_mat.emission_energy_multiplier = 0.18
-
-	_parchment_mat = StandardMaterial3D.new()
-	_parchment_mat.albedo_color = Color("#FFF8E8")
-	_parchment_mat.roughness = 0.35
-	_parchment_mat.emission_enabled = true
-	_parchment_mat.emission = Color("#FFEAB8")
-	_parchment_mat.emission_energy_multiplier = 0.45
-	_parchment_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
-
-	_lotus_pink_mat = StandardMaterial3D.new()
-	_lotus_pink_mat.albedo_color = Color("#FFC6DC")
-	_lotus_pink_mat.roughness = 0.25
-	_lotus_pink_mat.emission_enabled = true
-	_lotus_pink_mat.emission = Color("#FFB0CE")
-	_lotus_pink_mat.emission_energy_multiplier = 0.48
-	_lotus_pink_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
 
 
 func _spawn_all_npcs() -> void:
-	# 1-5: Fellow Cute Baby-Soul Spirits (spark.glb with distinct pastel-jewel glow)
+	# 1-5: Fellow Cute Baby-Soul Spirits (spark.glb with rich, deeply saturated jewel-pastel palettes
+	# tuned to stay vivid and non-whitish under ACES Filmic tone mapping)
 	_spawn_baby_spirit(
 		"spirit_plaza",
 		"Искра Рассвета",
 		Vector3(-4.2, 0.8, 30.5),
-		Color("#FF9EC4"),
-		Color("#C85A8E"),
-		Color("#FFB8D4"),
-		Color("#FFD6EA"),
-		Color("#E0689C"),
+		Color("#E84D8A"),
+		Color("#8A1B4E"),
+		Color("#F2629C"),
+		Color("#FF88BA"),
+		Color("#B82266"),
 		"npc_plaza_spirit",
 		0.45,
 		0.32,
@@ -118,11 +76,11 @@ func _spawn_all_npcs() -> void:
 		"spirit_central_island",
 		"Искра Тишины",
 		Vector3(4.2, 7.3, -104.5),
-		Color("#70F0C4"),
-		Color("#2A9678"),
-		Color("#9CFCE0"),
-		Color("#C6FFEE"),
-		Color("#2EA888"),
+		Color("#1EC896"),
+		Color("#0B624B"),
+		Color("#34DCAA"),
+		Color("#68F0C8"),
+		Color("#0E7A5C"),
 		"npc_lake_spirit",
 		-0.65,
 		0.92,
@@ -134,11 +92,11 @@ func _spawn_all_npcs() -> void:
 		"spirit_west_lake",
 		"Искра Росы",
 		Vector3(-35.5, 4.9, -274.0),
-		Color("#FFE082"),
-		Color("#C6862C"),
-		Color("#FFEEA8"),
-		Color("#FFF6CE"),
-		Color("#D69630"),
+		Color("#E6A224"),
+		Color("#8C520A"),
+		Color("#F5B83B"),
+		Color("#FFD26B"),
+		Color("#B86E10"),
 		"npc_lake_spirit",
 		-0.85,
 		0.48,
@@ -150,11 +108,11 @@ func _spawn_all_npcs() -> void:
 		"spirit_east_lake",
 		"Искра Звёзд",
 		Vector3(35.5, 4.9, -274.0),
-		Color("#C89CFF"),
-		Color("#7450C8"),
-		Color("#DEC2FF"),
-		Color("#EFE2FF"),
-		Color("#8A5CE0"),
+		Color("#8E54E8"),
+		Color("#461C8F"),
+		Color("#A672F5"),
+		Color("#C49EFF"),
+		Color("#5E2AB8"),
 		"npc_lake_spirit",
 		0.85,
 		0.46,
@@ -166,11 +124,11 @@ func _spawn_all_npcs() -> void:
 		"spirit_balcony",
 		"Искра Облаков",
 		Vector3(-31.0, 8.9, -284.0),
-		Color("#88C8FF"),
-		Color("#4074CA"),
-		Color("#B2DAFF"),
-		Color("#D6EEFF"),
-		Color("#488CE8"),
+		Color("#2F8EF0"),
+		Color("#144894"),
+		Color("#4CA6FF"),
+		Color("#7CC2FF"),
+		Color("#1A5EC4"),
 		"npc_plaza_spirit",
 		0.35,
 		0.42,
@@ -178,41 +136,27 @@ func _spawn_all_npcs() -> void:
 		5.3
 	)
 
-	# 6-8: Serene Robed Akashic Chroniclers / Garden Keepers (~2.6m tall)
-	_spawn_robed_chronicler(
-		"chronicler_rotunda",
-		"Хранитель Свитков",
+	# 6-7: Two Majestic Six-Winged Seraph Archangels guarding the Castle Sanctuary
+	_spawn_seraph_archangel(
+		"archangel_solaris",
+		"Архангел Соларис · Хранитель Свитков",
 		Vector3(14.5, 8.0, -271.0),
-		"scrolls",
-		Color("#EFE6D6"),
-		Color("#FFE29E"),
+		_solaris_packed,
 		"npc_chronicler_rotunda",
-		1.15,
-		0.8
+		-0.68,
+		0.8,
+		Color("#FFE096")
 	)
 
-	_spawn_robed_chronicler(
-		"keeper_garden",
-		"Садовник Облаков",
-		Vector3(-17.0, 4.0, -256.0),
-		"lantern",
-		Color("#EBF0E6"),
-		Color("#D8F5E0"),
-		"npc_garden_keeper",
-		-0.75,
-		2.4
-	)
-
-	_spawn_robed_chronicler(
-		"watcher_balcony",
-		"Созерцатель Горизонта",
-		Vector3(31.0, 8.9, -282.0),
-		"astrolabe",
-		Color("#E8ECF6"),
-		Color("#CFE6FF"),
+	_spawn_seraph_archangel(
+		"archangel_aether",
+		"Архангел Эфир · Созерцатель Горизонта",
+		Vector3(-14.5, 8.0, -271.0),
+		_aether_packed,
 		"npc_sky_watcher",
-		-0.55,
-		3.9
+		0.68,
+		2.6,
+		Color("#CFE4FF")
 	)
 
 
@@ -280,8 +224,8 @@ func _spawn_baby_spirit(
 	var light: OmniLight3D = OmniLight3D.new()
 	light.name = "SpiritGlowLight"
 	light.position = Vector3(0.0, 0.95, 0.0)
-	light.light_color = emit_col.lerp(Color.WHITE, 0.25)
-	light.light_energy = 0.68
+	light.light_color = emit_col.lerp(Color.WHITE, 0.12)
+	light.light_energy = 0.65
 	light.omni_range = 6.8
 	light.omni_attenuation = 1.45
 	light.shadow_enabled = false
@@ -304,7 +248,7 @@ func _spawn_baby_spirit(
 		"phase": phase,
 		"light": light,
 		"base_light_color": light.light_color,
-		"base_light_energy": 0.68,
+		"base_light_energy": 0.65,
 		"energy_mats": energy_mats,
 		"fallback_mat": fallback_mat,
 		"halo_node": halo_node,
@@ -336,21 +280,21 @@ func _apply_spirit_palette_recursive(
 			if node_name == "SparkHeartCore":
 				mesh_inst.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 				var heart_mat: StandardMaterial3D = StandardMaterial3D.new()
-				heart_mat.albedo_color = Color("#FFE6A6")
+				heart_mat.albedo_color = Color("#FFD468")
 				heart_mat.roughness = 0.14
 				heart_mat.emission_enabled = true
-				heart_mat.emission = Color("#FFE6A6")
-				heart_mat.emission_energy_multiplier = 1.15
+				heart_mat.emission = Color("#FFC848")
+				heart_mat.emission_energy_multiplier = 1.05
 				for i: int in range(surface_count):
 					mesh_inst.set_surface_override_material(i, heart_mat)
 			elif node_name == "SparkEyeSclera":
 				mesh_inst.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 				var sclera_mat: StandardMaterial3D = StandardMaterial3D.new()
-				sclera_mat.albedo_color = Color("#F8FCFF")
+				sclera_mat.albedo_color = Color("#F4F8FC")
 				sclera_mat.roughness = 0.08
 				sclera_mat.emission_enabled = true
-				sclera_mat.emission = Color("#EEF8FF")
-				sclera_mat.emission_energy_multiplier = 0.18
+				sclera_mat.emission = Color("#E8F2FC")
+				sclera_mat.emission_energy_multiplier = 0.14
 				for i: int in range(surface_count):
 					mesh_inst.set_surface_override_material(i, sclera_mat)
 			elif node_name == "SparkEyeIris":
@@ -362,8 +306,8 @@ func _apply_spirit_palette_recursive(
 				iris_mat.clearcoat = 1.0
 				iris_mat.clearcoat_roughness = 0.05
 				iris_mat.emission_enabled = true
-				iris_mat.emission = iris_col.lerp(Color.WHITE, 0.25)
-				iris_mat.emission_energy_multiplier = 0.42
+				iris_mat.emission = iris_col.lerp(emit_col, 0.35)
+				iris_mat.emission_energy_multiplier = 0.45
 				for i: int in range(surface_count):
 					mesh_inst.set_surface_override_material(i, iris_mat)
 			elif node_name == "SparkEyeHighlight":
@@ -373,13 +317,13 @@ func _apply_spirit_palette_recursive(
 				hl_mat.albedo_color = Color.WHITE
 				hl_mat.emission_enabled = true
 				hl_mat.emission = Color.WHITE
-				hl_mat.emission_energy_multiplier = 1.25
+				hl_mat.emission_energy_multiplier = 1.15
 				for i: int in range(surface_count):
 					mesh_inst.set_surface_override_material(i, hl_mat)
 			elif node_name == "SparkEyeRim":
 				mesh_inst.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 				var rim_mat: StandardMaterial3D = StandardMaterial3D.new()
-				rim_mat.albedo_color = Color("#343E6E")
+				rim_mat.albedo_color = Color("#2A2F58")
 				rim_mat.roughness = 0.30
 				for i: int in range(surface_count):
 					mesh_inst.set_surface_override_material(i, rim_mat)
@@ -387,11 +331,11 @@ func _apply_spirit_palette_recursive(
 				mesh_inst.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 				var cheek_mat: StandardMaterial3D = StandardMaterial3D.new()
 				cheek_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-				cheek_mat.albedo_color = Color(1.0, 0.68, 0.72, 0.78)
+				cheek_mat.albedo_color = Color(0.96, 0.46, 0.58, 0.80)
 				cheek_mat.roughness = 0.35
 				cheek_mat.emission_enabled = true
-				cheek_mat.emission = Color("#FFA4B4")
-				cheek_mat.emission_energy_multiplier = 0.45
+				cheek_mat.emission = Color("#F56888")
+				cheek_mat.emission_energy_multiplier = 0.38
 				for i: int in range(surface_count):
 					mesh_inst.set_surface_override_material(i, cheek_mat)
 			else:
@@ -409,21 +353,21 @@ func _apply_spirit_palette_recursive(
 					var use_emit: Color = emit_col
 					var use_rim: Color = rim_col
 					var use_irid: Color = emit_col
-					var emit_str: float = 0.34
-					var belly_str: float = 0.80
+					var emit_str: float = 0.26
+					var belly_str: float = 0.65
 					var wing_flag: float = 0.0
 					var droplet_flag: float = 0.0
 
 					if is_mini_wing:
-						use_albedo = albedo_col.lerp(Color.WHITE, 0.42)
+						use_albedo = albedo_col.lerp(rim_col, 0.35)
 						use_emit = rim_col
-						emit_str = 0.40
+						emit_str = 0.30
 						belly_str = 0.0
 						wing_flag = 1.0
 					elif is_droplet:
-						use_albedo = albedo_col.lerp(Color.WHITE, 0.28)
+						use_albedo = albedo_col.lerp(emit_col, 0.28)
 						use_emit = rim_col
-						emit_str = 0.44
+						emit_str = 0.32
 						belly_str = 0.0
 						droplet_flag = 1.0
 
@@ -432,14 +376,14 @@ func _apply_spirit_palette_recursive(
 					smat.set_shader_parameter("emission_color", use_emit)
 					smat.set_shader_parameter("rim_color", use_rim)
 					smat.set_shader_parameter("iridescence_tint", use_irid)
-					smat.set_shader_parameter("belly_glow_color", Color("#FFE8B2"))
+					smat.set_shader_parameter("belly_glow_color", Color("#FFCE6B"))
 					smat.set_shader_parameter("emission_strength", emit_str)
 					smat.set_shader_parameter("belly_glow_strength", belly_str)
-					smat.set_shader_parameter("metallic_val", 0.08)
-					smat.set_shader_parameter("roughness_val", 0.13)
+					smat.set_shader_parameter("metallic_val", 0.10)
+					smat.set_shader_parameter("roughness_val", 0.14)
 					smat.set_shader_parameter("clearcoat_val", 0.92)
-					smat.set_shader_parameter("alpha_base", 0.90)
-					smat.set_shader_parameter("iridescence_strength", 0.72)
+					smat.set_shader_parameter("alpha_base", 0.92)
+					smat.set_shader_parameter("iridescence_strength", 0.68)
 					smat.set_shader_parameter("is_wing_ribbon", wing_flag)
 					smat.set_shader_parameter("is_droplet", droplet_flag)
 					smat.set_shader_parameter("flight_speed", 0.0)
@@ -467,7 +411,7 @@ func _build_fallback_spirit_mat(albedo_col: Color, emit_col: Color) -> StandardM
 	mat.roughness = 0.16
 	mat.emission_enabled = true
 	mat.emission = emit_col
-	mat.emission_energy_multiplier = 0.55
+	mat.emission_energy_multiplier = 0.42
 	return mat
 
 
@@ -494,19 +438,208 @@ func _build_procedural_spirit_fallback(parent: Node3D, albedo_col: Color, emit_c
 
 
 # ---------------------------------------------------------------------------
-# Serene Robed Akashic Chroniclers / Garden Keepers (~2.6m tall)
+# Six-Winged Seraph Archangel Builder (archangel_solaris.glb & archangel_aether.glb)
 # ---------------------------------------------------------------------------
 
-func _spawn_robed_chronicler(
+func _create_archangel_pbr_materials() -> Dictionary:
+	var mats: Dictionary = {}
+
+	# ArchSkin: Classical warm ivory-peach skin with subtle subsurface scattering
+	var skin_mat: StandardMaterial3D = StandardMaterial3D.new()
+	skin_mat.albedo_color = Color("#EFC6AE")
+	skin_mat.roughness = 0.40
+	skin_mat.subsurface_scattering_enabled = true
+	skin_mat.subsurface_scattering_strength = 0.35
+	skin_mat.subsurface_scattering_skin_mode = true
+	skin_mat.emission_enabled = true
+	skin_mat.emission = Color("#F5D0B8")
+	skin_mat.emission_energy_multiplier = 0.04
+	mats["ArchSkin"] = skin_mat
+
+	# ArchLips: Soft serene rose lips
+	var lips_mat: StandardMaterial3D = StandardMaterial3D.new()
+	lips_mat.albedo_color = Color("#C26E6E")
+	lips_mat.roughness = 0.30
+	lips_mat.subsurface_scattering_enabled = true
+	lips_mat.subsurface_scattering_strength = 0.22
+	mats["ArchLips"] = lips_mat
+
+	# ArchEyeSclera: Clear pearl-white eye sclera
+	var sclera_mat: StandardMaterial3D = StandardMaterial3D.new()
+	sclera_mat.albedo_color = Color("#F5F7FC")
+	sclera_mat.roughness = 0.08
+	sclera_mat.clearcoat_enabled = true
+	sclera_mat.clearcoat = 0.90
+	sclera_mat.clearcoat_roughness = 0.06
+	mats["ArchEyeSclera"] = sclera_mat
+
+	# ArchEyeIris: Warm luminous golden-amber iris
+	var iris_mat: StandardMaterial3D = StandardMaterial3D.new()
+	iris_mat.albedo_color = Color("#8C5A22")
+	iris_mat.roughness = 0.06
+	iris_mat.clearcoat_enabled = true
+	iris_mat.clearcoat = 1.0
+	iris_mat.clearcoat_roughness = 0.04
+	iris_mat.emission_enabled = true
+	iris_mat.emission = Color("#D89A3C")
+	iris_mat.emission_energy_multiplier = 0.32
+	mats["ArchEyeIris"] = iris_mat
+
+	# ArchHairGold: Flowing sunlit golden-blonde hair (Solaris)
+	var hair_gold_mat: StandardMaterial3D = StandardMaterial3D.new()
+	hair_gold_mat.albedo_color = Color("#E4B95E")
+	hair_gold_mat.metallic = 0.14
+	hair_gold_mat.roughness = 0.32
+	hair_gold_mat.clearcoat_enabled = true
+	hair_gold_mat.clearcoat = 0.35
+	hair_gold_mat.clearcoat_roughness = 0.25
+	hair_gold_mat.emission_enabled = true
+	hair_gold_mat.emission = Color("#F2CB74")
+	hair_gold_mat.emission_energy_multiplier = 0.06
+	mats["ArchHairGold"] = hair_gold_mat
+
+	# ArchHairSilver: Windswept celestial silver-platinum hair (Aether)
+	var hair_silver_mat: StandardMaterial3D = StandardMaterial3D.new()
+	hair_silver_mat.albedo_color = Color("#CCD4E4")
+	hair_silver_mat.metallic = 0.22
+	hair_silver_mat.roughness = 0.28
+	hair_silver_mat.clearcoat_enabled = true
+	hair_silver_mat.clearcoat = 0.42
+	hair_silver_mat.clearcoat_roughness = 0.22
+	hair_silver_mat.emission_enabled = true
+	hair_silver_mat.emission = Color("#DCE6F8")
+	hair_silver_mat.emission_energy_multiplier = 0.06
+	mats["ArchHairSilver"] = hair_silver_mat
+
+	# ArchGoldArmor: Satin champagne-gold celestial armor & starburst staff/bow
+	var gold_armor_mat: StandardMaterial3D = StandardMaterial3D.new()
+	gold_armor_mat.albedo_color = Color("#DDB25C")
+	gold_armor_mat.metallic = 0.86
+	gold_armor_mat.roughness = 0.22
+	gold_armor_mat.clearcoat_enabled = true
+	gold_armor_mat.clearcoat = 0.35
+	gold_armor_mat.clearcoat_roughness = 0.16
+	gold_armor_mat.emission_enabled = true
+	gold_armor_mat.emission = Color("#F2CB74")
+	gold_armor_mat.emission_energy_multiplier = 0.10
+	mats["ArchGoldArmor"] = gold_armor_mat
+
+	# ArchSilverArmor: Rose-platinum champagne-silver armor (Aether)
+	var silver_armor_mat: StandardMaterial3D = StandardMaterial3D.new()
+	silver_armor_mat.albedo_color = Color("#D8C6CE")
+	silver_armor_mat.metallic = 0.86
+	silver_armor_mat.roughness = 0.20
+	silver_armor_mat.clearcoat_enabled = true
+	silver_armor_mat.clearcoat = 0.42
+	silver_armor_mat.clearcoat_roughness = 0.15
+	silver_armor_mat.emission_enabled = true
+	silver_armor_mat.emission = Color("#EAE0E6")
+	silver_armor_mat.emission_energy_multiplier = 0.09
+	mats["ArchSilverArmor"] = silver_armor_mat
+
+	# ArchWhiteTunic: Woven ivory-white celestial silk tunic & pleated skirt
+	var tunic_mat: StandardMaterial3D = StandardMaterial3D.new()
+	tunic_mat.albedo_color = Color("#EDE6DA")
+	tunic_mat.roughness = 0.48
+	tunic_mat.clearcoat_enabled = true
+	tunic_mat.clearcoat = 0.10
+	tunic_mat.clearcoat_roughness = 0.42
+	tunic_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	tunic_mat.emission_enabled = true
+	tunic_mat.emission = Color("#F6EFE2")
+	tunic_mat.emission_energy_multiplier = 0.04
+	mats["ArchWhiteTunic"] = tunic_mat
+
+	# ArchStarCloak: Deep royal starry indigo-sapphire constellation cloak & tabard
+	var cloak_mat: StandardMaterial3D = StandardMaterial3D.new()
+	cloak_mat.albedo_color = Color("#1B2A6B")
+	cloak_mat.metallic = 0.20
+	cloak_mat.roughness = 0.34
+	cloak_mat.clearcoat_enabled = true
+	cloak_mat.clearcoat = 0.25
+	cloak_mat.clearcoat_roughness = 0.24
+	cloak_mat.rim_enabled = true
+	cloak_mat.rim = 0.42
+	cloak_mat.rim_tint = 0.65
+	cloak_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	cloak_mat.emission_enabled = true
+	cloak_mat.emission = Color("#465CC4")
+	cloak_mat.emission_energy_multiplier = 0.24
+	mats["ArchStarCloak"] = cloak_mat
+
+	# ArchWingFeathers: Pearl-ivory seraphim feathers with gentle celestial iridescence
+	var wing_mat: StandardMaterial3D = StandardMaterial3D.new()
+	wing_mat.albedo_color = Color("#F0EAE0")
+	wing_mat.metallic = 0.05
+	wing_mat.roughness = 0.30
+	wing_mat.clearcoat_enabled = true
+	wing_mat.clearcoat = 0.38
+	wing_mat.clearcoat_roughness = 0.22
+	wing_mat.rim_enabled = true
+	wing_mat.rim = 0.58
+	wing_mat.rim_tint = 0.42
+	wing_mat.emission_enabled = true
+	wing_mat.emission = Color("#FAF0DC")
+	wing_mat.emission_energy_multiplier = 0.10
+	mats["ArchWingFeathers"] = wing_mat
+
+	# ArchWingGoldQuills: Gilded feather rachis / leading quills
+	var quill_mat: StandardMaterial3D = StandardMaterial3D.new()
+	quill_mat.albedo_color = Color("#DFBC6C")
+	quill_mat.metallic = 0.72
+	quill_mat.roughness = 0.24
+	quill_mat.emission_enabled = true
+	quill_mat.emission = Color("#F5D282")
+	quill_mat.emission_energy_multiplier = 0.16
+	mats["ArchWingGoldQuills"] = quill_mat
+
+	# ArchStarCore: Warm radiant golden starlight core (staff, bow, halo gems, blessing orb)
+	var core_mat: StandardMaterial3D = StandardMaterial3D.new()
+	core_mat.albedo_color = Color("#FFF0B8")
+	core_mat.roughness = 0.10
+	core_mat.emission_enabled = true
+	core_mat.emission = Color("#FFDC82")
+	core_mat.emission_energy_multiplier = 1.65
+	mats["ArchStarCore"] = core_mat
+
+	return mats
+
+
+func _apply_archangel_materials_recursive(node: Node, mats: Dictionary) -> void:
+	if node is MeshInstance3D:
+		var mesh_inst: MeshInstance3D = node as MeshInstance3D
+		var mesh_res: Mesh = mesh_inst.mesh
+		if mesh_res != null:
+			var surface_count: int = mesh_res.get_surface_count()
+			for i: int in range(surface_count):
+				var orig_mat: Material = mesh_res.surface_get_material(i)
+				var mat_name: String = ""
+				if orig_mat != null:
+					mat_name = orig_mat.resource_name
+
+				# Strip any Blender numeric suffix like ".001"
+				var dot_idx: int = mat_name.find(".")
+				if dot_idx > 0:
+					mat_name = mat_name.substr(0, dot_idx)
+
+				if mats.has(mat_name):
+					mesh_inst.set_surface_override_material(i, mats[mat_name] as StandardMaterial3D)
+					if mat_name == "ArchStarCore":
+						mesh_inst.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+
+	for child: Node in node.get_children():
+		_apply_archangel_materials_recursive(child, mats)
+
+
+func _spawn_seraph_archangel(
 	npc_id: String,
 	display_name: String,
 	home_pos: Vector3,
-	prop_kind: String,
-	robe_col: Color,
-	accent_glow: Color,
+	packed_scene: PackedScene,
 	dialogue_seq: String,
 	default_yaw: float,
-	phase: float
+	phase: float,
+	presence_tint: Color
 ) -> void:
 	var root: Node3D = Node3D.new()
 	root.name = "NPC_%s" % npc_id
@@ -518,191 +651,38 @@ func _spawn_robed_chronicler(
 	visual_pivot.name = "VisualPivot"
 	root.add_child(visual_pivot)
 
-	var robe_mat: Material = _create_robe_material(robe_col, accent_glow)
+	var arch_mats: Dictionary = _create_archangel_pbr_materials()
+	var halo_pivot: Node3D = null
 
-	# 1. Flowing lower robe skirt (graceful flared silhouette)
-	var skirt: MeshInstance3D = MeshInstance3D.new()
-	skirt.name = "RobeSkirt"
-	var skirt_mesh: CylinderMesh = CylinderMesh.new()
-	skirt_mesh.top_radius = 0.24
-	skirt_mesh.bottom_radius = 0.56
-	skirt_mesh.height = 1.48
-	skirt_mesh.radial_segments = 24
-	skirt.mesh = skirt_mesh
-	skirt.position = Vector3(0.0, 0.78, 0.0)
-	skirt.material_override = robe_mat
-	visual_pivot.add_child(skirt)
+	if packed_scene != null:
+		var inst: Node = packed_scene.instantiate()
+		if inst is Node3D:
+			var model_node: Node3D = inst as Node3D
+			model_node.name = "SeraphModel"
+			visual_pivot.add_child(model_node)
+			_apply_archangel_materials_recursive(model_node, arch_mats)
+			halo_pivot = model_node.find_child("ArchHaloPivot", true, false) as Node3D
+		else:
+			inst.queue_free()
 
-	# Golden hem trim ring
-	var hem_ring: MeshInstance3D = MeshInstance3D.new()
-	hem_ring.name = "HemTrim"
-	var hem_mesh: TorusMesh = TorusMesh.new()
-	hem_mesh.inner_radius = 0.51
-	hem_mesh.outer_radius = 0.57
-	hem_mesh.rings = 24
-	hem_mesh.ring_segments = 10
-	hem_ring.mesh = hem_mesh
-	hem_ring.position = Vector3(0.0, 0.08, 0.0)
-	hem_ring.material_override = _gold_mat
-	visual_pivot.add_child(hem_ring)
-
-	# 2. Upper torso bodice
-	var bodice: MeshInstance3D = MeshInstance3D.new()
-	bodice.name = "RobeBodice"
-	var bodice_mesh: CylinderMesh = CylinderMesh.new()
-	bodice_mesh.top_radius = 0.28
-	bodice_mesh.bottom_radius = 0.22
-	bodice_mesh.height = 0.58
-	bodice_mesh.radial_segments = 20
-	bodice.mesh = bodice_mesh
-	bodice.position = Vector3(0.0, 1.72, 0.0)
-	bodice.material_override = robe_mat
-	visual_pivot.add_child(bodice)
-
-	# Flowing shoulder cape / mantle
-	var mantle: MeshInstance3D = MeshInstance3D.new()
-	mantle.name = "ShoulderMantle"
-	var mantle_mesh: CylinderMesh = CylinderMesh.new()
-	mantle_mesh.top_radius = 0.22
-	mantle_mesh.bottom_radius = 0.44
-	mantle_mesh.height = 0.42
-	mantle_mesh.radial_segments = 24
-	mantle.mesh = mantle_mesh
-	mantle.position = Vector3(0.0, 1.84, 0.04)
-	mantle.material_override = robe_mat
-	visual_pivot.add_child(mantle)
-
-	# Satin-gold celestial stole sash draped down the front (-Z)
-	var stole: MeshInstance3D = MeshInstance3D.new()
-	stole.name = "GoldStole"
-	var stole_mesh: BoxMesh = BoxMesh.new()
-	stole_mesh.size = Vector3(0.14, 1.38, 0.04)
-	stole.mesh = stole_mesh
-	stole.position = Vector3(0.0, 1.18, -0.34)
-	stole.rotation.x = -0.15
-	stole.material_override = _gold_mat
-	visual_pivot.add_child(stole)
-
-	# Waist gold belt ring
-	var belt: MeshInstance3D = MeshInstance3D.new()
-	belt.name = "WaistBelt"
-	var belt_mesh: TorusMesh = TorusMesh.new()
-	belt_mesh.inner_radius = 0.21
-	belt_mesh.outer_radius = 0.26
-	belt_mesh.rings = 20
-	belt_mesh.ring_segments = 10
-	belt.mesh = belt_mesh
-	belt.position = Vector3(0.0, 1.48, 0.0)
-	belt.material_override = _gold_mat
-	visual_pivot.add_child(belt)
-
-	# 3. Graceful sleeves angled gently forward (-Z)
-	for side_sign: int in [-1, 1]:
-		var sleeve: MeshInstance3D = MeshInstance3D.new()
-		sleeve.name = "Sleeve_%s" % ("L" if side_sign < 0 else "R")
-		var sleeve_mesh: CylinderMesh = CylinderMesh.new()
-		sleeve_mesh.top_radius = 0.09
-		sleeve_mesh.bottom_radius = 0.16
-		sleeve_mesh.height = 0.62
-		sleeve_mesh.radial_segments = 16
-		sleeve.mesh = sleeve_mesh
-		sleeve.position = Vector3(float(side_sign) * 0.27, 1.62, -0.16)
-		sleeve.rotation = Vector3(0.72, 0.0, float(side_sign) * -0.26)
-		sleeve.material_override = robe_mat
-		visual_pivot.add_child(sleeve)
-
-	# 4. Serene luminous head & flowing hood/veil
-	var head: MeshInstance3D = MeshInstance3D.new()
-	head.name = "Head"
-	var head_mesh: SphereMesh = SphereMesh.new()
-	head_mesh.radius = 0.185
-	head_mesh.height = 0.40
-	head_mesh.radial_segments = 20
-	head_mesh.rings = 14
-	head.mesh = head_mesh
-	head.position = Vector3(0.0, 2.22, -0.02)
-	head.material_override = _ivory_skin_mat
-	visual_pivot.add_child(head)
-
-	# Hood / celestial veil framing back and crown of head
-	var hood: MeshInstance3D = MeshInstance3D.new()
-	hood.name = "CelestialHood"
-	var hood_mesh: SphereMesh = SphereMesh.new()
-	hood_mesh.radius = 0.23
-	hood_mesh.height = 0.48
-	hood_mesh.radial_segments = 20
-	hood_mesh.rings = 14
-	hood.mesh = hood_mesh
-	hood.position = Vector3(0.0, 2.24, 0.06)
-	hood.material_override = robe_mat
-	visual_pivot.add_child(hood)
-
-	# Delicate golden brow circlet
-	var circlet: MeshInstance3D = MeshInstance3D.new()
-	circlet.name = "GoldCirclet"
-	var circlet_mesh: TorusMesh = TorusMesh.new()
-	circlet_mesh.inner_radius = 0.17
-	circlet_mesh.outer_radius = 0.205
-	circlet_mesh.rings = 24
-	circlet_mesh.ring_segments = 10
-	circlet.mesh = circlet_mesh
-	circlet.position = Vector3(0.0, 2.31, -0.02)
-	circlet.rotation.x = 0.18
-	circlet.material_override = _bright_gold_mat
-	visual_pivot.add_child(circlet)
-
-	# 5. Dual concentric glowing halo rings behind head (+Z)
-	var halo_outer: MeshInstance3D = MeshInstance3D.new()
-	halo_outer.name = "HaloOuter"
-	var outer_torus: TorusMesh = TorusMesh.new()
-	outer_torus.inner_radius = 0.39
-	outer_torus.outer_radius = 0.43
-	outer_torus.rings = 32
-	outer_torus.ring_segments = 10
-	halo_outer.mesh = outer_torus
-	halo_outer.position = Vector3(0.0, 2.30, 0.26)
-	halo_outer.rotation.x = PI * 0.5
-	halo_outer.material_override = _bright_gold_mat
-	halo_outer.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	visual_pivot.add_child(halo_outer)
-
-	var halo_inner: MeshInstance3D = MeshInstance3D.new()
-	halo_inner.name = "HaloInner"
-	var inner_torus: TorusMesh = TorusMesh.new()
-	inner_torus.inner_radius = 0.25
-	inner_torus.outer_radius = 0.28
-	inner_torus.rings = 28
-	inner_torus.ring_segments = 10
-	halo_inner.mesh = inner_torus
-	halo_inner.position = Vector3(0.0, 2.30, 0.24)
-	halo_inner.rotation.x = PI * 0.5
-	halo_inner.material_override = _gold_mat
-	halo_inner.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	visual_pivot.add_child(halo_inner)
-
-	# 6. Signature floating prop in front of the Chronicler/Keeper (-Z)
-	var prop_pivot: Node3D = Node3D.new()
-	prop_pivot.name = "FloatingPropPivot"
-	prop_pivot.position = Vector3(0.0, 1.56, -0.78)
-	visual_pivot.add_child(prop_pivot)
-
-	_build_chronicler_prop(prop_pivot, prop_kind, accent_glow)
-
-	# 7. Warm serene presence light
+	# Warm celestial presence OmniLight3D illuminating armor, wings & sanctuary floor
 	var light: OmniLight3D = OmniLight3D.new()
-	light.name = "ChroniclerLight"
-	light.position = Vector3(0.0, 2.0, -0.35)
-	light.light_color = accent_glow.lerp(Color("#FFF2D6"), 0.55)
-	light.light_energy = 0.85
-	light.omni_range = 8.2
-	light.omni_attenuation = 1.4
+	light.name = "ArchangelPresenceLight"
+	light.position = Vector3(0.0, 2.75, 0.85)
+	light.light_color = presence_tint
+	light.light_energy = 1.15
+	light.omni_range = 11.5
+	light.omni_attenuation = 1.35
 	light.shadow_enabled = false
 	visual_pivot.add_child(light)
+
+	var star_core_mat: StandardMaterial3D = arch_mats.get("ArchStarCore", null) as StandardMaterial3D
+	var cloak_mat: StandardMaterial3D = arch_mats.get("ArchStarCloak", null) as StandardMaterial3D
 
 	var entry: Dictionary = {
 		"id": npc_id,
 		"name": display_name,
-		"kind": "chronicler",
+		"kind": "archangel",
 		"dialogue_seq": dialogue_seq,
 		"root": root,
 		"visual_pivot": visual_pivot,
@@ -711,165 +691,21 @@ func _spawn_robed_chronicler(
 		"current_yaw": default_yaw,
 		"orbit_radius": 0.0,
 		"orbit_speed": 0.0,
-		"bob_speed": 1.15,
-		"bob_amp": 0.08,
+		"bob_speed": 0.92,
+		"bob_amp": 0.14,
 		"phase": phase,
 		"light": light,
 		"base_light_color": light.light_color,
-		"base_light_energy": 0.85,
-		"robe_mat": robe_mat,
-		"halo_outer": halo_outer,
-		"halo_inner": halo_inner,
-		"prop_pivot": prop_pivot,
-		"prop_base_y": prop_pivot.position.y,
+		"base_light_energy": 1.15,
+		"halo_pivot": halo_pivot,
+		"star_core_mat": star_core_mat,
+		"cloak_mat": cloak_mat,
 		"hop_progress": 0.0,
 		"hop_active": false,
 		"pulse_level": 0.0,
 	}
 	_npcs.append(entry)
 	_npc_by_id[npc_id] = entry
-
-
-func _create_robe_material(robe_col: Color, accent_glow: Color) -> Material:
-	if _mentor_shader != null:
-		var smat: ShaderMaterial = ShaderMaterial.new()
-		smat.shader = _mentor_shader
-		smat.set_shader_parameter("body_color", robe_col)
-		smat.set_shader_parameter("rim_color", accent_glow.lerp(Color("#FFF6E6"), 0.5))
-		smat.set_shader_parameter("rim_highlight_color", Color("#FFF9EE"))
-		smat.set_shader_parameter("base_opacity", 1.0)
-		smat.set_shader_parameter("fresnel_power", 2.5)
-		smat.set_shader_parameter("emission_strength", 0.20)
-		smat.set_shader_parameter("shimmer_speed", 0.55)
-		smat.set_shader_parameter("stardust_intensity", 0.16)
-		return smat
-
-	var mat: StandardMaterial3D = StandardMaterial3D.new()
-	mat.albedo_color = robe_col
-	mat.roughness = 0.42
-	mat.emission_enabled = true
-	mat.emission = accent_glow
-	mat.emission_energy_multiplier = 0.18
-	return mat
-
-
-func _build_chronicler_prop(parent: Node3D, prop_kind: String, accent_glow: Color) -> void:
-	if prop_kind == "scrolls":
-		# Floating open golden chronicle book + 2 orbiting luminous parchment pages
-		var left_page: MeshInstance3D = MeshInstance3D.new()
-		var page_mesh: BoxMesh = BoxMesh.new()
-		page_mesh.size = Vector3(0.28, 0.02, 0.36)
-		left_page.mesh = page_mesh
-		left_page.position = Vector3(-0.13, 0.0, 0.0)
-		left_page.rotation.z = 0.24
-		left_page.material_override = _parchment_mat
-		parent.add_child(left_page)
-
-		var right_page: MeshInstance3D = MeshInstance3D.new()
-		right_page.mesh = page_mesh
-		right_page.position = Vector3(0.13, 0.0, 0.0)
-		right_page.rotation.z = -0.24
-		right_page.material_override = _parchment_mat
-		parent.add_child(right_page)
-
-		var spine: MeshInstance3D = MeshInstance3D.new()
-		var spine_mesh: BoxMesh = BoxMesh.new()
-		spine_mesh.size = Vector3(0.05, 0.035, 0.38)
-		spine.mesh = spine_mesh
-		spine.position = Vector3(0.0, -0.02, 0.0)
-		spine.material_override = _gold_mat
-		parent.add_child(spine)
-
-		for idx: int in range(2):
-			var loose_page: MeshInstance3D = MeshInstance3D.new()
-			var lp_mesh: QuadMesh = QuadMesh.new()
-			lp_mesh.size = Vector2(0.18, 0.24)
-			loose_page.mesh = lp_mesh
-			var angle: float = float(idx) * PI
-			loose_page.position = Vector3(cos(angle) * 0.48, 0.22 + float(idx) * 0.14, sin(angle) * 0.36)
-			loose_page.rotation = Vector3(-0.22, angle + 0.5, 0.15)
-			loose_page.material_override = _parchment_mat
-			loose_page.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-			parent.add_child(loose_page)
-
-	elif prop_kind == "lantern":
-		# Floating luminous Celestial Lotus Lantern
-		var core_mat: StandardMaterial3D = StandardMaterial3D.new()
-		core_mat.albedo_color = accent_glow.lerp(Color("#FFF6DC"), 0.5)
-		core_mat.roughness = 0.14
-		core_mat.emission_enabled = true
-		core_mat.emission = accent_glow.lerp(Color("#FFE8B0"), 0.4)
-		core_mat.emission_energy_multiplier = 1.05
-
-		var core: MeshInstance3D = MeshInstance3D.new()
-		var core_mesh: SphereMesh = SphereMesh.new()
-		core_mesh.radius = 0.14
-		core_mesh.height = 0.28
-		core.mesh = core_mesh
-		core.material_override = core_mat
-		core.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		parent.add_child(core)
-
-		var ring: MeshInstance3D = MeshInstance3D.new()
-		var ring_mesh: TorusMesh = TorusMesh.new()
-		ring_mesh.inner_radius = 0.21
-		ring_mesh.outer_radius = 0.24
-		ring.mesh = ring_mesh
-		ring.material_override = _bright_gold_mat
-		ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		parent.add_child(ring)
-
-		for petal_i: int in range(5):
-			var petal: MeshInstance3D = MeshInstance3D.new()
-			var p_mesh: SphereMesh = SphereMesh.new()
-			p_mesh.radius = 0.08
-			p_mesh.height = 0.16
-			petal.mesh = p_mesh
-			var a: float = (float(petal_i) / 5.0) * TAU
-			petal.position = Vector3(cos(a) * 0.16, -0.08, sin(a) * 0.16)
-			petal.scale = Vector3(0.85, 0.42, 1.35)
-			petal.rotation.y = -a
-			petal.material_override = _lotus_pink_mat
-			petal.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-			parent.add_child(petal)
-
-	else:
-		# Floating Mini Celestial Astrolabe / Horizon Ring
-		var orb_mat: StandardMaterial3D = StandardMaterial3D.new()
-		orb_mat.albedo_color = Color("#E8F6FF")
-		orb_mat.roughness = 0.10
-		orb_mat.emission_enabled = true
-		orb_mat.emission = accent_glow
-		orb_mat.emission_energy_multiplier = 1.15
-
-		var orb: MeshInstance3D = MeshInstance3D.new()
-		var orb_mesh: SphereMesh = SphereMesh.new()
-		orb_mesh.radius = 0.11
-		orb_mesh.height = 0.22
-		orb.mesh = orb_mesh
-		orb.material_override = orb_mat
-		orb.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		parent.add_child(orb)
-
-		var ring_a: MeshInstance3D = MeshInstance3D.new()
-		var ra_mesh: TorusMesh = TorusMesh.new()
-		ra_mesh.inner_radius = 0.22
-		ra_mesh.outer_radius = 0.245
-		ring_a.mesh = ra_mesh
-		ring_a.rotation = Vector3(0.65, 0.2, 0.0)
-		ring_a.material_override = _bright_gold_mat
-		ring_a.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		parent.add_child(ring_a)
-
-		var ring_b: MeshInstance3D = MeshInstance3D.new()
-		var rb_mesh: TorusMesh = TorusMesh.new()
-		rb_mesh.inner_radius = 0.30
-		rb_mesh.outer_radius = 0.325
-		ring_b.mesh = rb_mesh
-		ring_b.rotation = Vector3(-0.45, 0.0, 0.72)
-		ring_b.material_override = _gold_mat
-		ring_b.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		parent.add_child(ring_b)
 
 
 # ---------------------------------------------------------------------------
@@ -894,7 +730,7 @@ func _process(delta: float) -> void:
 		var orbit_radius: float = float(entry["orbit_radius"])
 		var orbit_speed: float = float(entry["orbit_speed"])
 
-		# 1. Gentle organic XZ drift / playful orbit
+		# 1. Gentle organic XZ drift / playful orbit (spirits)
 		var drift_x: float = 0.0
 		var drift_z: float = 0.0
 		if orbit_radius > 0.001:
@@ -902,11 +738,11 @@ func _process(delta: float) -> void:
 			drift_x = cos(angle) * orbit_radius
 			drift_z = sin(angle * 0.85) * orbit_radius * 0.82
 
-		# 2. Excited hop animation (from Soul Call [Q] or greeting interaction)
+		# 2. Excited hop / regal blessing elevation (from Soul Call [Q] or greeting)
 		var hop_y: float = 0.0
 		var hop_spin: float = 0.0
 		if bool(entry["hop_active"]):
-			var hop_speed: float = 1.65 if is_spirit else 1.25
+			var hop_speed: float = 1.65 if is_spirit else 1.10
 			var progress: float = float(entry["hop_progress"]) + delta * hop_speed
 			if progress >= 1.0:
 				entry["hop_progress"] = 0.0
@@ -914,9 +750,9 @@ func _process(delta: float) -> void:
 			else:
 				entry["hop_progress"] = progress
 				var arc: float = sin(progress * PI)
-				hop_y = arc * (0.68 if is_spirit else 0.30)
+				hop_y = arc * (0.68 if is_spirit else 0.36)
 				if is_spirit:
-					hop_spin = sin(progress * PI) * 0.42
+					hop_spin = arc * 0.42
 
 		# 3. Light pulse decay
 		var pulse: float = float(entry["pulse_level"])
@@ -924,7 +760,7 @@ func _process(delta: float) -> void:
 			pulse = maxf(0.0, pulse - delta * 0.82)
 			entry["pulse_level"] = pulse
 
-		# Apply gentle bob + hop to root position
+		# Apply gentle hover + hop to root position
 		var bob_y: float = sin(_anim_time * bob_speed + phase) * bob_amp
 		root.position = Vector3(
 			home_pos.x + drift_x,
@@ -933,18 +769,23 @@ func _process(delta: float) -> void:
 		)
 
 		# 4. Smoothly turn to face player within 12.0m, else gently sway around default facing
-		var target_yaw: float = float(entry["default_yaw"]) + sin(_anim_time * 0.52 + phase) * 0.14
+		var target_yaw: float = float(entry["default_yaw"]) + sin(_anim_time * 0.46 + phase) * (0.14 if is_spirit else 0.06)
 		if _has_player_pos:
 			var to_player: Vector3 = _player_pos - root.global_position
 			var dist_sq: float = to_player.length_squared()
 			if dist_sq <= FACE_PLAYER_RANGE * FACE_PLAYER_RANGE and dist_sq > 0.04:
-				target_yaw = atan2(-to_player.x, -to_player.z)
+				if is_spirit:
+					# spark.glb faces -Z forward
+					target_yaw = atan2(-to_player.x, -to_player.z)
+				else:
+					# Six-Winged Seraph Archangel GLBs face +Z forward
+					target_yaw = atan2(to_player.x, to_player.z)
 
 		var current_yaw: float = lerp_angle(float(entry["current_yaw"]), target_yaw, yaw_blend)
 		entry["current_yaw"] = current_yaw
 		root.rotation.y = current_yaw + hop_spin
 
-		# 5. Subtle organic sway & archetype-specific animations
+		# 5. Archetype-specific organic animations
 		if is_spirit:
 			visual_pivot.rotation.z = sin(_anim_time * 1.65 + phase) * 0.08
 			visual_pivot.rotation.x = sin(_anim_time * 1.25 + phase * 1.3) * 0.05
@@ -958,42 +799,39 @@ func _process(delta: float) -> void:
 			for mat_var: Variant in energy_mats:
 				var smat: ShaderMaterial = mat_var as ShaderMaterial
 				if smat != null:
-					smat.set_shader_parameter("energy_flare", pulse * 1.45)
+					smat.set_shader_parameter("energy_flare", pulse * 1.35)
 
 			var fallback_mat: StandardMaterial3D = entry["fallback_mat"] as StandardMaterial3D
 			if fallback_mat != null:
-				fallback_mat.emission_energy_multiplier = 0.55 + pulse * 1.15
+				fallback_mat.emission_energy_multiplier = 0.42 + pulse * 1.10
 		else:
-			visual_pivot.rotation.z = sin(_anim_time * 0.72 + phase) * 0.022
-			var halo_outer: Node3D = entry["halo_outer"] as Node3D
-			var halo_inner: Node3D = entry["halo_inner"] as Node3D
-			if halo_outer != null:
-				halo_outer.rotation.y += delta * (0.28 + pulse * 1.1)
-			if halo_inner != null:
-				halo_inner.rotation.y -= delta * (0.42 + pulse * 1.4)
+			# Regal gentle celestial sway + slow rotation of the Golden Runic Celestial Halo
+			visual_pivot.rotation.z = sin(_anim_time * 0.65 + phase) * 0.018
+			visual_pivot.rotation.x = sin(_anim_time * 0.48 + phase * 1.2) * 0.014
 
-			var prop_pivot: Node3D = entry["prop_pivot"] as Node3D
-			if prop_pivot != null:
-				prop_pivot.position.y = float(entry["prop_base_y"]) + sin(_anim_time * 1.85 + phase) * 0.075
-				prop_pivot.rotation.y += delta * (0.48 + pulse * 1.35)
+			var halo_pivot: Node3D = entry["halo_pivot"] as Node3D
+			if halo_pivot != null:
+				halo_pivot.rotation.z += delta * (0.30 + pulse * 1.25)
 
-			var robe_mat: Material = entry["robe_mat"] as Material
-			if robe_mat is ShaderMaterial:
-				var smat: ShaderMaterial = robe_mat as ShaderMaterial
-				smat.set_shader_parameter("emission_strength", 0.20 + pulse * 0.55)
-			elif robe_mat is StandardMaterial3D:
-				var stmat: StandardMaterial3D = robe_mat as StandardMaterial3D
-				stmat.emission_energy_multiplier = 0.18 + pulse * 0.55
+			var star_core_mat: StandardMaterial3D = entry["star_core_mat"] as StandardMaterial3D
+			if star_core_mat != null:
+				var star_shimmer: float = sin(_anim_time * 2.4 + phase) * 0.16
+				star_core_mat.emission_energy_multiplier = 1.65 + star_shimmer + pulse * 1.85
+
+			var cloak_mat: StandardMaterial3D = entry["cloak_mat"] as StandardMaterial3D
+			if cloak_mat != null:
+				var cloak_shimmer: float = sin(_anim_time * 1.6 + phase) * 0.05
+				cloak_mat.emission_energy_multiplier = 0.24 + cloak_shimmer + pulse * 0.35
 
 		# 6. Warm golden-aqua light pulse on OmniLight3D
 		var light: OmniLight3D = entry["light"] as OmniLight3D
 		if light != null:
 			var base_col: Color = entry["base_light_color"] as Color
 			var base_energy: float = float(entry["base_light_energy"])
-			var pulse_tint: Color = PULSE_COLOR_AQUA_GOLD if is_spirit else PULSE_COLOR_WARM_AQUA
-			light.light_color = base_col.lerp(pulse_tint, clampf(pulse * 0.75, 0.0, 1.0))
-			light.light_energy = base_energy + sin(_anim_time * 2.1 + phase) * 0.06 + pulse * 1.85
-			light.omni_range = (6.8 if is_spirit else 8.2) + pulse * 4.2
+			var pulse_tint: Color = PULSE_COLOR_AQUA_GOLD if is_spirit else PULSE_COLOR_WARM_GOLD
+			light.light_color = base_col.lerp(pulse_tint, clampf(pulse * 0.72, 0.0, 1.0))
+			light.light_energy = base_energy + sin(_anim_time * 2.1 + phase) * 0.07 + pulse * 1.95
+			light.omni_range = (6.8 if is_spirit else 11.5) + pulse * 4.5
 
 
 # ---------------------------------------------------------------------------
@@ -1006,24 +844,26 @@ func update_player_position(player_pos: Vector3) -> void:
 	_has_player_pos = true
 
 
-## Returns the npc_id of the nearest NPC within INTERACT_RANGE (6.2m), or "" if none.
+## Returns the npc_id of the nearest NPC within interaction range, or "" if none.
 func get_nearest_npc_in_range(player_pos: Vector3) -> String:
 	var best_id: String = ""
-	var best_dist: float = INTERACT_RANGE
+	var best_dist: float = ARCHANGEL_INTERACT_RANGE
 
 	for entry: Dictionary in _npcs:
 		var root: Node3D = entry["root"] as Node3D
 		if root == null:
 			continue
+		var is_archangel: bool = str(entry["kind"]) == "archangel"
+		var max_range: float = ARCHANGEL_INTERACT_RANGE if is_archangel else INTERACT_RANGE
 		var dist: float = player_pos.distance_to(root.global_position)
-		if dist <= best_dist:
+		if dist <= max_range and dist <= best_dist:
 			best_dist = dist
 			best_id = str(entry["id"])
 
 	return best_id
 
 
-## Returns a localized HUD prompt for the given npc_id (e.g. "✦  [E]  Поговорить: Искра Рассвета").
+## Returns a localized HUD prompt for the given npc_id (e.g. "✦  [E]  Поговорить: Архангел Соларис · Хранитель Свитков").
 func get_interaction_prompt(npc_id: String) -> String:
 	if npc_id.is_empty() or not _npc_by_id.has(npc_id):
 		return ""
@@ -1034,7 +874,7 @@ func get_interaction_prompt(npc_id: String) -> String:
 	return "✦  [E]  Поговорить: %s" % display_name
 
 
-## Interacts with the nearest NPC within 6.2m. Triggers a warm greeting response and emits `npc_interacted`.
+## Interacts with the nearest NPC within range. Triggers a warm greeting response and emits `npc_interacted`.
 func interact_nearest(player_pos: Vector3) -> bool:
 	var npc_id: String = get_nearest_npc_in_range(player_pos)
 	if npc_id.is_empty() or not _npc_by_id.has(npc_id):
@@ -1050,7 +890,7 @@ func interact_nearest(player_pos: Vector3) -> bool:
 	return true
 
 
-## Responds to Spark's Soul Call [Q]: all NPCs within 16.0m do a joyful excited hop + warm golden-aqua light pulse.
+## Responds to Spark's Soul Call [Q]: all NPCs within 16.0m do a joyful excited hop/elevation + warm golden-aqua light pulse.
 func respond_to_soul_call(origin: Vector3) -> bool:
 	var responded: bool = false
 	for entry: Dictionary in _npcs:

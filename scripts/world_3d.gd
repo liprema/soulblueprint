@@ -132,7 +132,7 @@ func _setup_atmospheric_dust_motes() -> void:
 
 	var particles: GPUParticles3D = GPUParticles3D.new()
 	particles.name = "AtmosphericDustMotes"
-	particles.amount = 220
+	particles.amount = 36
 	particles.lifetime = 9.0
 	particles.preprocess = 6.0
 	particles.local_coords = false
@@ -156,8 +156,8 @@ func _setup_atmospheric_dust_motes() -> void:
 	proc_mat.turbulence_noise_speed_random = 0.35
 	proc_mat.turbulence_influence_min = 0.25
 	proc_mat.turbulence_influence_max = 0.65
-	proc_mat.scale_min = 0.55
-	proc_mat.scale_max = 1.45
+	proc_mat.scale_min = 0.35
+	proc_mat.scale_max = 0.80
 
 	# Per-particle tint variation between soft pastel pearl-gold and sakura-blush
 	var init_grad: Gradient = Gradient.new()
@@ -211,7 +211,7 @@ func _setup_atmospheric_dust_motes() -> void:
 	quad_mat.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
 	quad_mat.billboard_keep_scale = true
 	quad_mat.albedo_texture = radial_tex
-	quad_mat.albedo_color = Color(1.0, 0.95, 0.93, 0.78)
+	quad_mat.albedo_color = Color(1.0, 0.95, 0.93, 0.42)
 	quad_mat.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED
 
 	var quad_mesh: QuadMesh = QuadMesh.new()
@@ -233,7 +233,7 @@ func _setup_sakura_petals() -> void:
 
 	var petals: GPUParticles3D = GPUParticles3D.new()
 	petals.name = "DriftingSakuraPetals"
-	petals.amount = 140
+	petals.amount = 40
 	petals.lifetime = 11.0
 	petals.preprocess = 7.0
 	petals.local_coords = false
@@ -261,8 +261,8 @@ func _setup_sakura_petals() -> void:
 	proc_mat.turbulence_noise_speed_random = 0.40
 	proc_mat.turbulence_influence_min = 0.28
 	proc_mat.turbulence_influence_max = 0.72
-	proc_mat.scale_min = 0.65
-	proc_mat.scale_max = 1.35
+	proc_mat.scale_min = 0.55
+	proc_mat.scale_max = 1.05
 
 	# Soft pink & blush-white sakura blossom petal palette
 	var init_grad: Gradient = Gradient.new()
@@ -281,8 +281,8 @@ func _setup_sakura_petals() -> void:
 	life_grad.offsets = PackedFloat32Array([0.0, 0.14, 0.80, 1.0])
 	life_grad.colors = PackedColorArray([
 		Color(1.0, 1.0, 1.0, 0.0),
-		Color(1.0, 1.0, 1.0, 0.92),
-		Color(1.0, 1.0, 1.0, 0.84),
+		Color(1.0, 1.0, 1.0, 0.86),
+		Color(1.0, 1.0, 1.0, 0.78),
 		Color(1.0, 1.0, 1.0, 0.0),
 	])
 	var life_ramp: GradientTexture1D = GradientTexture1D.new()
@@ -316,7 +316,7 @@ func _setup_sakura_petals() -> void:
 	petal_mat.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
 	petal_mat.billboard_keep_scale = true
 	petal_mat.albedo_texture = petal_tex
-	petal_mat.albedo_color = Color(1.0, 0.97, 0.98, 0.94)
+	petal_mat.albedo_color = Color(1.0, 0.97, 0.98, 0.80)
 	petal_mat.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED
 
 	var petal_mesh: QuadMesh = QuadMesh.new()

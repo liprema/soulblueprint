@@ -136,17 +136,17 @@ func set_ready_for_call() -> void:
 
 	if _filigree_ring_mat != null:
 		_state_tween.tween_property(
-			_filigree_ring_mat, "emission_energy_multiplier", 0.78, 1.35
+			_filigree_ring_mat, "emission_energy_multiplier", 0.20, 1.35
 		).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 
 	if _finial_accent_mat != null:
 		_state_tween.tween_property(
-			_finial_accent_mat, "emission_energy_multiplier", 1.05, 1.35
+			_finial_accent_mat, "emission_energy_multiplier", 0.24, 1.35
 		).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 
 	if _gold_frame_mat != null:
 		_state_tween.tween_property(
-			_gold_frame_mat, "emission_energy_multiplier", 0.38, 1.35
+			_gold_frame_mat, "emission_energy_multiplier", 0.18, 1.35
 		).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 
 	if _starlight_particles != null:
@@ -188,17 +188,17 @@ func awaken_mirror() -> void:
 
 	if _filigree_ring_mat != null:
 		_state_tween.tween_property(
-			_filigree_ring_mat, "emission_energy_multiplier", 1.25, 1.6
+			_filigree_ring_mat, "emission_energy_multiplier", 0.25, 1.6
 		).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 
 	if _finial_accent_mat != null:
 		_state_tween.tween_property(
-			_finial_accent_mat, "emission_energy_multiplier", 1.55, 1.6
+			_finial_accent_mat, "emission_energy_multiplier", 0.25, 1.6
 		).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 
 	if _gold_frame_mat != null:
 		_state_tween.tween_property(
-			_gold_frame_mat, "emission_energy_multiplier", 0.58, 1.6
+			_gold_frame_mat, "emission_energy_multiplier", 0.24, 1.6
 		).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 
 	if _starlight_particles != null:
@@ -279,42 +279,42 @@ func _apply_dormant_immediate() -> void:
 		_mirror_light.omni_range = 14.0
 		_mirror_light.light_color = COLOR_DORMANT_LIGHT
 	if _gold_frame_mat != null:
-		_gold_frame_mat.emission_energy_multiplier = 0.14
+		_gold_frame_mat.emission_energy_multiplier = 0.10
 	if _filigree_ring_mat != null:
-		_filigree_ring_mat.emission_energy_multiplier = 0.22
+		_filigree_ring_mat.emission_energy_multiplier = 0.14
 	if _finial_accent_mat != null:
-		_finial_accent_mat.emission_energy_multiplier = 0.35
+		_finial_accent_mat.emission_energy_multiplier = 0.22
 	if _starlight_particles != null:
 		_starlight_particles.emitting = true
 		_starlight_particles.amount_ratio = 0.25
 
 
 func _init_materials() -> void:
-	# Brushed Satin Champagne Gold for Mat_MirrorGold & Mat_MirrorFiligree (zero shimmer)
+	# Calm Brushed Satin Champagne Gold for Mat_MirrorGold & Mat_MirrorFiligree (zero sub-pixel shimmer)
 	_gold_frame_mat = StandardMaterial3D.new()
 	_gold_frame_mat.albedo_color = COLOR_SATIN_GOLD
-	_gold_frame_mat.roughness = 0.40
-	_gold_frame_mat.metallic = 0.78
+	_gold_frame_mat.roughness = 0.48
+	_gold_frame_mat.metallic = 0.68
 	_gold_frame_mat.emission_enabled = true
 	_gold_frame_mat.emission = COLOR_BRIGHT_GOLD
-	_gold_frame_mat.emission_energy_multiplier = 0.14
+	_gold_frame_mat.emission_energy_multiplier = 0.10
 
 	_filigree_ring_mat = StandardMaterial3D.new()
 	_filigree_ring_mat.albedo_color = COLOR_SATIN_GOLD
-	_filigree_ring_mat.roughness = 0.38
-	_filigree_ring_mat.metallic = 0.76
+	_filigree_ring_mat.roughness = 0.50
+	_filigree_ring_mat.metallic = 0.66
 	_filigree_ring_mat.emission_enabled = true
 	_filigree_ring_mat.emission = COLOR_BRIGHT_GOLD
-	_filigree_ring_mat.emission_energy_multiplier = 0.22
+	_filigree_ring_mat.emission_energy_multiplier = 0.14
 
-	# Celestial Royal-Blue Crystal for Mat_MirrorAccent
+	# Calm Satin Celestial Royal-Blue Crystal for Mat_MirrorAccent
 	_finial_accent_mat = StandardMaterial3D.new()
 	_finial_accent_mat.albedo_color = COLOR_ETHEREAL_CYAN
-	_finial_accent_mat.roughness = 0.34
-	_finial_accent_mat.metallic = 0.25
+	_finial_accent_mat.roughness = 0.44
+	_finial_accent_mat.metallic = 0.22
 	_finial_accent_mat.emission_enabled = true
 	_finial_accent_mat.emission = Color("#7AB8F8")
-	_finial_accent_mat.emission_energy_multiplier = 0.35
+	_finial_accent_mat.emission_energy_multiplier = 0.22
 
 	_mirror_shader_mat = ShaderMaterial.new()
 	if ResourceLoader.exists(MIRROR_SHADER_PATH):
@@ -338,17 +338,17 @@ func _create_pedestal_stone_material() -> Material:
 			shader_mat.set_shader_parameter("stone_highlight_color", Color("#FFFFFF"))
 			shader_mat.set_shader_parameter("stone_pore_color", Color("#C0CCE0"))
 			shader_mat.set_shader_parameter("horizon_tint_color", Color("#B8D8F8"))
-			shader_mat.set_shader_parameter("base_roughness", 0.56)
-			shader_mat.set_shader_parameter("surface_specular", 0.42)
+			shader_mat.set_shader_parameter("base_roughness", 0.62)
+			shader_mat.set_shader_parameter("surface_specular", 0.32)
 			shader_mat.set_shader_parameter("surface_metallic", 0.02)
-			shader_mat.set_shader_parameter("fresnel_lift_strength", 0.12)
-			shader_mat.set_shader_parameter("wetness_strength", 0.25)
+			shader_mat.set_shader_parameter("fresnel_lift_strength", 0.10)
+			shader_mat.set_shader_parameter("wetness_strength", 0.08)
 			shader_mat.set_shader_parameter("block_scale", 1.25)
 			return shader_mat
 
 	var fallback: StandardMaterial3D = StandardMaterial3D.new()
 	fallback.albedo_color = COLOR_INDIGO_STONE
-	fallback.roughness = 0.56
+	fallback.roughness = 0.62
 	fallback.metallic = 0.02
 	return fallback
 
@@ -369,6 +369,8 @@ func _load_sculpted_frame_model() -> bool:
 
 	_frame_model_instance = inst as Node3D
 	_frame_model_instance.name = "EarthMirrorFrameModel"
+	# Lift +0.05m above the Rotunda marble floor (y = 8.0) so base faces are never coplanar (zero Z-fighting)
+	_frame_model_instance.position.y = 0.05
 	add_child(_frame_model_instance)
 
 	var stone_mat: Material = _create_pedestal_stone_material()
@@ -377,13 +379,27 @@ func _load_sculpted_frame_model() -> bool:
 	var pivot_node: Node = _frame_model_instance.find_child("InnerFiligreePivot", true, false)
 	if pivot_node is Node3D:
 		_filigree_pivot = pivot_node as Node3D
+		_disable_shadows_recursive(_filigree_pivot)
 
 	return true
+
+
+func _disable_shadows_recursive(node: Node) -> void:
+	if node is GeometryInstance3D:
+		var geo_inst: GeometryInstance3D = node as GeometryInstance3D
+		geo_inst.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	for child: Node in node.get_children():
+		_disable_shadows_recursive(child)
 
 
 func _apply_frame_materials_recursive(node: Node, stone_mat: Material) -> void:
 	if node is MeshInstance3D:
 		var mesh_inst: MeshInstance3D = node as MeshInstance3D
+		var is_thin_filigree: bool = false
+		var lower_name: String = mesh_inst.name.to_lower()
+		if lower_name.contains("filigree") or lower_name.contains("ring") or lower_name.contains("spoke"):
+			is_thin_filigree = true
+
 		if mesh_inst.mesh != null:
 			var surface_count: int = mesh_inst.mesh.get_surface_count()
 			for s_idx: int in range(surface_count):
@@ -400,8 +416,13 @@ func _apply_frame_materials_recursive(node: Node, stone_mat: Material) -> void:
 					mesh_inst.set_surface_override_material(s_idx, _gold_frame_mat)
 				elif mat_name.begins_with("Mat_MirrorFiligree"):
 					mesh_inst.set_surface_override_material(s_idx, _filigree_ring_mat)
+					is_thin_filigree = true
 				elif mat_name.begins_with("Mat_MirrorAccent"):
 					mesh_inst.set_surface_override_material(s_idx, _finial_accent_mat)
+					is_thin_filigree = true
+
+		if is_thin_filigree:
+			mesh_inst.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
 	for child: Node in node.get_children():
 		_apply_frame_materials_recursive(child, stone_mat)
@@ -410,6 +431,8 @@ func _apply_frame_materials_recursive(node: Node, stone_mat: Material) -> void:
 func _build_pedestal() -> void:
 	var pedestal_root: Node3D = Node3D.new()
 	pedestal_root.name = "MirrorPedestal"
+	# Lift +0.05m above the Rotunda marble floor (y = 8.0) so pedestal base is never coplanar
+	pedestal_root.position.y = 0.05
 	add_child(pedestal_root)
 
 	var stone_mat: Material = _create_pedestal_stone_material()
@@ -443,6 +466,7 @@ func _build_pedestal() -> void:
 	trim_inst.material_override = _gold_frame_mat
 	trim_inst.position = Vector3(0.0, 0.43, 0.0)
 	trim_inst.rotation_degrees.y = 22.5
+	trim_inst.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	pedestal_root.add_child(trim_inst)
 
 	# Subtle recessed golden inlay ring on pedestal top
@@ -457,16 +481,17 @@ func _build_pedestal() -> void:
 	inlay_inst.mesh = inner_inlay
 	inlay_inst.material_override = _filigree_ring_mat
 	inlay_inst.position = Vector3(0.0, 0.455, 0.0)
+	inlay_inst.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	pedestal_root.add_child(inlay_inst)
 
 
 func _build_arch_frame() -> void:
 	var frame_root: Node3D = Node3D.new()
 	frame_root.name = "MirrorArchFrame"
-	frame_root.position = Vector3(0.0, MIRROR_CENTER_Y, 0.0)
+	frame_root.position = Vector3(0.0, MIRROR_CENTER_Y + 0.05, 0.0)
 	add_child(frame_root)
 
-	# Main freestanding Art Deco golden torus arch (radius = 4.2, centered at y = 4.6)
+	# Main freestanding Art Deco golden torus arch (radius = 4.2, centered at y = 4.65)
 	var main_torus: TorusMesh = TorusMesh.new()
 	main_torus.inner_radius = 4.02
 	main_torus.outer_radius = 4.38
@@ -492,6 +517,7 @@ func _build_arch_frame() -> void:
 	bezel_inst.mesh = outer_bezel
 	bezel_inst.material_override = _gold_frame_mat
 	bezel_inst.rotation_degrees.x = 90.0
+	bezel_inst.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	frame_root.add_child(bezel_inst)
 
 	# Grounding Art Deco cradle piers connecting lower frame cleanly to pedestal
@@ -507,7 +533,7 @@ func _build_arch_frame() -> void:
 		pier_inst.rotation_degrees.z = side_val * -26.0
 		frame_root.add_child(pier_inst)
 
-	# Delicate rotating inner filigree ring with 8 celestial spokes
+	# Delicate rotating inner filigree ring with 8 celestial spokes (no micro-shadow flicker)
 	_filigree_pivot = Node3D.new()
 	_filigree_pivot.name = "InnerFiligreePivot"
 	frame_root.add_child(_filigree_pivot)
@@ -523,6 +549,7 @@ func _build_arch_frame() -> void:
 	filigree_inst.mesh = filigree_torus
 	filigree_inst.material_override = _filigree_ring_mat
 	filigree_inst.rotation_degrees.x = 90.0
+	filigree_inst.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	_filigree_pivot.add_child(filigree_inst)
 
 	var spoke_mesh: BoxMesh = BoxMesh.new()
@@ -535,6 +562,7 @@ func _build_arch_frame() -> void:
 		spoke.material_override = _filigree_ring_mat
 		spoke.position = Vector3(cos(angle_rad) * 3.98, sin(angle_rad) * 3.98, 0.0)
 		spoke.rotation.z = angle_rad - PI * 0.5
+		spoke.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		_filigree_pivot.add_child(spoke)
 
 	# 4 Compass Star Finials (North, East, South, West)
@@ -569,6 +597,7 @@ func _add_compass_star_finial(parent: Node3D, node_name: String, local_pos: Vect
 	outer_spike.mesh = outer_spike_mesh
 	outer_spike.material_override = _gold_frame_mat
 	outer_spike.position = Vector3(0.0, 0.42, 0.0)
+	outer_spike.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	finial_root.add_child(outer_spike)
 
 	# Counter-spike pointing inward
@@ -583,6 +612,7 @@ func _add_compass_star_finial(parent: Node3D, node_name: String, local_pos: Vect
 	inner_spike.mesh = inner_spike_mesh
 	inner_spike.material_override = _gold_frame_mat
 	inner_spike.position = Vector3(0.0, -0.22, 0.0)
+	inner_spike.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	finial_root.add_child(inner_spike)
 
 	# Cross-star lateral rays
@@ -594,6 +624,7 @@ func _add_compass_star_finial(parent: Node3D, node_name: String, local_pos: Vect
 	side_ray.mesh = side_ray_mesh
 	side_ray.material_override = _filigree_ring_mat
 	side_ray.position = Vector3(0.0, 0.0, 0.0)
+	side_ray.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	finial_root.add_child(side_ray)
 
 	# Luminous compass star gem center
@@ -607,6 +638,7 @@ func _add_compass_star_finial(parent: Node3D, node_name: String, local_pos: Vect
 	gem_inst.name = "StarGem"
 	gem_inst.mesh = gem_mesh
 	gem_inst.material_override = _finial_accent_mat
+	gem_inst.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	finial_root.add_child(gem_inst)
 
 
@@ -621,7 +653,7 @@ func _build_mirror_disc() -> void:
 	disc_inst.name = "MirrorSurfaceDisc"
 	disc_inst.mesh = disc_mesh
 	disc_inst.material_override = _mirror_shader_mat
-	disc_inst.position = Vector3(0.0, MIRROR_CENTER_Y, 0.0)
+	disc_inst.position = Vector3(0.0, MIRROR_CENTER_Y + 0.05, 0.0)
 	disc_inst.rotation_degrees.x = 90.0
 	disc_inst.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(disc_inst)
@@ -631,7 +663,7 @@ func _build_lighting_and_particles() -> void:
 	# Soft OmniLight3D positioned slightly in front of the mirror face
 	_mirror_light = OmniLight3D.new()
 	_mirror_light.name = "MirrorAuraLight"
-	_mirror_light.position = Vector3(0.0, MIRROR_CENTER_Y, 1.2)
+	_mirror_light.position = Vector3(0.0, MIRROR_CENTER_Y + 0.05, 1.2)
 	_mirror_light.light_color = COLOR_DORMANT_LIGHT
 	_mirror_light.light_energy = LIGHT_ENERGY_DORMANT
 	_mirror_light.omni_range = 14.0
@@ -639,7 +671,7 @@ func _build_lighting_and_particles() -> void:
 	_mirror_light.shadow_enabled = false
 	add_child(_mirror_light)
 
-	# Upward drifting golden starlight particles
+	# Upward drifting golden starlight particles (calm, sparse, zero shadow)
 	_particle_process_mat = ParticleProcessMaterial.new()
 	_particle_process_mat.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
 	_particle_process_mat.emission_sphere_radius = 3.4
@@ -648,31 +680,32 @@ func _build_lighting_and_particles() -> void:
 	_particle_process_mat.initial_velocity_min = 0.45
 	_particle_process_mat.initial_velocity_max = 1.15
 	_particle_process_mat.gravity = Vector3(0.0, 0.28, 0.0)
-	_particle_process_mat.scale_min = 0.5
-	_particle_process_mat.scale_max = 1.35
-	_particle_process_mat.color = Color(1.0, 0.91, 0.60, 0.92)
+	_particle_process_mat.scale_min = 0.45
+	_particle_process_mat.scale_max = 1.05
+	_particle_process_mat.color = Color(1.0, 0.91, 0.60, 0.72)
 
 	var mote_mat: StandardMaterial3D = StandardMaterial3D.new()
 	mote_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	mote_mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
 	mote_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	mote_mat.albedo_color = Color(1.0, 0.93, 0.68, 0.85)
+	mote_mat.albedo_color = Color(1.0, 0.93, 0.68, 0.68)
 
 	var mote_mesh: SphereMesh = SphereMesh.new()
-	mote_mesh.radius = 0.065
-	mote_mesh.height = 0.13
+	mote_mesh.radius = 0.055
+	mote_mesh.height = 0.11
 	mote_mesh.radial_segments = 8
 	mote_mesh.rings = 6
 	mote_mesh.material = mote_mat
 
 	_starlight_particles = GPUParticles3D.new()
 	_starlight_particles.name = "GoldenStarlightParticles"
-	_starlight_particles.position = Vector3(0.0, MIRROR_CENTER_Y - 0.8, 0.2)
-	_starlight_particles.amount = 48
+	_starlight_particles.position = Vector3(0.0, MIRROR_CENTER_Y - 0.75, 0.2)
+	_starlight_particles.amount = 24
 	_starlight_particles.lifetime = 3.8
 	_starlight_particles.preprocess = 1.2
 	_starlight_particles.emitting = true
 	_starlight_particles.amount_ratio = 0.25
+	_starlight_particles.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	_starlight_particles.process_material = _particle_process_mat
 	_starlight_particles.draw_pass_1 = mote_mesh
 	add_child(_starlight_particles)

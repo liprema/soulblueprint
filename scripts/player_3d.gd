@@ -314,34 +314,34 @@ func _apply_spark_energy_shader_recursive(node: Node, energy_shader: Shader) -> 
 			if node_name == "SparkHeartCore":
 				mesh_inst.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 				var heart_mat: StandardMaterial3D = StandardMaterial3D.new()
-				heart_mat.albedo_color = Color.html("#FFE29A")
-				heart_mat.roughness = 0.14
+				heart_mat.albedo_color = Color.html("#FFB448")
+				heart_mat.roughness = 0.16
 				heart_mat.emission_enabled = true
-				heart_mat.emission = Color.html("#FFE29A")
-				heart_mat.emission_energy_multiplier = 1.25
+				heart_mat.emission = Color.html("#FFAE42")
+				heart_mat.emission_energy_multiplier = 0.95
 				for i: int in range(surface_count):
 					mesh_inst.set_surface_override_material(i, heart_mat)
 			elif node_name == "SparkEyeSclera":
 				mesh_inst.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 				var sclera_mat: StandardMaterial3D = StandardMaterial3D.new()
-				sclera_mat.albedo_color = Color.html("#F4FCFF")
-				sclera_mat.roughness = 0.08
+				sclera_mat.albedo_color = Color.html("#F4FAFF")
+				sclera_mat.roughness = 0.10
 				sclera_mat.emission_enabled = true
-				sclera_mat.emission = Color.html("#E6F7FF")
-				sclera_mat.emission_energy_multiplier = 0.20
+				sclera_mat.emission = Color.html("#E6F4FF")
+				sclera_mat.emission_energy_multiplier = 0.08
 				for i: int in range(surface_count):
 					mesh_inst.set_surface_override_material(i, sclera_mat)
 			elif node_name == "SparkEyeIris":
 				mesh_inst.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 				var iris_mat: StandardMaterial3D = StandardMaterial3D.new()
-				iris_mat.albedo_color = Color.html("#2E8CE8")
-				iris_mat.roughness = 0.04
+				iris_mat.albedo_color = Color.html("#1468D8")
+				iris_mat.roughness = 0.05
 				iris_mat.clearcoat_enabled = true
-				iris_mat.clearcoat = 1.0
-				iris_mat.clearcoat_roughness = 0.04
+				iris_mat.clearcoat = 0.85
+				iris_mat.clearcoat_roughness = 0.06
 				iris_mat.emission_enabled = true
-				iris_mat.emission = Color.html("#38B8FF")
-				iris_mat.emission_energy_multiplier = 0.40
+				iris_mat.emission = Color.html("#20A4FF")
+				iris_mat.emission_energy_multiplier = 0.32
 				for i: int in range(surface_count):
 					mesh_inst.set_surface_override_material(i, iris_mat)
 			elif node_name == "SparkEyeHighlight":
@@ -351,13 +351,13 @@ func _apply_spark_energy_shader_recursive(node: Node, energy_shader: Shader) -> 
 				hl_mat.albedo_color = Color.WHITE
 				hl_mat.emission_enabled = true
 				hl_mat.emission = Color.WHITE
-				hl_mat.emission_energy_multiplier = 1.2
+				hl_mat.emission_energy_multiplier = 1.1
 				for i: int in range(surface_count):
 					mesh_inst.set_surface_override_material(i, hl_mat)
 			elif node_name == "SparkEyeRim":
 				mesh_inst.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 				var rim_mat: StandardMaterial3D = StandardMaterial3D.new()
-				rim_mat.albedo_color = Color.html("#284688")
+				rim_mat.albedo_color = Color.html("#1C3A7A")
 				rim_mat.roughness = 0.3
 				for i: int in range(surface_count):
 					mesh_inst.set_surface_override_material(i, rim_mat)
@@ -365,11 +365,11 @@ func _apply_spark_energy_shader_recursive(node: Node, energy_shader: Shader) -> 
 				mesh_inst.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 				var cheek_mat: StandardMaterial3D = StandardMaterial3D.new()
 				cheek_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-				cheek_mat.albedo_color = Color(1.0, 0.659, 0.659, 0.80)
+				cheek_mat.albedo_color = Color(1.0, 0.56, 0.58, 0.82)
 				cheek_mat.roughness = 0.35
 				cheek_mat.emission_enabled = true
-				cheek_mat.emission = Color.html("#FF9E9E")
-				cheek_mat.emission_energy_multiplier = 0.48
+				cheek_mat.emission = Color.html("#FF8A92")
+				cheek_mat.emission_energy_multiplier = 0.36
 				for i: int in range(surface_count):
 					mesh_inst.set_surface_override_material(i, cheek_mat)
 			else:
@@ -383,54 +383,54 @@ func _apply_spark_energy_shader_recursive(node: Node, energy_shader: Shader) -> 
 					var smat: ShaderMaterial = ShaderMaterial.new()
 					smat.shader = energy_shader
 
-					# Default: SparkBody (bright luminous aqua-cyan & orchid-lavender spirit with warm golden belly glow)
-					var albedo_col: Color = Color.html("#78EEFF")
-					var shadow_col: Color = Color.html("#3E74DE")
-					var emit_col: Color = Color.html("#C49CFF")
-					var rim_col: Color = Color.html("#9AF2FF")
-					var irid_col: Color = Color.html("#C49CFF")
-					var belly_col: Color = Color.html("#FFE29A")
-					var emit_str: float = 0.36
-					var belly_str: float = 0.95
-					var metallic_v: float = 0.08
-					var roughness_v: float = 0.12
-					var clearcoat_v: float = 0.94
-					var alpha_v: float = 0.88
-					var irid_str: float = 1.05
+					# Default: SparkBody (vibrant ACES-safe jewel aqua-turquoise, orchid-lavender sides/tail & warm golden-peach heart)
+					var albedo_col: Color = Color.html("#18B8E8")
+					var shadow_col: Color = Color.html("#1D4CC2")
+					var emit_col: Color = Color.html("#28A8F0")
+					var rim_col: Color = Color.html("#38C8FF")
+					var irid_col: Color = Color.html("#8254E8")
+					var belly_col: Color = Color.html("#FFB448")
+					var emit_str: float = 0.28
+					var belly_str: float = 0.78
+					var metallic_v: float = 0.06
+					var roughness_v: float = 0.16
+					var clearcoat_v: float = 0.62
+					var alpha_v: float = 0.94
+					var irid_str: float = 0.95
 					var wing_flag: float = 0.0
 					var droplet_flag: float = 0.0
 					var sway_v: float = 1.0
 
 					if is_mini_wing:
-						# Iridescent pearl-aqua-pink floating mini angel wings with gentle flutter
-						albedo_col = Color.html("#C4F4FF")
-						shadow_col = Color.html("#5A82E6")
-						emit_col = Color.html("#ECC4FF")
-						rim_col = Color.html("#B4F6FF")
-						irid_col = Color.html("#FFD0EE")
-						emit_str = 0.42
+						# Saturated sky-aqua & soft rose-lavender floating mini angel wings with gentle flutter
+						albedo_col = Color.html("#48C8F4")
+						shadow_col = Color.html("#2658CC")
+						emit_col = Color.html("#58B8F8")
+						rim_col = Color.html("#5AD4FF")
+						irid_col = Color.html("#8A60E8")
+						emit_str = 0.30
 						belly_str = 0.0
-						metallic_v = 0.08
-						roughness_v = 0.14
-						clearcoat_v = 0.92
-						alpha_v = 0.86
-						irid_str = 1.30
+						metallic_v = 0.06
+						roughness_v = 0.16
+						clearcoat_v = 0.58
+						alpha_v = 0.90
+						irid_str = 1.15
 						wing_flag = 1.0
 						sway_v = 1.0
 					elif is_droplet:
-						# Floating luminous aqua-lavender flame droplets hovering around crown & tail
-						albedo_col = Color.html("#96F0FF")
-						shadow_col = Color.html("#4A84E8")
-						emit_col = Color.html("#CCA8FF")
-						rim_col = Color.html("#C4F8FF")
-						irid_col = Color.html("#C49CFF")
-						emit_str = 0.42
+						# Vibrant turquoise-violet floating flame droplets hovering around crown & tail
+						albedo_col = Color.html("#28C4F4")
+						shadow_col = Color.html("#2052C8")
+						emit_col = Color.html("#38B4F8")
+						rim_col = Color.html("#48D0FF")
+						irid_col = Color.html("#8458E8")
+						emit_str = 0.32
 						belly_str = 0.0
-						metallic_v = 0.10
-						roughness_v = 0.10
-						clearcoat_v = 0.96
-						alpha_v = 0.88
-						irid_str = 1.15
+						metallic_v = 0.08
+						roughness_v = 0.14
+						clearcoat_v = 0.64
+						alpha_v = 0.92
+						irid_str = 1.05
 						droplet_flag = 1.0
 						sway_v = 1.0
 
