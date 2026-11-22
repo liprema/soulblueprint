@@ -1,14 +1,19 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://scripts/intro_video_player.gd" id="1_intro_script"]
 [ext_resource type="VideoStreamTheora" path="res://assets/videos/intro.ogv" id="2_video_stream"]
 
-[sub_resource type="VideoStreamTheora" id="VideoStreamTheora_intro"]
-file = "res://assets/videos/intro.ogv"
-
 [node name="IntroVideo" type="CanvasLayer"]
 layer = 50
 script = ExtResource("1_intro_script")
+
+[node name="Backdrop" type="ColorRect" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.02, 0.047, 0.11, 1)
 
 [node name="VideoStreamPlayer" type="VideoStreamPlayer" parent="."]
 anchors_preset = 15
@@ -16,9 +21,19 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-stream = SubResource("VideoStreamTheora_intro")
-autoplay = true
+stream = ExtResource("2_video_stream")
 expand = true
+
+[node name="LastFrameHold" type="TextureRect" parent="."]
+visible = false
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+expand_mode = 1
+stretch_mode = 5
 
 [node name="SkipHint" type="Label" parent="."]
 anchors_preset = 3
@@ -26,13 +41,13 @@ anchor_left = 1.0
 anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = -220.0
+offset_left = -240.0
 offset_top = -45.0
 offset_right = -20.0
 offset_bottom = -15.0
 grow_horizontal = 0
 grow_vertical = 0
-theme_override_colors/font_color = Color(0.96, 0.83, 0.42, 0.7)
+theme_override_colors/font_color = Color(0.96, 0.83, 0.42, 0.75)
 theme_override_font_sizes/font_size = 14
 text = "[Space / Esc] Пропустить"
 horizontal_alignment = 2
