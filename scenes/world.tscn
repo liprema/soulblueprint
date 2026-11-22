@@ -1,103 +1,25 @@
-[gd_scene load_steps=14 format=3]
+[gd_scene load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://scripts/world.gd" id="1_world_script"]
 [ext_resource type="Texture2D" path="res://assets/sprites/world_backdrop.png" id="2_backdrop"]
-[ext_resource type="Texture2D" path="res://assets/sprites/gods/sun_portal.png" id="3_portal_tex"]
-[ext_resource type="Texture2D" path="res://assets/sprites/gods/alathea.png" id="4_alathea_tex"]
-[ext_resource type="Texture2D" path="res://assets/sprites/gods/orion.png" id="5_orion_tex"]
-[ext_resource type="Texture2D" path="res://assets/sprites/gods/chronos.png" id="6_chronos_tex"]
-[ext_resource type="Texture2D" path="res://assets/sprites/gods/myra.png" id="7_myra_tex"]
-[ext_resource type="Texture2D" path="res://assets/sprites/custom_platform.png" id="8_platform_tex"]
-[ext_resource type="PackedScene" path="res://scenes/player.tscn" id="9_player_scene"]
-[ext_resource type="PackedScene" path="res://scenes/intro_video.tscn" id="10_intro_video_scene"]
-
-[sub_resource type="RectangleShape2D" id="RectangleShape2D_ground"]
-size = Vector2(520, 32)
-
-[sub_resource type="RectangleShape2D" id="RectangleShape2D_small_plat"]
-size = Vector2(240, 20)
+[ext_resource type="PackedScene" path="res://scenes/player.tscn" id="3_player_scene"]
+[ext_resource type="PackedScene" path="res://scenes/intro_video.tscn" id="4_intro_video_scene"]
 
 [node name="World" type="Node2D"]
 script = ExtResource("1_world_script")
 
-[node name="ParallaxBackground" type="ParallaxBackground" parent="."]
-
-[node name="ParallaxLayerCosmos" type="ParallaxLayer" parent="ParallaxBackground"]
-motion_scale = Vector2(0.1, 0.1)
-
-[node name="BackdropSprite" type="Sprite2D" parent="ParallaxBackground/ParallaxLayerCosmos"]
+[node name="BackdropSprite" type="Sprite2D" parent="."]
 position = Vector2(512, 288)
 texture = ExtResource("2_backdrop")
 
-[node name="ParallaxLayerGods" type="ParallaxLayer" parent="ParallaxBackground"]
-motion_scale = Vector2(0.25, 0.25)
+[node name="InvisibleWalls" type="StaticBody2D" parent="."]
 
-[node name="SunPortal" type="Sprite2D" parent="ParallaxBackground/ParallaxLayerGods"]
-position = Vector2(512, 190)
-texture = ExtResource("3_portal_tex")
+[node name="RoadBoundary" type="CollisionPolygon2D" parent="InvisibleWalls"]
+build_mode = 1
+polygon = PackedVector2Array(416, 434, 630, 434, 590, 466, 536, 502, 446, 568, 56, 568, 216, 504, 320, 466)
 
-[node name="Alathea" type="Sprite2D" parent="ParallaxBackground/ParallaxLayerGods"]
-position = Vector2(160, 220)
-texture = ExtResource("4_alathea_tex")
-
-[node name="Orion" type="Sprite2D" parent="ParallaxBackground/ParallaxLayerGods"]
-position = Vector2(390, 265)
-texture = ExtResource("5_orion_tex")
-
-[node name="Chronos" type="Sprite2D" parent="ParallaxBackground/ParallaxLayerGods"]
-position = Vector2(690, 215)
-texture = ExtResource("6_chronos_tex")
-
-[node name="Myra" type="Sprite2D" parent="ParallaxBackground/ParallaxLayerGods"]
-position = Vector2(892, 265)
-texture = ExtResource("7_myra_tex")
-
-[node name="EnvironmentLines" type="Node2D" parent="."]
-
-[node name="Thread1" type="Line2D" parent="EnvironmentLines"]
-points = PackedVector2Array(150, 230, 350, 270, 512, 160, 680, 270, 870, 230)
-width = 2.0
-default_color = Color(0.96, 0.83, 0.42, 0.85)
-
-[node name="LevelGeometry" type="Node2D" parent="."]
-
-[node name="MainRoad" type="StaticBody2D" parent="LevelGeometry"]
-position = Vector2(512, 450)
-
-[node name="PlatformSprite" type="Sprite2D" parent="LevelGeometry/MainRoad"]
-position = Vector2(0, 40)
-texture = ExtResource("8_platform_tex")
-
-[node name="CollisionShape2D" type="CollisionShape2D" parent="LevelGeometry/MainRoad"]
-position = Vector2(0, -6)
-shape = SubResource("RectangleShape2D_ground")
-
-[node name="LeftArchivePlatform" type="StaticBody2D" parent="LevelGeometry"]
-position = Vector2(130, 370)
-
-[node name="PlatformSprite" type="Sprite2D" parent="LevelGeometry/LeftArchivePlatform"]
-position = Vector2(0, 20)
-scale = Vector2(0.5, 0.5)
-texture = ExtResource("8_platform_tex")
-
-[node name="CollisionShape2D" type="CollisionShape2D" parent="LevelGeometry/LeftArchivePlatform"]
-position = Vector2(0, -3)
-shape = SubResource("RectangleShape2D_small_plat")
-
-[node name="RightArchivePlatform" type="StaticBody2D" parent="LevelGeometry"]
-position = Vector2(890, 370)
-
-[node name="PlatformSprite" type="Sprite2D" parent="LevelGeometry/RightArchivePlatform"]
-position = Vector2(0, 20)
-scale = Vector2(0.5, 0.5)
-texture = ExtResource("8_platform_tex")
-
-[node name="CollisionShape2D" type="CollisionShape2D" parent="LevelGeometry/RightArchivePlatform"]
-position = Vector2(0, -3)
-shape = SubResource("RectangleShape2D_small_plat")
-
-[node name="Player" parent="." instance=ExtResource("9_player_scene")]
-position = Vector2(512, 428)
+[node name="Player" parent="." instance=ExtResource("3_player_scene")]
+position = Vector2(440, 488)
 
 [node name="Camera2D" type="Camera2D" parent="."]
 position = Vector2(512, 288)
@@ -133,16 +55,17 @@ anchor_top = 1.0
 anchor_bottom = 1.0
 offset_left = 24.0
 offset_top = -90.0
-offset_right = 260.0
+offset_right = 440.0
 offset_bottom = -20.0
 grow_vertical = 0
 
 [node name="SkillsLabel" type="Label" parent="HUD/HUDControls"]
 layout_mode = 0
-offset_right = 240.0
+offset_right = 420.0
 offset_bottom = 60.0
 theme_override_colors/font_color = Color(0.85, 0.9, 1, 0.85)
 theme_override_font_sizes/font_size = 13
-text = "[Space] Парение • [E] Вспышка\n[Q] Свет Искры • [A / D] Движение"
+text = "[W A S D / ↑↓←→] Движение
+[Space] Прыжок / Парение • [E] Вспышка • [Q] Свет Искры"
 
-[node name="IntroVideo" parent="." instance=ExtResource("10_intro_video_scene")]
+[node name="IntroVideo" parent="." instance=ExtResource("4_intro_video_scene")]
