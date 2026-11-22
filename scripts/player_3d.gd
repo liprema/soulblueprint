@@ -169,7 +169,7 @@ const SPARK_MODEL_PATH: String = "res://assets/models/characters/spark.glb"
 const SPARK_ENERGY_SHADER_PATH: String = "res://shaders/spark_energy.gdshader"
 
 var _base_halo_y: float = 1.18
-var _base_light_energy: float = 0.52
+var _base_light_energy: float = 0.95
 var _call_pulse_shader_mat: ShaderMaterial = null
 var _flame_shader_mat: ShaderMaterial = null
 var _cape_shader_mat: ShaderMaterial = null
@@ -193,9 +193,16 @@ func _ready() -> void:
 	else:
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
+	if visual_pivot:
+		visual_pivot.top_level = true
+		visual_pivot.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
+		visual_pivot.global_position = global_position + Vector3(0.0, 0.9, 0.0)
+		visual_pivot.basis = Basis.from_euler(Vector3(0.0, facing_yaw, 0.0))
+
 	if camera_rig:
 		_camera_rig_height = camera_rig.position.y
 		camera_rig.top_level = true
+		camera_rig.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 		camera_rig.global_position = global_position + Vector3(0.0, _camera_rig_height, 0.0)
 		camera_rig.rotation = Vector3(cam_pitch, cam_yaw, 0.0)
 
@@ -211,9 +218,9 @@ func _ready() -> void:
 		_base_halo_y = star_halo.position.y
 
 	if spark_light:
-		spark_light.light_color = Color("#8CE6FF")
+		spark_light.light_color = Color("#9AEBFF")
 		spark_light.light_energy = _base_light_energy
-		spark_light.omni_range = 7.5
+		spark_light.omni_range = 9.0
 
 	if core_flame and core_flame.material_override is ShaderMaterial:
 		_flame_shader_mat = core_flame.material_override as ShaderMaterial
@@ -307,11 +314,11 @@ func _apply_spark_energy_shader_recursive(node: Node, energy_shader: Shader) -> 
 			if node_name == "SparkHeartCore":
 				mesh_inst.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 				var heart_mat: StandardMaterial3D = StandardMaterial3D.new()
-				heart_mat.albedo_color = Color.html("#FFE09E")
+				heart_mat.albedo_color = Color.html("#FFE29A")
 				heart_mat.roughness = 0.14
 				heart_mat.emission_enabled = true
-				heart_mat.emission = Color.html("#FFE09E")
-				heart_mat.emission_energy_multiplier = 1.1
+				heart_mat.emission = Color.html("#FFE29A")
+				heart_mat.emission_energy_multiplier = 1.25
 				for i: int in range(surface_count):
 					mesh_inst.set_surface_override_material(i, heart_mat)
 			elif node_name == "SparkEyeSclera":
@@ -321,7 +328,7 @@ func _apply_spark_energy_shader_recursive(node: Node, energy_shader: Shader) -> 
 				sclera_mat.roughness = 0.08
 				sclera_mat.emission_enabled = true
 				sclera_mat.emission = Color.html("#E6F7FF")
-				sclera_mat.emission_energy_multiplier = 0.16
+				sclera_mat.emission_energy_multiplier = 0.20
 				for i: int in range(surface_count):
 					mesh_inst.set_surface_override_material(i, sclera_mat)
 			elif node_name == "SparkEyeIris":
@@ -334,7 +341,7 @@ func _apply_spark_energy_shader_recursive(node: Node, energy_shader: Shader) -> 
 				iris_mat.clearcoat_roughness = 0.04
 				iris_mat.emission_enabled = true
 				iris_mat.emission = Color.html("#38B8FF")
-				iris_mat.emission_energy_multiplier = 0.35
+				iris_mat.emission_energy_multiplier = 0.40
 				for i: int in range(surface_count):
 					mesh_inst.set_surface_override_material(i, iris_mat)
 			elif node_name == "SparkEyeHighlight":
@@ -358,11 +365,11 @@ func _apply_spark_energy_shader_recursive(node: Node, energy_shader: Shader) -> 
 				mesh_inst.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 				var cheek_mat: StandardMaterial3D = StandardMaterial3D.new()
 				cheek_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-				cheek_mat.albedo_color = Color(1.0, 0.659, 0.659, 0.78)
+				cheek_mat.albedo_color = Color(1.0, 0.659, 0.659, 0.80)
 				cheek_mat.roughness = 0.35
 				cheek_mat.emission_enabled = true
 				cheek_mat.emission = Color.html("#FF9E9E")
-				cheek_mat.emission_energy_multiplier = 0.45
+				cheek_mat.emission_energy_multiplier = 0.48
 				for i: int in range(surface_count):
 					mesh_inst.set_surface_override_material(i, cheek_mat)
 			else:
@@ -376,15 +383,15 @@ func _apply_spark_energy_shader_recursive(node: Node, energy_shader: Shader) -> 
 					var smat: ShaderMaterial = ShaderMaterial.new()
 					smat.shader = energy_shader
 
-					# Default: SparkBody (translucent aqua-cyan & orchid-lavender spirit with warm golden belly glow)
-					var albedo_col: Color = Color.html("#6CE4FF")
-					var shadow_col: Color = Color.html("#3B78E0")
-					var emit_col: Color = Color.html("#B88CFF")
-					var rim_col: Color = Color.html("#8AE8FF")
-					var irid_col: Color = Color.html("#B88CFF")
-					var belly_col: Color = Color.html("#FFE09E")
-					var emit_str: float = 0.28
-					var belly_str: float = 0.85
+					# Default: SparkBody (bright luminous aqua-cyan & orchid-lavender spirit with warm golden belly glow)
+					var albedo_col: Color = Color.html("#78EEFF")
+					var shadow_col: Color = Color.html("#3E74DE")
+					var emit_col: Color = Color.html("#C49CFF")
+					var rim_col: Color = Color.html("#9AF2FF")
+					var irid_col: Color = Color.html("#C49CFF")
+					var belly_col: Color = Color.html("#FFE29A")
+					var emit_str: float = 0.36
+					var belly_str: float = 0.95
 					var metallic_v: float = 0.08
 					var roughness_v: float = 0.12
 					var clearcoat_v: float = 0.94
@@ -396,12 +403,12 @@ func _apply_spark_energy_shader_recursive(node: Node, energy_shader: Shader) -> 
 
 					if is_mini_wing:
 						# Iridescent pearl-aqua-pink floating mini angel wings with gentle flutter
-						albedo_col = Color.html("#B8F0FF")
-						shadow_col = Color.html("#5C86E8")
-						emit_col = Color.html("#E8B8FF")
-						rim_col = Color.html("#A8F2FF")
-						irid_col = Color.html("#FFC8E8")
-						emit_str = 0.34
+						albedo_col = Color.html("#C4F4FF")
+						shadow_col = Color.html("#5A82E6")
+						emit_col = Color.html("#ECC4FF")
+						rim_col = Color.html("#B4F6FF")
+						irid_col = Color.html("#FFD0EE")
+						emit_str = 0.42
 						belly_str = 0.0
 						metallic_v = 0.08
 						roughness_v = 0.14
@@ -412,12 +419,12 @@ func _apply_spark_energy_shader_recursive(node: Node, energy_shader: Shader) -> 
 						sway_v = 1.0
 					elif is_droplet:
 						# Floating luminous aqua-lavender flame droplets hovering around crown & tail
-						albedo_col = Color.html("#8AEBFF")
+						albedo_col = Color.html("#96F0FF")
 						shadow_col = Color.html("#4A84E8")
-						emit_col = Color.html("#C4A0FF")
-						rim_col = Color.html("#B8F6FF")
-						irid_col = Color.html("#B88CFF")
-						emit_str = 0.36
+						emit_col = Color.html("#CCA8FF")
+						rim_col = Color.html("#C4F8FF")
+						irid_col = Color.html("#C49CFF")
+						emit_str = 0.42
 						belly_str = 0.0
 						metallic_v = 0.10
 						roughness_v = 0.10
@@ -620,16 +627,21 @@ func reset_camera(yaw: float = facing_yaw, pitch: float = -0.22) -> void:
 	cam_pitch = clampf(pitch, deg_to_rad(-68.0), deg_to_rad(52.0))
 	_target_cam_pitch = cam_pitch
 	if camera_rig:
-		camera_rig.global_position = global_position + Vector3(0.0, _camera_rig_height, 0.0)
+		var interp_origin: Vector3 = get_global_transform_interpolated().origin
+		camera_rig.global_position = interp_origin + Vector3(0.0, _camera_rig_height, 0.0)
 		camera_rig.rotation = Vector3(cam_pitch, cam_yaw, 0.0)
 
 
 ## Public API: Teleports Spark cleanly while keeping damped camera targets and rig in sync.
 func teleport_to(target_pos: Vector3, new_yaw: float = facing_yaw) -> void:
 	global_position = target_pos
+	reset_physics_interpolation()
 	velocity = Vector3.ZERO
 	_boost_velocity = Vector3.ZERO
 	facing_yaw = new_yaw
+	if visual_pivot:
+		visual_pivot.global_position = target_pos + Vector3(0.0, 0.9, 0.0)
+		visual_pivot.basis = Basis.from_euler(Vector3(0.0, facing_yaw, 0.0))
 	reset_camera(new_yaw, cam_pitch)
 
 
@@ -973,13 +985,14 @@ func _update_visual_rig(delta: float) -> void:
 	if not visual_pivot:
 		return
 
-	# Orient VisualPivot with smooth yaw, pitch, and banking roll
+	# Track physics-interpolated origin every render frame so VisualPivot has zero 60Hz stutter
+	var interp_origin: Vector3 = get_global_transform_interpolated().origin
+	var hover_bob: float = sin(_anim_time * (3.2 if is_flying else 2.4)) * (0.07 if is_flying else 0.032)
+	visual_pivot.global_position = interp_origin + Vector3(0.0, 0.9 + hover_bob, 0.0)
+
+	# Orient VisualPivot with smooth render-frame yaw, pitch, and banking roll
 	var target_basis: Basis = Basis.from_euler(Vector3(visual_pitch, facing_yaw, bank_roll))
 	visual_pivot.basis = visual_pivot.basis.slerp(target_basis, 1.0 - exp(-12.0 * delta))
-
-	# Gentle breathing float on VisualPivot when flying or idling
-	var hover_bob: float = sin(_anim_time * (3.2 if is_flying else 2.4)) * (0.07 if is_flying else 0.032)
-	visual_pivot.position.y = 0.9 + hover_bob
 
 	# Orbiting celestial star-halo ring above Spark's head
 	if star_halo and star_halo.visible:
@@ -1090,8 +1103,9 @@ func _update_camera(delta: float) -> void:
 	cam_yaw = lerp_angle(cam_yaw, _target_cam_yaw, rot_t)
 	cam_pitch = lerpf(cam_pitch, _target_cam_pitch, rot_t)
 
-	# Smooth top_level CameraRig position tracking with instant snap on teleports (> 12m)
-	var target_rig_pos: Vector3 = global_position + Vector3(0.0, _camera_rig_height, 0.0)
+	# Smooth top_level CameraRig tracking toward physics-interpolated origin (eliminates 60Hz stutter!)
+	var interp_origin: Vector3 = get_global_transform_interpolated().origin
+	var target_rig_pos: Vector3 = interp_origin + Vector3(0.0, _camera_rig_height, 0.0)
 	if camera_rig.global_position.distance_squared_to(target_rig_pos) > 144.0:
 		camera_rig.global_position = target_rig_pos
 	else:
@@ -1168,6 +1182,7 @@ func _setup_wingtip_trails() -> void:
 	_trail_left_node.material_override = trail_mat
 	_trail_left_node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	_trail_left_node.top_level = true
+	_trail_left_node.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 	add_child(_trail_left_node)
 	_trail_left_node.global_transform = Transform3D.IDENTITY
 
@@ -1178,6 +1193,7 @@ func _setup_wingtip_trails() -> void:
 	_trail_right_node.material_override = trail_mat
 	_trail_right_node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	_trail_right_node.top_level = true
+	_trail_right_node.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 	add_child(_trail_right_node)
 	_trail_right_node.global_transform = Transform3D.IDENTITY
 

@@ -30,6 +30,7 @@ var _sakura_petals: GPUParticles3D = null
 var _garden_decorator: AkashaGardenDecorator = null
 var _castle_interactables: CastleInteractables3D = null
 var _infinite_vista: AkashaInfiniteVista = null
+var _akasha_npcs: AkashaNPCs3D = null
 
 var _is_in_gameplay: bool = false
 var _is_transitioning: bool = false
@@ -44,6 +45,7 @@ func _ready() -> void:
 	_setup_garden_decorator()
 	_setup_castle_interactables()
 	_setup_infinite_vista()
+	_setup_akasha_npcs()
 	_ensure_vista_camera_clip_planes()
 	_setup_atmospheric_dust_motes()
 	_setup_sakura_petals()
@@ -102,6 +104,15 @@ func _setup_infinite_vista() -> void:
 	_infinite_vista = AkashaInfiniteVista.new()
 	_infinite_vista.name = "AkashaInfiniteVista"
 	add_child(_infinite_vista)
+
+
+func _setup_akasha_npcs() -> void:
+	if _akasha_npcs != null and is_instance_valid(_akasha_npcs):
+		_akasha_npcs.queue_free()
+
+	_akasha_npcs = AkashaNPCs3D.new()
+	_akasha_npcs.name = "AkashaNPCs3D"
+	add_child(_akasha_npcs)
 
 
 func _ensure_vista_camera_clip_planes() -> void:
@@ -366,6 +377,10 @@ func _connect_signals() -> void:
 		if _castle_interactables.has_signal("relic_interacted"):
 			_castle_interactables.connect("relic_interacted", _on_castle_relic_interacted)
 
+	if _akasha_npcs != null and is_instance_valid(_akasha_npcs):
+		if _akasha_npcs.has_signal("npc_interacted"):
+			_akasha_npcs.connect("npc_interacted", _on_akasha_npc_interacted)
+
 
 func _apply_audio_setting() -> void:
 	if audio_manager and audio_manager.has_method("set_muted") and SaveManager != null:
@@ -575,14 +590,19 @@ func _unhandled_input(event: InputEvent) -> void:
 			if key_ev.keycode == KEY_E or key_ev.physical_keycode == KEY_E:
 				pressed_interact = true
 
-	if pressed_interact and player != null and _castle_interactables != null and is_instance_valid(_castle_interactables):
-		var relic_seq: String = _castle_interactables.interact_nearest(player.global_position)
-		if not relic_seq.is_empty():
-			get_viewport().set_input_as_handled()
+	if pressed_interact and player != null:
+		if _castle_interactables != null and is_instance_valid(_castle_interactables):
+			var relic_seq: String = _castle_interactables.interact_nearest(player.global_position)
+			if not relic_seq.is_empty():
+				get_viewport().set_input_as_handled()
+				return
+		if _akasha_npcs != null and is_instance_valid(_akasha_npcs):
+			if _akasha_npcs.interact_nearest(player.global_position):
+				get_viewport().set_input_as_handled()
 
 
 # ---------------------------------------------------------------------------
-# Gameplay Signals (Soul Call, Lanterns, Mentors, Earth Mirror, Castle Relics)
+# Gameplay Signals (Soul Call, Lanterns, Mentors, Earth Mirror, Castle Relics, NPCs)
 # ---------------------------------------------------------------------------
 
 func _on_player_soul_call(origin: Vector3) -> void:
@@ -613,6 +633,10 @@ func _on_player_soul_call(origin: Vector3) -> void:
 	if _castle_interactables != null and is_instance_valid(_castle_interactables):
 		_castle_interactables.respond_to_soul_call(origin)
 
+	# 4. Nearby Akashic Spirit NPCs do a joyful hop + warm golden-aqua light pulse
+	if _akasha_npcs != null and is_instance_valid(_akasha_npcs):
+		_akasha_npcs.respond_to_soul_call(origin)
+
 
 func _on_castle_relic_interacted(relic_id: String, dialogue_sequence_id: String) -> void:
 	if dialogue_manager and dialogue_manager.has_method("is_active") and bool(dialogue_manager.call("is_active")):
@@ -623,6 +647,17 @@ func _on_castle_relic_interacted(relic_id: String, dialogue_sequence_id: String)
 		if _castle_interactables != null and is_instance_valid(_castle_interactables):
 			chime_idx = _castle_interactables.get_chime_index_for_relic(relic_id)
 		audio_manager.call("play_lantern_chime", chime_idx)
+
+	if not dialogue_sequence_id.is_empty():
+		_start_dialogue_sequence(dialogue_sequence_id)
+
+
+func _on_akasha_npc_interacted(npc_id: String, dialogue_sequence_id: String) -> void:
+	if dialogue_manager and dialogue_manager.has_method("is_active") and bool(dialogue_manager.call("is_active")):
+		return
+
+	if audio_manager and audio_manager.has_method("play_lantern_chime"):
+		audio_manager.call("play_lantern_chime", posmod(npc_id.hash(), 5))
 
 	if not dialogue_sequence_id.is_empty():
 		_start_dialogue_sequence(dialogue_sequence_id)
@@ -833,6 +868,9 @@ func _process(delta: float) -> void:
 			else:
 				_sakura_petals.global_position = _sakura_petals.global_position.lerp(target_petal_pos, follow_weight)
 
+		if _akasha_npcs != null and is_instance_valid(_akasha_npcs):
+			_akasha_npcs.update_player_position(player.global_position)
+
 	if not _is_in_gameplay or _is_transitioning or not player:
 		return
 
@@ -871,6 +909,12 @@ func _update_interaction_prompt(p_pos: Vector3, stage: String) -> void:
 	if _castle_interactables != null and is_instance_valid(_castle_interactables):
 		relic_prompt = _castle_interactables.get_interaction_prompt(p_pos)
 
+	var npc_prompt: String = ""
+	if _akasha_npcs != null and is_instance_valid(_akasha_npcs):
+		var nearest_npc_id: String = _akasha_npcs.get_nearest_npc_in_range(p_pos)
+		if not nearest_npc_id.is_empty():
+			npc_prompt = _akasha_npcs.get_interaction_prompt(nearest_npc_id)
+
 	var near_mirror_close: bool = earth_mirror != null and p_pos.distance_to(earth_mirror.global_position) <= 16.0
 	var near_mirror_zone: bool = (
 		earth_mirror != null
@@ -884,6 +928,8 @@ func _update_interaction_prompt(p_pos: Vector3, stage: String) -> void:
 			prompt = "✦  [Q]  Пробудить Зеркало Земли"
 		elif not relic_prompt.is_empty():
 			prompt = relic_prompt
+		elif not npc_prompt.is_empty():
+			prompt = npc_prompt
 		elif near_mirror_zone:
 			prompt = "✦  [Q]  Пробудить Зеркало Земли"
 	elif stage == "mirror_awakened" or stage == "prologue_complete":
@@ -891,6 +937,8 @@ func _update_interaction_prompt(p_pos: Vector3, stage: String) -> void:
 			prompt = "✦  Шагните в Зеркало Земли"
 		elif not relic_prompt.is_empty():
 			prompt = relic_prompt
+		elif not npc_prompt.is_empty():
+			prompt = npc_prompt
 		elif near_mirror_zone:
 			prompt = "✦  Шагните в Зеркало Земли"
 	elif stage == "exploring" or stage == "intro":
@@ -899,7 +947,11 @@ func _update_interaction_prompt(p_pos: Vector3, stage: String) -> void:
 				prompt = "✦  [Q]  Откликнуться Наставникам"
 		if prompt.is_empty() and not relic_prompt.is_empty():
 			prompt = relic_prompt
+		if prompt.is_empty() and not npc_prompt.is_empty():
+			prompt = npc_prompt
 	elif not relic_prompt.is_empty():
 		prompt = relic_prompt
+	elif not npc_prompt.is_empty():
+		prompt = npc_prompt
 
 	_update_prompt(prompt)

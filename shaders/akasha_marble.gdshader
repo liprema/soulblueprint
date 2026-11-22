@@ -1,9 +1,10 @@
 shader_type spatial;
 
-// High-Performance Tactile Wet Twilight Basalt & Carved Slate Shader (Stray Look-Dev)
-// Optimized for 60 FPS on macOS Retina: dominant-axis projection + hardware dFdx/dFdy
-// Mikkelsen bump mapping (0 extra noise taps for normals — ~10x faster than 6-tap triplanar),
-// preserving carved ashlar block seams, mineral grain, micro-fractures, and wet SSR puddles.
+// High-Performance Fairytale Marble & Carved Stone Shader
+// Optimized for 60 FPS on macOS Apple Silicon Metal: dominant-axis projection with
+// 100% pure, unperturbed geometry normals (zero dFdx/dFdy artifacts or floor lighting flicker),
+// preserving carved ashlar block seams, subtle marble veining, soft pore/crest shading,
+// horizon Fresnel lift, and calm satin roughness.
 
 group_uniforms stone_colors;
 uniform vec3 stone_base_color : source_color = vec3(0.102, 0.125, 0.173);      // #1A202C Noble Twilight Basalt
@@ -113,12 +114,12 @@ void fragment() {
 	float broad_wash = fbm2_fast(proj_uv * broad_wash_scale);
 	float g_med = noise2d(proj_uv * (fine_grain_scale * 0.78));
 	float g_fine = noise2d(proj_uv * (fine_grain_scale * 2.45) + vec2(13.7, -8.2));
-	float grain = g_med * 0.60 + g_fine * 0.40;
+	float grain = mix(g_med, g_med * 0.60 + g_fine * 0.40, detail_fade);
 
 	float ridge_n = noise2d(proj_uv * (fine_grain_scale * 0.28) + vec2(broad_wash * 0.75, -broad_wash * 0.55));
 	float vein_mask = smoothstep(0.85, 0.985, 1.0 - abs(ridge_n * 2.0 - 1.0));
 
-	// Carved ashlar stone blocks & paving slabs
+	// Carved ashlar stone blocks & paving slabs (purely via smooth albedo/roughness/AO — NORMAL stays untouched)
 	vec3 blk = ashlar_blocks_2d(proj_uv, tile_size, seam_aa);
 	float block_bevel = blk.x;
 	float mortar_mask = blk.y * seam_strength;
@@ -127,34 +128,15 @@ void fragment() {
 	float surface_h = grain * 0.72 - vein_mask * 0.42;
 	float subtle_grain = surface_h - 0.34;
 
-	// Stray-style organic wetness & puddle field on upward-facing stonework (for Forward+ SSR)
+	// Subtle, smooth satin moisture variation on upward-facing stonework (zero glossy puddle spikes)
 	float up_mask = smoothstep(0.45, 0.86, wn.y);
-	float wet_field = fbm2_fast(v_world_pos.xz * 0.16 + vec2(3.1, -7.4)) - subtle_grain * 0.12 + mortar_mask * 0.08;
-	float damp_mask = smoothstep(0.38, 0.62, wet_field) * up_mask * wetness_strength;
-	float puddle_mask = smoothstep(0.55, 0.74, wet_field) * up_mask * wetness_strength;
+	float wet_field = fbm2_fast(v_world_pos.xz * 0.14 + vec2(3.1, -7.4));
+	float damp_mask = smoothstep(0.32, 0.78, wet_field) * up_mask * wetness_strength * 0.55;
 
 	// Subtle vertical rain-dampness streaks on walls and pillars
 	float wall_damp_n = noise2d(vec2((v_world_pos.x + v_world_pos.z) * 0.48, v_world_pos.y * 0.14));
-	float wall_damp = smoothstep(0.56, 0.84, wall_damp_n) * (1.0 - up_mask) * 0.32 * wetness_strength;
+	float wall_damp = smoothstep(0.56, 0.84, wall_damp_n) * (1.0 - up_mask) * 0.28 * wetness_strength;
 	float total_wet = clamp(max(damp_mask, wall_damp), 0.0, 1.0);
-
-	// Zero-cost hardware screen-space bump mapping (Mikkelsen method using dFdx/dFdy)
-	// Driven only by smooth block bevels so normals stay butter-smooth with zero pixel crawl
-	if (detail_fade > 0.01) {
-		float total_h = block_bevel * (0.45 * seam_strength);
-		vec3 pos_dx = dFdx(VERTEX);
-		vec3 pos_dy = dFdy(VERTEX);
-		vec3 r1 = cross(pos_dy, NORMAL);
-		vec3 r2 = cross(NORMAL, pos_dx);
-		float det = dot(pos_dx, r1);
-		if (abs(det) > 0.000001) {
-			float dh_dx = dFdx(total_h);
-			float dh_dy = dFdy(total_h);
-			vec3 surf_grad = sign(det) * (dh_dx * r1 + dh_dy * r2) / max(abs(det), 0.00001);
-			float bump_scale = 0.012 * detail_fade;
-			NORMAL = normalize(NORMAL - surf_grad * bump_scale);
-		}
-	}
 
 	// Crevice & cavity darkening
 	float pore_mask = smoothstep(0.54, 0.16, broad_wash + subtle_grain * 0.38) * pore_strength;
@@ -176,25 +158,30 @@ void fragment() {
 	stone_col = mix(stone_col, patina_tint, patina_mask);
 	stone_col *= (1.0 + block_tone * 0.14 * seam_strength + subtle_grain * 0.09);
 
+	// Smooth horizon Fresnel lift using pure untouched geometry NORMAL
+	float fresnel = pow(1.0 - clamp(dot(normalize(NORMAL), normalize(VIEW)), 0.0, 1.0), 3.0);
+	vec3 horizon_lift_col = mix(stone_highlight_color, horizon_tint_color, 0.55);
+	stone_col = mix(stone_col, horizon_lift_col, fresnel * fresnel_lift_strength * (1.0 - mortar_mask * 0.6));
+
 	// Soft moisture tint so marble stays clean, warm, and luminous without dark blotches
-	float wet_darken = mix(1.0, 0.93, total_wet);
+	float wet_darken = mix(1.0, 0.95, total_wet);
 	stone_col *= wet_darken;
 
-	// Silky satin marble roughness (0.42..0.82) with zero mirror-puddle shimmer
-	float dry_rough_var = -subtle_grain * 0.07 + vein_mask * 0.08 + mortar_mask * 0.16 + pore_mask * 0.06 - crest_mask * 0.05;
-	float dry_rough = clamp(base_roughness + dry_rough_var, 0.56, 0.84);
-	float damp_rough = mix(0.46, 0.42, clamp(broad_wash, 0.0, 1.0));
-	float puddle_rough = 0.42;
-	float final_rough = mix(dry_rough, damp_rough, total_wet);
-	final_rough = mix(final_rough, puddle_rough, puddle_mask);
+	// Calm, smooth satin marble roughness (0.46..0.84) with zero mirror-puddle shimmer
+	float dry_rough_var = -subtle_grain * 0.06 + vein_mask * 0.07 + mortar_mask * 0.14 + pore_mask * 0.05 - crest_mask * 0.04;
+	float dry_rough = clamp(base_roughness + dry_rough_var, 0.54, 0.84);
+	float satin_rough = mix(0.54, 0.48, clamp(broad_wash, 0.0, 1.0));
+	float final_rough = mix(dry_rough, satin_rough, total_wet * 0.65);
 
-	float dry_spec = clamp(surface_specular * (1.0 - cavity_mask * 0.35), 0.28, 0.42);
-	float wet_spec = mix(0.36, 0.42, puddle_mask);
-	float final_spec = clamp(mix(dry_spec, wet_spec, clamp(max(total_wet, puddle_mask), 0.0, 1.0)), 0.28, 0.42);
+	float dry_spec = clamp(surface_specular * (1.0 - cavity_mask * 0.30), 0.26, 0.40);
+	float satin_spec = clamp(dry_spec + 0.04, 0.26, 0.42);
+	float final_spec = mix(dry_spec, satin_spec, total_wet * 0.5);
 
 	ALBEDO = stone_col;
-	ROUGHNESS = clamp(final_rough, 0.42, 0.82);
+	ROUGHNESS = clamp(final_rough, 0.46, 0.84);
 	SPECULAR = final_spec;
 	METALLIC = surface_metallic;
+	AO = clamp(1.0 - cavity_mask * 0.38, 0.62, 1.0);
+	AO_LIGHT_AFFECT = 0.25;
 	EMISSION = vec3(0.0);
 }

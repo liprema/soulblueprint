@@ -13,6 +13,7 @@ const GARDEN_PLANTER_PATH: String = "res://assets/models/props/garden_planter.gl
 const CELESTIAL_ORNAMENT_PATH: String = "res://assets/models/props/celestial_ornament.glb"
 const LUSH_BUSH_PATH: String = "res://assets/models/props/lush_bush_hedge.glb"
 const WATER_SHADER_PATH: String = "res://shaders/akasha_water.gdshader"
+const FOLIAGE_SHADER_PATH: String = "res://shaders/akasha_foliage.gdshader"
 
 const ORNAMENT_SWAY_MAX_RAD: float = 0.02617994 # 1.5 degrees in radians
 
@@ -21,6 +22,7 @@ var _garden_planter_scene: PackedScene = null
 var _celestial_ornament_scene: PackedScene = null
 var _lush_bush_scene: PackedScene = null
 var _water_shader: Shader = null
+var _foliage_shader: Shader = null
 
 # Shared lightweight materials
 var _mat_leaf_spring: StandardMaterial3D = null
@@ -42,17 +44,20 @@ var _mat_crystal: StandardMaterial3D = null
 var _mat_silk: StandardMaterial3D = null
 var _mat_water_oval: ShaderMaterial = null
 var _mat_water_ring: ShaderMaterial = null
-var _mat_grass_mm: StandardMaterial3D = null
-var _mat_flower_mm: StandardMaterial3D = null
+var _mat_grass_mm: Material = null
+var _mat_flower_mm: Material = null
 var _mat_lily_mm: StandardMaterial3D = null
 var _mat_lotus_mm: StandardMaterial3D = null
-var _mat_vine_leaf_mm: StandardMaterial3D = null
-var _mat_vine_blossom_mm: StandardMaterial3D = null
+var _mat_vine_leaf_mm: Material = null
+var _mat_vine_blossom_mm: Material = null
 var _mat_butterfly_mm: StandardMaterial3D = null
+var _enhanced_glb_mats: Dictionary = {}
 
 # Shared lightweight meshes
-var _mesh_vine_stem: BoxMesh = null
+var _mesh_vine_stem: CylinderMesh = null
 var _mesh_leaf_cluster: BoxMesh = null
+var _mesh_ivy_leaf_pair: ArrayMesh = null
+var _mesh_vine_blossom: ArrayMesh = null
 var _mesh_blossom_cluster: SphereMesh = null
 var _mesh_blossom_small: SphereMesh = null
 var _mesh_grass_tuft: ArrayMesh = null
@@ -179,6 +184,10 @@ func _load_prop_scenes() -> void:
 		var loaded_shader: Resource = load(WATER_SHADER_PATH)
 		if loaded_shader is Shader:
 			_water_shader = loaded_shader as Shader
+	if ResourceLoader.exists(FOLIAGE_SHADER_PATH):
+		var loaded_foliage: Resource = load(FOLIAGE_SHADER_PATH)
+		if loaded_foliage is Shader:
+			_foliage_shader = loaded_foliage as Shader
 
 
 func _safe_load_scene(res_path: String) -> PackedScene:
@@ -191,22 +200,45 @@ func _safe_load_scene(res_path: String) -> PackedScene:
 
 
 func _init_shared_resources() -> void:
-	# Foliage & blossom palette
+	var green_backlight: Color = Color("#68A848")
+	var pink_backlight: Color = Color("#FFADC8")
+
+	# Foliage & blossom palette (with soft sunlit subsurface backlight translucency)
 	_mat_leaf_spring = _create_botanical_material(Color("#449656"), 0.62, 0.0, Color(0.0, 0.0, 0.0), 0.0)
+	_mat_leaf_spring.backlight_enabled = true
+	_mat_leaf_spring.backlight = green_backlight
 	_mat_leaf_emerald = _create_botanical_material(Color("#2B6E40"), 0.66, 0.0, Color(0.0, 0.0, 0.0), 0.0)
+	_mat_leaf_emerald.backlight_enabled = true
+	_mat_leaf_emerald.backlight = green_backlight
 	_mat_leaf_mint = _create_botanical_material(Color("#6EC274"), 0.56, 0.0, Color(0.0, 0.0, 0.0), 0.0)
+	_mat_leaf_mint.backlight_enabled = true
+	_mat_leaf_mint.backlight = green_backlight
 
 	# Double-sided sunlit emerald canopy materials for lush green palace tree variants
 	_mat_canopy_emerald_deep = _create_botanical_material(Color("#348A49"), 0.58, 0.0, Color(0.0, 0.0, 0.0), 0.0)
 	_mat_canopy_emerald_deep.cull_mode = BaseMaterial3D.CULL_DISABLED
+	_mat_canopy_emerald_deep.backlight_enabled = true
+	_mat_canopy_emerald_deep.backlight = green_backlight
+
 	_mat_canopy_emerald_sunlit = _create_botanical_material(Color("#54B262"), 0.54, 0.0, Color(0.0, 0.0, 0.0), 0.0)
 	_mat_canopy_emerald_sunlit.cull_mode = BaseMaterial3D.CULL_DISABLED
+	_mat_canopy_emerald_sunlit.backlight_enabled = true
+	_mat_canopy_emerald_sunlit.backlight = green_backlight
+
 	_mat_canopy_flower_accent = _create_botanical_material(Color("#FFF0F5"), 0.48, 0.0, Color("#FFE6EE"), 0.08)
 	_mat_canopy_flower_accent.cull_mode = BaseMaterial3D.CULL_DISABLED
+	_mat_canopy_flower_accent.backlight_enabled = true
+	_mat_canopy_flower_accent.backlight = pink_backlight
 
 	_mat_blossom_pink = _create_botanical_material(Color("#F78EB0"), 0.58, 0.0, Color("#F78EB0"), 0.14)
+	_mat_blossom_pink.backlight_enabled = true
+	_mat_blossom_pink.backlight = pink_backlight
 	_mat_blossom_blush = _create_botanical_material(Color("#FFC8D8"), 0.55, 0.0, Color("#FFD6E4"), 0.18)
+	_mat_blossom_blush.backlight_enabled = true
+	_mat_blossom_blush.backlight = pink_backlight
 	_mat_blossom_lilac = _create_botanical_material(Color("#C89EEB"), 0.56, 0.0, Color("#D6B6F5"), 0.16)
+	_mat_blossom_lilac.backlight_enabled = true
+	_mat_blossom_lilac.backlight = pink_backlight
 
 	# Architectural garden stone, moss, and lakebed materials
 	_mat_bark = _create_botanical_material(Color("#6E534B"), 0.85, 0.0, Color(0.0, 0.0, 0.0), 0.0)
@@ -222,36 +254,56 @@ func _init_shared_resources() -> void:
 	_mat_water_oval = _create_water_material(0.0, 0.68, 0.14)
 	_mat_water_ring = _create_water_material(1.0, 0.95, 0.22)
 
-	# GPU-instanced MultiMesh materials (vertex_color_use_as_albedo = true for per-instance tinting)
-	_mat_grass_mm = _create_botanical_material(Color(1.0, 1.0, 1.0), 0.64, 0.0, Color(0.0, 0.0, 0.0), 0.0)
-	_mat_grass_mm.vertex_color_use_as_albedo = true
-	_mat_grass_mm.cull_mode = BaseMaterial3D.CULL_DISABLED
-
-	_mat_flower_mm = _create_botanical_material(Color(1.0, 1.0, 1.0), 0.50, 0.0, Color("#FFE8F4"), 0.12)
-	_mat_flower_mm.vertex_color_use_as_albedo = true
-	_mat_flower_mm.cull_mode = BaseMaterial3D.CULL_DISABLED
+	# GPU-instanced MultiMesh botanical ShaderMaterials (wind sway, root-to-tip gradient, upward soft normals, backlight)
+	_mat_grass_mm = _create_foliage_material(
+		0.095, 1.0, 0.52, 1.18,
+		Color(0.78, 0.94, 0.80), Color(1.06, 1.09, 0.86),
+		Color(0.38, 0.52, 0.22), 0.62, 0.45,
+		0.0, Color(0.0, 0.0, 0.0), 0.0
+	)
+	_mat_flower_mm = _create_foliage_material(
+		0.078, 0.94, 0.55, 1.16,
+		Color(0.84, 0.94, 0.84), Color(1.03, 1.02, 1.02),
+		Color(0.72, 0.44, 0.52), 0.52, 0.48,
+		1.0, Color("#FFE8F4"), 0.09
+	)
 
 	_mat_lily_mm = _create_botanical_material(Color(1.0, 1.0, 1.0), 0.44, 0.02, Color(0.0, 0.0, 0.0), 0.0)
 	_mat_lily_mm.vertex_color_use_as_albedo = true
 	_mat_lily_mm.cull_mode = BaseMaterial3D.CULL_DISABLED
+	_mat_lily_mm.backlight_enabled = true
+	_mat_lily_mm.backlight = Color("#5AA048")
 
 	_mat_lotus_mm = _create_botanical_material(Color(1.0, 1.0, 1.0), 0.42, 0.0, Color("#FFEBF4"), 0.22)
 	_mat_lotus_mm.vertex_color_use_as_albedo = true
 	_mat_lotus_mm.cull_mode = BaseMaterial3D.CULL_DISABLED
+	_mat_lotus_mm.backlight_enabled = true
+	_mat_lotus_mm.backlight = Color("#FFBFD4")
 
-	_mat_vine_leaf_mm = _create_botanical_material(Color(1.0, 1.0, 1.0), 0.60, 0.0, Color(0.0, 0.0, 0.0), 0.0)
-	_mat_vine_leaf_mm.vertex_color_use_as_albedo = true
-
-	_mat_vine_blossom_mm = _create_botanical_material(Color(1.0, 1.0, 1.0), 0.54, 0.0, Color("#FFD8EC"), 0.16)
-	_mat_vine_blossom_mm.vertex_color_use_as_albedo = true
+	_mat_vine_leaf_mm = _create_foliage_material(
+		0.115, 1.12, 0.60, 1.16,
+		Color(0.80, 0.94, 0.82), Color(1.05, 1.08, 0.88),
+		Color(0.38, 0.52, 0.22), 0.58, 0.42,
+		0.0, Color(0.0, 0.0, 0.0), 0.0
+	)
+	_mat_vine_blossom_mm = _create_foliage_material(
+		0.105, 1.10, 0.78, 1.16,
+		Color(0.94, 0.92, 0.95), Color(1.04, 1.02, 1.04),
+		pink_backlight, 0.50, 0.46,
+		0.0, Color("#FFD8EC"), 0.14
+	)
 
 	_mat_butterfly_mm = _create_botanical_material(Color(1.0, 1.0, 1.0), 0.25, 0.05, Color("#FFF4D4"), 0.72)
 	_mat_butterfly_mm.vertex_color_use_as_albedo = true
 	_mat_butterfly_mm.cull_mode = BaseMaterial3D.CULL_DISABLED
 
 	# Shared lightweight meshes
-	_mesh_vine_stem = BoxMesh.new()
-	_mesh_vine_stem.size = Vector3(0.08, 0.46, 0.08)
+	_mesh_vine_stem = CylinderMesh.new()
+	_mesh_vine_stem.top_radius = 0.026
+	_mesh_vine_stem.bottom_radius = 0.018
+	_mesh_vine_stem.height = 0.48
+	_mesh_vine_stem.radial_segments = 5
+	_mesh_vine_stem.rings = 1
 
 	_mesh_leaf_cluster = BoxMesh.new()
 	_mesh_leaf_cluster.size = Vector3(0.38, 0.28, 0.34)
@@ -270,9 +322,58 @@ func _init_shared_resources() -> void:
 
 	_mesh_grass_tuft = _create_grass_tuft_mesh()
 	_mesh_flower_cluster = _create_flower_cluster_mesh()
+	_mesh_ivy_leaf_pair = _create_ivy_mesh()
+	_mesh_vine_blossom = _create_vine_blossom_mesh()
 	_mesh_lily_pad = _create_lily_pad_mesh()
 	_mesh_lotus_flower = _create_lotus_flower_mesh()
 	_mesh_butterfly = _create_butterfly_mesh()
+
+
+func _create_foliage_material(
+	wind_str: float,
+	wind_spd: float,
+	base_sh: float,
+	tip_br: float,
+	base_t: Color,
+	tip_t: Color,
+	backlight_col: Color,
+	rough_v: float,
+	norm_up: float,
+	stem_mask: float,
+	emit_col: Color,
+	emit_str: float
+) -> Material:
+	if _foliage_shader != null:
+		var mat: ShaderMaterial = ShaderMaterial.new()
+		mat.shader = _foliage_shader
+		mat.set_shader_parameter("wind_strength", wind_str)
+		mat.set_shader_parameter("wind_speed", wind_spd)
+		mat.set_shader_parameter("wind_gust_strength", 0.036)
+		mat.set_shader_parameter("sway_root_power", 2.0)
+		mat.set_shader_parameter("use_vertex_y_fallback", 0.0)
+		mat.set_shader_parameter("base_shade", base_sh)
+		mat.set_shader_parameter("tip_bright", tip_br)
+		mat.set_shader_parameter("base_tint", base_t)
+		mat.set_shader_parameter("tip_tint", tip_t)
+		mat.set_shader_parameter("backlight_color", backlight_col)
+		mat.set_shader_parameter("backlight_strength", 1.0)
+		mat.set_shader_parameter("roughness_val", rough_v)
+		mat.set_shader_parameter("specular_val", 0.28)
+		mat.set_shader_parameter("normal_up_blend", norm_up)
+		mat.set_shader_parameter("emission_color", emit_col)
+		mat.set_shader_parameter("emission_strength", emit_str)
+		mat.set_shader_parameter("stem_mask_enabled", stem_mask)
+		mat.set_shader_parameter("stem_base_color", Color("#28743A"))
+		mat.set_shader_parameter("stem_tip_color", Color("#58B85E"))
+		mat.set_shader_parameter("pollen_color", Color("#FFDC52"))
+		return mat
+
+	var fallback: StandardMaterial3D = _create_botanical_material(Color(1.0, 1.0, 1.0), rough_v, 0.0, emit_col, emit_str)
+	fallback.vertex_color_use_as_albedo = true
+	fallback.cull_mode = BaseMaterial3D.CULL_DISABLED
+	fallback.backlight_enabled = true
+	fallback.backlight = backlight_col
+	return fallback
 
 
 func _create_water_material(ring_mode_val: float, wave_scale_val: float, foam_w: float) -> ShaderMaterial:
@@ -1346,8 +1447,8 @@ func _flush_multimesh_batches() -> void:
 	_create_multimesh_batch(root, "FloatingLilyPadsMM", _mesh_lily_pad, _mat_lily_mm, _lily_xforms, _lily_colors)
 	_create_multimesh_batch(root, "BloomingLotusesMM", _mesh_lotus_flower, _mat_lotus_mm, _lotus_xforms, _lotus_colors)
 	_create_multimesh_batch(root, "CascadingVineStemsMM", _mesh_vine_stem, _mat_leaf_emerald, _vine_stem_xforms, [])
-	_create_multimesh_batch(root, "CascadingVineLeavesMM", _mesh_leaf_cluster, _mat_vine_leaf_mm, _vine_leaf_xforms, _vine_leaf_colors)
-	_create_multimesh_batch(root, "CascadingVineBlossomsMM", _mesh_blossom_cluster, _mat_vine_blossom_mm, _vine_blossom_xforms, _vine_blossom_colors)
+	_create_multimesh_batch(root, "CascadingVineLeavesMM", _mesh_ivy_leaf_pair, _mat_vine_leaf_mm, _vine_leaf_xforms, _vine_leaf_colors)
+	_create_multimesh_batch(root, "CascadingVineBlossomsMM", _mesh_vine_blossom, _mat_vine_blossom_mm, _vine_blossom_xforms, _vine_blossom_colors)
 
 
 func _create_multimesh_batch(
@@ -1456,10 +1557,12 @@ func _build_fluttering_butterflies(island_positions: Array[Vector3]) -> void:
 
 func _place_sakura_tree(parent: Node3D, node_name: String, pos: Vector3, yaw_rad: float, scale_factor: float) -> Node3D:
 	var prop: Node3D = null
+	var is_glb: bool = false
 	if _sakura_tree_scene != null:
 		var inst: Node = _sakura_tree_scene.instantiate()
 		if inst is Node3D:
 			prop = inst as Node3D
+			is_glb = true
 		else:
 			inst.queue_free()
 	if prop == null:
@@ -1470,6 +1573,9 @@ func _place_sakura_tree(parent: Node3D, node_name: String, pos: Vector3, yaw_rad
 	prop.rotation = Vector3(0.0, yaw_rad, 0.0)
 	prop.scale = Vector3(scale_factor, scale_factor, scale_factor)
 	parent.add_child(prop)
+
+	if is_glb:
+		_enhance_sakura_tree_materials(prop)
 	return prop
 
 
@@ -1497,6 +1603,50 @@ func _place_verdant_tree(parent: Node3D, node_name: String, pos: Vector3, yaw_ra
 	return prop
 
 
+func _get_enhanced_backlight_material(
+	cache_key: String,
+	base_mat: Material,
+	backlight_col: Color,
+	double_sided: bool
+) -> Material:
+	if _enhanced_glb_mats.has(cache_key):
+		return _enhanced_glb_mats[cache_key] as Material
+	if base_mat is StandardMaterial3D:
+		var dup: StandardMaterial3D = (base_mat as StandardMaterial3D).duplicate() as StandardMaterial3D
+		dup.backlight_enabled = true
+		dup.backlight = backlight_col
+		if double_sided:
+			dup.cull_mode = BaseMaterial3D.CULL_DISABLED
+		_enhanced_glb_mats[cache_key] = dup
+		return dup
+	return base_mat
+
+
+func _enhance_sakura_tree_materials(node: Node) -> void:
+	if node is MeshInstance3D:
+		var mesh_inst: MeshInstance3D = node as MeshInstance3D
+		var mesh_res: Mesh = mesh_inst.mesh
+		if mesh_res != null:
+			var surf_count: int = mesh_res.get_surface_count()
+			for surf_idx: int in range(surf_count):
+				var base_mat: Material = mesh_res.surface_get_material(surf_idx)
+				if base_mat == null:
+					continue
+				var mat_name: String = base_mat.resource_name
+				if mat_name == "Mat_SakuraBlossomDeep" or mat_name == "Mat_SakuraBlossomSoft" or mat_name == "Mat_SakuraBlossomCream":
+					var pink_mat: Material = _get_enhanced_backlight_material(
+						"sakura_" + mat_name, base_mat, Color("#FFADC8"), true
+					)
+					mesh_inst.set_surface_override_material(surf_idx, pink_mat)
+				elif mat_name == "Mat_SpringLeaf":
+					var leaf_mat: Material = _get_enhanced_backlight_material(
+						"sakura_" + mat_name, base_mat, Color("#68A848"), true
+					)
+					mesh_inst.set_surface_override_material(surf_idx, leaf_mat)
+	for child: Node in node.get_children():
+		_enhance_sakura_tree_materials(child)
+
+
 func _apply_verdant_tree_materials(node: Node) -> void:
 	if node is MeshInstance3D:
 		var mesh_inst: MeshInstance3D = node as MeshInstance3D
@@ -1514,16 +1664,23 @@ func _apply_verdant_tree_materials(node: Node) -> void:
 					mesh_inst.set_surface_override_material(surf_idx, _mat_canopy_emerald_sunlit)
 				elif mat_name == "Mat_SakuraBlossomCream":
 					mesh_inst.set_surface_override_material(surf_idx, _mat_canopy_flower_accent)
+				elif mat_name == "Mat_SpringLeaf":
+					var leaf_mat: Material = _get_enhanced_backlight_material(
+						"verdant_" + mat_name, base_mat, Color("#68A848"), true
+					)
+					mesh_inst.set_surface_override_material(surf_idx, leaf_mat)
 	for child: Node in node.get_children():
 		_apply_verdant_tree_materials(child)
 
 
 func _place_lush_bush(parent: Node3D, node_name: String, pos: Vector3, yaw_rad: float, scale_factor: float) -> Node3D:
 	var prop: Node3D = null
+	var is_glb: bool = false
 	if _lush_bush_scene != null:
 		var inst: Node = _lush_bush_scene.instantiate()
 		if inst is Node3D:
 			prop = inst as Node3D
+			is_glb = true
 		else:
 			inst.queue_free()
 	if prop == null:
@@ -1534,7 +1691,35 @@ func _place_lush_bush(parent: Node3D, node_name: String, pos: Vector3, yaw_rad: 
 	prop.rotation = Vector3(0.0, yaw_rad, 0.0)
 	prop.scale = Vector3(scale_factor, scale_factor, scale_factor)
 	parent.add_child(prop)
+
+	if is_glb:
+		_enhance_lush_bush_materials(prop)
 	return prop
+
+
+func _enhance_lush_bush_materials(node: Node) -> void:
+	if node is MeshInstance3D:
+		var mesh_inst: MeshInstance3D = node as MeshInstance3D
+		var mesh_res: Mesh = mesh_inst.mesh
+		if mesh_res != null:
+			var surf_count: int = mesh_res.get_surface_count()
+			for surf_idx: int in range(surf_count):
+				var base_mat: Material = mesh_res.surface_get_material(surf_idx)
+				if base_mat == null:
+					continue
+				var mat_name: String = base_mat.resource_name
+				if mat_name == "Mat_DeepEmeraldLeaf" or mat_name == "Mat_SpringGreenLeaf" or mat_name == "Mat_SunlitMintLeaf":
+					var hedge_leaf: Material = _get_enhanced_backlight_material(
+						"hedge_" + mat_name, base_mat, Color("#68A848"), true
+					)
+					mesh_inst.set_surface_override_material(surf_idx, hedge_leaf)
+				elif mat_name == "Mat_GardenRosePink" or mat_name == "Mat_GardenRoseCream":
+					var hedge_rose: Material = _get_enhanced_backlight_material(
+						"hedge_" + mat_name, base_mat, Color("#FFADC8"), false
+					)
+					mesh_inst.set_surface_override_material(surf_idx, hedge_rose)
+	for child: Node in node.get_children():
+		_enhance_lush_bush_materials(child)
 
 
 func _place_garden_planter(parent: Node3D, node_name: String, pos: Vector3, yaw_rad: float, scale_factor: float) -> Node3D:
@@ -1975,52 +2160,79 @@ func _create_lotus_flower_mesh() -> ArrayMesh:
 	return st.commit()
 
 
+func _add_botanical_tri(
+	st: SurfaceTool,
+	p0: Vector3, uv0: Vector2, c0: Color,
+	p1: Vector3, uv1: Vector2, c1: Color,
+	p2: Vector3, uv2: Vector2, c2: Color
+) -> void:
+	st.set_uv(uv0)
+	st.set_color(c0)
+	st.add_vertex(p0)
+	st.set_uv(uv1)
+	st.set_color(c1)
+	st.add_vertex(p1)
+	st.set_uv(uv2)
+	st.set_color(c2)
+	st.add_vertex(p2)
+
+
 func _create_grass_tuft_mesh() -> ArrayMesh:
 	var st: SurfaceTool = SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 
-	# 5 gracefully curved crossed grass/fern blades per tuft
-	var blade_count: int = 5
-	for b: int in range(blade_count):
-		var ang: float = (TAU / float(blade_count)) * float(b) + 0.35
+	# 9-blade curved botanical grass & fern clump (3 arched vertical segments per blade, 0.38m..0.88m)
+	var blade_angles: Array[float] = [0.18, 0.88, 1.56, 2.28, 2.98, 3.66, 4.38, 5.08, 5.76]
+	var blade_heights: Array[float] = [0.88, 0.56, 0.74, 0.42, 0.82, 0.48, 0.68, 0.38, 0.62]
+	var blade_leans: Array[float] = [0.22, 0.30, 0.26, 0.34, 0.24, 0.32, 0.28, 0.31, 0.27]
+	var blade_widths: Array[float] = [0.068, 0.062, 0.064, 0.072, 0.066, 0.064, 0.060, 0.070, 0.062]
+	var blade_radii: Array[float] = [0.03, 0.09, 0.05, 0.11, 0.04, 0.10, 0.06, 0.12, 0.07]
+	var blade_shades: Array[float] = [1.02, 0.94, 0.98, 0.90, 1.04, 0.92, 0.97, 0.88, 0.96]
+
+	var t1: float = 0.36
+	var t2: float = 0.72
+
+	for b: int in range(blade_angles.size()):
+		var ang: float = blade_angles[b]
+		var h: float = blade_heights[b]
+		var lean: float = blade_leans[b]
+		var w0: float = blade_widths[b]
+		var w1: float = w0 * 0.76
+		var w2: float = w0 * 0.42
 		var dir: Vector3 = Vector3(cos(ang), 0.0, sin(ang))
 		var side: Vector3 = Vector3(-sin(ang), 0.0, cos(ang))
-		var h: float = 0.42 + float(b % 3) * 0.11
-		var lean: float = 0.16 + float(b % 2) * 0.09
-		var w0: float = 0.075
-		var w1: float = 0.042
-		var base_c: Vector3 = dir * 0.05
+		var twist_sign: float = 1.0 if (b % 2 == 0) else -1.0
+		var side_mid: Vector3 = (side + dir * (0.14 * twist_sign)).normalized()
+		var side_top: Vector3 = (side + dir * (0.26 * twist_sign)).normalized()
+
+		var base_c: Vector3 = dir * blade_radii[b]
+		var c1: Vector3 = base_c + dir * (lean * t1 * t1 * 1.15) + Vector3(0.0, h * (t1 - 0.04 * t1 * t1), 0.0)
+		var c2: Vector3 = base_c + dir * (lean * t2 * t2 * 1.25) + Vector3(0.0, h * (t2 - 0.07 * t2 * t2), 0.0)
+		var tip: Vector3 = base_c + dir * (lean * 1.32) + Vector3(0.0, h * 0.91, 0.0)
 
 		var p0l: Vector3 = base_c - side * w0
 		var p0r: Vector3 = base_c + side * w0
-		var p1l: Vector3 = base_c + dir * (lean * 0.45) - side * w1 + Vector3(0.0, h * 0.55, 0.0)
-		var p1r: Vector3 = base_c + dir * (lean * 0.45) + side * w1 + Vector3(0.0, h * 0.55, 0.0)
-		var tip: Vector3 = base_c + dir * lean + Vector3(0.0, h, 0.0)
+		var p1l: Vector3 = c1 - side_mid * w1
+		var p1r: Vector3 = c1 + side_mid * w1
+		var p2l: Vector3 = c2 - side_top * w2
+		var p2r: Vector3 = c2 + side_top * w2
 
-		var col_base: Color = Color(0.68, 0.80, 0.70)
-		var col_mid: Color = Color(0.90, 0.96, 0.90)
-		var col_tip: Color = Color(1.0, 1.0, 1.0)
+		var sh: float = blade_shades[b]
+		var col0: Color = Color(sh * 0.92, sh * 0.96, sh * 0.92)
+		var col1: Color = Color(sh * 0.96, sh * 0.99, sh * 0.96)
+		var col2: Color = Color(sh, sh, sh)
+		var col_tip: Color = Color(minf(1.05, sh * 1.03), minf(1.05, sh * 1.04), minf(1.05, sh * 1.01))
 
-		st.set_color(col_base)
-		st.add_vertex(p0l)
-		st.set_color(col_base)
-		st.add_vertex(p0r)
-		st.set_color(col_mid)
-		st.add_vertex(p1r)
+		# Segment 1 (root -> lower arch, UV.y: 0.0 -> 0.36)
+		_add_botanical_tri(st, p0l, Vector2(0.0, 0.0), col0, p0r, Vector2(1.0, 0.0), col0, p1r, Vector2(1.0, t1), col1)
+		_add_botanical_tri(st, p0l, Vector2(0.0, 0.0), col0, p1r, Vector2(1.0, t1), col1, p1l, Vector2(0.0, t1), col1)
 
-		st.set_color(col_base)
-		st.add_vertex(p0l)
-		st.set_color(col_mid)
-		st.add_vertex(p1r)
-		st.set_color(col_mid)
-		st.add_vertex(p1l)
+		# Segment 2 (lower arch -> upper arch, UV.y: 0.36 -> 0.72)
+		_add_botanical_tri(st, p1l, Vector2(0.0, t1), col1, p1r, Vector2(1.0, t1), col1, p2r, Vector2(1.0, t2), col2)
+		_add_botanical_tri(st, p1l, Vector2(0.0, t1), col1, p2r, Vector2(1.0, t2), col2, p2l, Vector2(0.0, t2), col2)
 
-		st.set_color(col_mid)
-		st.add_vertex(p1l)
-		st.set_color(col_mid)
-		st.add_vertex(p1r)
-		st.set_color(col_tip)
-		st.add_vertex(tip)
+		# Segment 3 (upper arch -> fine pointed tip, UV.y: 0.72 -> 1.0)
+		_add_botanical_tri(st, p2l, Vector2(0.0, t2), col2, p2r, Vector2(1.0, t2), col2, tip, Vector2(0.5, 1.0), col_tip)
 
 	st.generate_normals()
 	return st.commit()
@@ -2030,28 +2242,209 @@ func _create_flower_cluster_mesh() -> ArrayMesh:
 	var st: SurfaceTool = SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 
-	# 5 tiny cupped blooms in a natural bouquet cluster
-	var offsets: Array[Vector3] = [
-		Vector3(0.0, 0.34, 0.0),
-		Vector3(0.14, 0.27, 0.09),
-		Vector3(-0.13, 0.28, 0.10),
-		Vector3(0.11, 0.26, -0.13),
-		Vector3(-0.12, 0.29, -0.11),
-	]
-	for idx: int in range(offsets.size()):
-		var c: Vector3 = offsets[idx]
-		var r_pet: float = 0.115 if idx == 0 else 0.095
-		for p: int in range(4):
-			var a0: float = (TAU / 4.0) * float(p) + float(idx) * 0.4
-			var a1: float = a0 + 1.15
-			var pt0: Vector3 = c + Vector3(cos(a0) * r_pet, 0.045, sin(a0) * r_pet)
-			var pt1: Vector3 = c + Vector3(cos(a1) * r_pet, 0.045, sin(a1) * r_pet)
-			st.set_color(Color(0.92, 0.92, 0.92))
-			st.add_vertex(c)
-			st.set_color(Color(1.0, 1.0, 1.0))
-			st.add_vertex(pt0)
-			st.set_color(Color(1.0, 1.0, 1.0))
-			st.add_vertex(pt1)
+	# Botanical blooming flower bush: 4 arched leafy stems crowned by 5-petal cupped blossoms + golden pollen centers
+	# UV.x encodes botanical part for akasha_foliage.gdshader (stem_mask_enabled = 1.0):
+	#   UV.x = 0.0 -> lush green stems & leaves | UV.x = 0.5 -> per-instance blossom petals | UV.x = 1.0 -> golden pollen
+	var stem_angles: Array[float] = [0.32, 1.88, 3.46, 5.02]
+	var stem_heights: Array[float] = [0.48, 0.40, 0.36, 0.44]
+	var stem_leans: Array[float] = [0.11, 0.16, 0.15, 0.14]
+	var blossom_radii: Array[float] = [0.135, 0.118, 0.112, 0.124]
+	var white_col: Color = Color(1.0, 1.0, 1.0)
+	var throat_col: Color = Color(0.84, 0.84, 0.86)
+
+	for s_idx: int in range(stem_angles.size()):
+		var ang: float = stem_angles[s_idx]
+		var h: float = stem_heights[s_idx]
+		var lean: float = stem_leans[s_idx]
+		var dir: Vector3 = Vector3(cos(ang), 0.0, sin(ang))
+		var side: Vector3 = Vector3(-sin(ang), 0.0, cos(ang))
+
+		var p_root: Vector3 = dir * 0.03
+		var p_mid: Vector3 = p_root + dir * (lean * 0.42) + Vector3(0.0, h * 0.50, 0.0)
+		var p_top: Vector3 = p_root + dir * lean + Vector3(0.0, h, 0.0)
+
+		# Arched green stem (2 slender tapered segments, UV.x = 0.0)
+		var sw0: float = 0.017
+		var sw1: float = 0.013
+		var sw2: float = 0.009
+		_add_botanical_tri(
+			st,
+			p_root - side * sw0, Vector2(0.0, 0.0), white_col,
+			p_root + side * sw0, Vector2(0.0, 0.0), white_col,
+			p_mid + side * sw1, Vector2(0.0, 0.48), white_col
+		)
+		_add_botanical_tri(
+			st,
+			p_root - side * sw0, Vector2(0.0, 0.0), white_col,
+			p_mid + side * sw1, Vector2(0.0, 0.48), white_col,
+			p_mid - side * sw1, Vector2(0.0, 0.48), white_col
+		)
+		_add_botanical_tri(
+			st,
+			p_mid - side * sw1, Vector2(0.0, 0.48), white_col,
+			p_mid + side * sw1, Vector2(0.0, 0.48), white_col,
+			p_top + side * sw2, Vector2(0.0, 0.86), white_col
+		)
+		_add_botanical_tri(
+			st,
+			p_mid - side * sw1, Vector2(0.0, 0.48), white_col,
+			p_top + side * sw2, Vector2(0.0, 0.86), white_col,
+			p_top - side * sw2, Vector2(0.0, 0.86), white_col
+		)
+
+		# 2 arched pointed botanical leaves sprouting from the mid-stem (UV.x = 0.0)
+		for l_idx: int in range(2):
+			var l_sign: float = 1.0 if l_idx == 0 else -1.0
+			var l_frac: float = 0.34 if l_idx == 0 else 0.56
+			var l_base: Vector3 = p_root.lerp(p_top, l_frac)
+			var l_dir: Vector3 = (dir * 0.58 + side * (0.72 * l_sign) + Vector3(0.0, 0.34, 0.0)).normalized()
+			var l_perp: Vector3 = l_dir.cross(Vector3.UP).normalized()
+			var l_len: float = 0.16 if l_idx == 0 else 0.135
+			var l_w: float = 0.044 if l_idx == 0 else 0.038
+			var l_mid_pt: Vector3 = l_base + l_dir * (l_len * 0.48) + Vector3(0.0, 0.015, 0.0)
+			var l_tip: Vector3 = l_base + l_dir * l_len - Vector3(0.0, 0.018, 0.0)
+			var uv_b: Vector2 = Vector2(0.0, l_frac)
+			var uv_m: Vector2 = Vector2(0.0, minf(0.92, l_frac + 0.14))
+			var uv_t: Vector2 = Vector2(0.0, minf(0.96, l_frac + 0.24))
+
+			_add_botanical_tri(st, l_base, uv_b, white_col, l_mid_pt + l_perp * l_w, uv_m, white_col, l_tip, uv_t, white_col)
+			_add_botanical_tri(st, l_base, uv_b, white_col, l_tip, uv_t, white_col, l_mid_pt - l_perp * l_w, uv_m, white_col)
+
+		# Tilted blossom frame so each 5-petal flower cups gracefully toward the sky & viewer
+		var tilt_rad: float = 0.26 + float(s_idx) * 0.035
+		var blossom_up: Vector3 = (Vector3.UP * cos(tilt_rad) + dir * sin(tilt_rad)).normalized()
+		var blossom_right: Vector3 = side
+		var blossom_fwd: Vector3 = blossom_right.cross(blossom_up).normalized()
+		var p_rad: float = blossom_radii[s_idx]
+		var petal_count: int = 5
+		var phase: float = float(s_idx) * 0.62
+
+		# Detailed 5-petal cupped blossom (UV.x = 0.5 -> per-instance vibrant rose/lavender/hydrangea/jasmine color)
+		for p: int in range(petal_count):
+			var pa: float = (TAU / float(petal_count)) * float(p) + phase
+			var p_dir: Vector3 = blossom_fwd * cos(pa) + blossom_right * sin(pa)
+			var p_side: Vector3 = blossom_fwd * (-sin(pa)) + blossom_right * cos(pa)
+
+			var v_center: Vector3 = p_top + p_dir * 0.012
+			var v_left: Vector3 = p_top + p_dir * (p_rad * 0.58) + p_side * (p_rad * 0.44) + blossom_up * (p_rad * 0.26)
+			var v_right: Vector3 = p_top + p_dir * (p_rad * 0.58) - p_side * (p_rad * 0.44) + blossom_up * (p_rad * 0.26)
+			var v_tip: Vector3 = p_top + p_dir * p_rad + blossom_up * (p_rad * 0.42)
+
+			var uv_c: Vector2 = Vector2(0.5, 0.88)
+			var uv_m: Vector2 = Vector2(0.5, 0.95)
+			var uv_t: Vector2 = Vector2(0.5, 1.0)
+
+			_add_botanical_tri(st, v_center, uv_c, throat_col, v_left, uv_m, white_col, v_tip, uv_t, white_col)
+			_add_botanical_tri(st, v_center, uv_c, throat_col, v_tip, uv_t, white_col, v_right, uv_m, white_col)
+
+		# Raised 5-sided golden pollen stamen center (UV.x = 1.0 -> warm sunlit gold)
+		var core_r: float = p_rad * 0.28
+		var core_peak: Vector3 = p_top + blossom_up * (p_rad * 0.34)
+		var core_base_off: Vector3 = blossom_up * (p_rad * 0.12)
+		for c: int in range(5):
+			var ca0: float = (TAU / 5.0) * float(c)
+			var ca1: float = (TAU / 5.0) * float(c + 1)
+			var cp0: Vector3 = p_top + (blossom_fwd * cos(ca0) + blossom_right * sin(ca0)) * core_r + core_base_off
+			var cp1: Vector3 = p_top + (blossom_fwd * cos(ca1) + blossom_right * sin(ca1)) * core_r + core_base_off
+			_add_botanical_tri(
+				st,
+				core_peak, Vector2(1.0, 1.0), white_col,
+				cp0, Vector2(1.0, 0.94), white_col,
+				cp1, Vector2(1.0, 0.94), white_col
+			)
+
+	st.generate_normals()
+	return st.commit()
+
+
+func _create_ivy_mesh() -> ArrayMesh:
+	var st: SurfaceTool = SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+
+	# Cascading ivy foliage segment: 2 alternating angled pairs of heart-shaped botanical leaves
+	# Clean UV.y = 0.16 at petiole attachment -> 1.0 at drooping leaf apex for sky-breeze sway!
+	var pair_y: Array[float] = [0.12, -0.14]
+	var pair_yaw: Array[float] = [0.0, 1.18]
+	var leaf_len: float = 0.26
+	var leaf_w: float = 0.155
+
+	var col_petiole: Color = Color(0.84, 0.92, 0.84)
+	var col_mid: Color = Color(0.96, 1.0, 0.96)
+	var col_tip: Color = Color(1.0, 1.0, 1.0)
+
+	for p_idx: int in range(2):
+		var py: float = pair_y[p_idx]
+		var base_yaw: float = pair_yaw[p_idx]
+		for side_idx: int in range(2):
+			var yaw: float = base_yaw + (0.0 if side_idx == 0 else PI) + (0.22 if p_idx == 0 else -0.22)
+			var out_h: Vector3 = Vector3(cos(yaw), 0.0, sin(yaw))
+			var lat: Vector3 = Vector3(-sin(yaw), 0.0, cos(yaw))
+			# Droop gracefully outward & downward along the cascading vine
+			var fwd: Vector3 = (out_h * 0.78 + Vector3(0.0, -0.62, 0.0)).normalized()
+			var up_n: Vector3 = lat.cross(fwd).normalized()
+
+			var root_pt: Vector3 = Vector3(0.0, py, 0.0) + out_h * 0.03
+			var lobe_l: Vector3 = root_pt - fwd * (leaf_len * 0.10) + lat * (leaf_w * 0.56) + up_n * 0.022
+			var lobe_r: Vector3 = root_pt - fwd * (leaf_len * 0.10) - lat * (leaf_w * 0.56) + up_n * 0.022
+			var cheek_l: Vector3 = root_pt + fwd * (leaf_len * 0.42) + lat * leaf_w + up_n * 0.026
+			var cheek_r: Vector3 = root_pt + fwd * (leaf_len * 0.42) - lat * leaf_w + up_n * 0.026
+			var mid_rib: Vector3 = root_pt + fwd * (leaf_len * 0.46) - up_n * 0.012
+			var apex: Vector3 = root_pt + fwd * leaf_len - up_n * 0.024
+
+			var uv_root: Vector2 = Vector2(0.5, 0.18)
+			var uv_lobe: Vector2 = Vector2(0.15, 0.28)
+			var uv_cheek: Vector2 = Vector2(0.0, 0.62)
+			var uv_mid: Vector2 = Vector2(0.5, 0.62)
+			var uv_apex: Vector2 = Vector2(0.5, 1.0)
+
+			# Left heart lobe & blade half
+			_add_botanical_tri(st, root_pt, uv_root, col_petiole, lobe_l, uv_lobe, col_mid, cheek_l, uv_cheek, col_mid)
+			_add_botanical_tri(st, root_pt, uv_root, col_petiole, cheek_l, uv_cheek, col_mid, mid_rib, uv_mid, col_mid)
+			_add_botanical_tri(st, mid_rib, uv_mid, col_mid, cheek_l, uv_cheek, col_mid, apex, uv_apex, col_tip)
+
+			# Right heart lobe & blade half
+			_add_botanical_tri(st, root_pt, uv_root, col_petiole, cheek_r, uv_cheek, col_mid, lobe_r, uv_lobe, col_mid)
+			_add_botanical_tri(st, root_pt, uv_root, col_petiole, mid_rib, uv_mid, col_mid, cheek_r, uv_cheek, col_mid)
+			_add_botanical_tri(st, mid_rib, uv_mid, col_mid, apex, uv_apex, col_tip, cheek_r, uv_cheek, col_mid)
+
+	st.generate_normals()
+	return st.commit()
+
+
+func _create_vine_blossom_mesh() -> ArrayMesh:
+	var st: SurfaceTool = SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+
+	# Delicate 5-petal cupped blossom nestled into cascading ivy curtains (sways gently via UV.y = 0.55..1.0)
+	var p_rad: float = 0.145
+	var throat_col: Color = Color(0.86, 0.84, 0.88)
+	var white_col: Color = Color(1.0, 1.0, 1.0)
+	var gold_col: Color = Color(1.0, 0.90, 0.42)
+
+	for p: int in range(5):
+		var pa: float = (TAU / 5.0) * float(p)
+		var dir: Vector3 = Vector3(cos(pa), 0.0, sin(pa))
+		var side: Vector3 = Vector3(-sin(pa), 0.0, cos(pa))
+
+		var v_c: Vector3 = dir * 0.015
+		var v_l: Vector3 = dir * (p_rad * 0.58) + side * (p_rad * 0.46) + Vector3(0.0, p_rad * 0.28, 0.0)
+		var v_r: Vector3 = dir * (p_rad * 0.58) - side * (p_rad * 0.46) + Vector3(0.0, p_rad * 0.28, 0.0)
+		var v_t: Vector3 = dir * p_rad + Vector3(0.0, p_rad * 0.44, 0.0)
+
+		_add_botanical_tri(st, v_c, Vector2(0.5, 0.58), throat_col, v_l, Vector2(0.2, 0.82), white_col, v_t, Vector2(0.5, 1.0), white_col)
+		_add_botanical_tri(st, v_c, Vector2(0.5, 0.58), throat_col, v_t, Vector2(0.5, 1.0), white_col, v_r, Vector2(0.8, 0.82), white_col)
+
+	var core_r: float = 0.042
+	var core_peak: Vector3 = Vector3(0.0, 0.052, 0.0)
+	for c: int in range(5):
+		var a0: float = (TAU / 5.0) * float(c)
+		var a1: float = (TAU / 5.0) * float(c + 1)
+		_add_botanical_tri(
+			st,
+			core_peak, Vector2(0.5, 0.72), gold_col,
+			Vector3(cos(a0) * core_r, 0.018, sin(a0) * core_r), Vector2(0.5, 0.64), gold_col,
+			Vector3(cos(a1) * core_r, 0.018, sin(a1) * core_r), Vector2(0.5, 0.64), gold_col
+		)
 
 	st.generate_normals()
 	return st.commit()
