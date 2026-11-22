@@ -448,9 +448,9 @@ func _create_archangel_pbr_materials() -> Dictionary:
 	var skin_mat: StandardMaterial3D = StandardMaterial3D.new()
 	skin_mat.albedo_color = Color("#EFC6AE")
 	skin_mat.roughness = 0.40
-	skin_mat.subsurface_scattering_enabled = true
-	skin_mat.subsurface_scattering_strength = 0.35
-	skin_mat.subsurface_scattering_skin_mode = true
+	skin_mat.subsurf_scatter_enabled = true
+	skin_mat.subsurf_scatter_strength = 0.35
+	skin_mat.subsurf_scatter_skin_mode = true
 	skin_mat.emission_enabled = true
 	skin_mat.emission = Color("#F5D0B8")
 	skin_mat.emission_energy_multiplier = 0.04
@@ -460,8 +460,8 @@ func _create_archangel_pbr_materials() -> Dictionary:
 	var lips_mat: StandardMaterial3D = StandardMaterial3D.new()
 	lips_mat.albedo_color = Color("#C26E6E")
 	lips_mat.roughness = 0.30
-	lips_mat.subsurface_scattering_enabled = true
-	lips_mat.subsurface_scattering_strength = 0.22
+	lips_mat.subsurf_scatter_enabled = true
+	lips_mat.subsurf_scatter_strength = 0.22
 	mats["ArchLips"] = lips_mat
 
 	# ArchEyeSclera: Clear pearl-white eye sclera

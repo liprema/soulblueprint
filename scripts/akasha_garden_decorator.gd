@@ -1542,6 +1542,7 @@ func _build_fluttering_butterflies(_island_positions: Array[Vector3]) -> void:
 
 	_butterfly_mmi = MultiMeshInstance3D.new()
 	_butterfly_mmi.name = "LuminousButterfliesMM"
+	_butterfly_mmi.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 	_butterfly_mmi.multimesh = mm
 	_butterfly_mmi.material_override = _mat_butterfly_mm
 	_butterfly_mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF

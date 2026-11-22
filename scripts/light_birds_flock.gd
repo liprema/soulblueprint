@@ -137,6 +137,7 @@ func _setup_multimesh() -> void:
 
 	birds_multimesh.multimesh = _multimesh
 	birds_multimesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	birds_multimesh.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 
 
 func _init_flock() -> void:
