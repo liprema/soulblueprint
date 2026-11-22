@@ -139,9 +139,9 @@ void fragment() {
 	float total_wet = clamp(max(damp_mask, wall_damp), 0.0, 1.0);
 
 	// Zero-cost hardware screen-space bump mapping (Mikkelsen method using dFdx/dFdy)
-	// Flattened inside pooled puddles so SSR reflections stay crisp and liquid
+	// Driven only by smooth block bevels so normals stay butter-smooth with zero pixel crawl
 	if (detail_fade > 0.01) {
-		float total_h = surface_h * 0.55 + block_bevel * (0.75 * seam_strength);
+		float total_h = block_bevel * (0.45 * seam_strength);
 		vec3 pos_dx = dFdx(VERTEX);
 		vec3 pos_dy = dFdy(VERTEX);
 		vec3 r1 = cross(pos_dy, NORMAL);
@@ -151,8 +151,7 @@ void fragment() {
 			float dh_dx = dFdx(total_h);
 			float dh_dy = dFdy(total_h);
 			vec3 surf_grad = sign(det) * (dh_dx * r1 + dh_dy * r2) / max(abs(det), 0.00001);
-			float liquid_flatten = mix(1.0, 0.14, puddle_mask);
-			float bump_scale = 0.038 * detail_fade * liquid_flatten;
+			float bump_scale = 0.012 * detail_fade;
 			NORMAL = normalize(NORMAL - surf_grad * bump_scale);
 		}
 	}
@@ -171,31 +170,30 @@ void fragment() {
 	float patina_mask = smoothstep(0.42, 0.94, wn.y) * mix(0.40, 1.0, broad_wash) * 0.14 * (1.0 - total_wet);
 	vec3 patina_tint = mix(stone_highlight_color, horizon_tint_color * 0.42, 0.30);
 
-	// Compose tactile dark basalt / wet slate albedo
+	// Compose tactile marble / carved stone albedo
 	vec3 stone_col = mix(stone_base_color, stone_pore_color, cavity_mask);
 	stone_col = mix(stone_col, stone_highlight_color, crest_mask * (1.0 - vein_mask * 0.65) * (1.0 - mortar_mask * 0.8));
 	stone_col = mix(stone_col, patina_tint, patina_mask);
 	stone_col *= (1.0 + block_tone * 0.14 * seam_strength + subtle_grain * 0.09);
 
-	// Physically accurate wet stone darkening
-	float wet_darken = mix(1.0, 0.72, total_wet);
-	wet_darken = mix(wet_darken, 0.64, puddle_mask);
+	// Soft moisture tint so marble stays clean, warm, and luminous without dark blotches
+	float wet_darken = mix(1.0, 0.93, total_wet);
 	stone_col *= wet_darken;
 
-	// Roughness breakup: dry porous slate (0.66..0.90) vs wet SSR mirror sheen (0.10..0.28)
+	// Silky satin marble roughness (0.42..0.82) with zero mirror-puddle shimmer
 	float dry_rough_var = -subtle_grain * 0.07 + vein_mask * 0.08 + mortar_mask * 0.16 + pore_mask * 0.06 - crest_mask * 0.05;
-	float dry_rough = clamp(base_roughness + dry_rough_var, 0.66, 0.90);
-	float damp_rough = mix(0.28, 0.20, clamp(broad_wash, 0.0, 1.0));
-	float puddle_rough = mix(0.16, 0.10, puddle_mask);
+	float dry_rough = clamp(base_roughness + dry_rough_var, 0.56, 0.84);
+	float damp_rough = mix(0.46, 0.42, clamp(broad_wash, 0.0, 1.0));
+	float puddle_rough = 0.42;
 	float final_rough = mix(dry_rough, damp_rough, total_wet);
 	final_rough = mix(final_rough, puddle_rough, puddle_mask);
 
-	float dry_spec = surface_specular * (1.0 - cavity_mask * 0.35);
-	float wet_spec = mix(0.55, 0.72, puddle_mask);
-	float final_spec = mix(dry_spec, wet_spec, clamp(max(total_wet, puddle_mask), 0.0, 1.0));
+	float dry_spec = clamp(surface_specular * (1.0 - cavity_mask * 0.35), 0.28, 0.42);
+	float wet_spec = mix(0.36, 0.42, puddle_mask);
+	float final_spec = clamp(mix(dry_spec, wet_spec, clamp(max(total_wet, puddle_mask), 0.0, 1.0)), 0.28, 0.42);
 
 	ALBEDO = stone_col;
-	ROUGHNESS = clamp(final_rough, 0.10, 0.92);
+	ROUGHNESS = clamp(final_rough, 0.42, 0.82);
 	SPECULAR = final_spec;
 	METALLIC = surface_metallic;
 	EMISSION = vec3(0.0);

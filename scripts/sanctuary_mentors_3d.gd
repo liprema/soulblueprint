@@ -11,19 +11,19 @@ const MIRA_GLB_PATH: String = "res://assets/models/characters/mentor_mira.glb"
 const TALK_RANGE_RADIUS: float = 20.0
 const SOUL_CALL_RADIUS: float = 24.0
 
-const COLOR_ALATEA_BODY: Color = Color("#BFD8EE")
-const COLOR_ALATEA_RIM: Color = Color("#E8F6FF")
-const COLOR_ALATEA_RIM_HI: Color = Color("#D8F2FF")
-const COLOR_ALATEA_LIGHT: Color = Color(0.84, 0.93, 1.0, 1.0)
+const COLOR_ALATEA_BODY: Color = Color("#2C94E8")
+const COLOR_ALATEA_RIM: Color = Color("#7EEAFF")
+const COLOR_ALATEA_RIM_HI: Color = Color("#BCEEFF")
+const COLOR_ALATEA_LIGHT: Color = Color(0.56, 0.88, 1.0, 1.0)
 
-const COLOR_MIRA_BODY: Color = Color("#E6D9E2")
-const COLOR_MIRA_RIM: Color = Color("#FFF0DC")
-const COLOR_MIRA_RIM_HI: Color = Color("#FFF8EC")
-const COLOR_MIRA_HALO: Color = Color("#DFC48E")
-const COLOR_MIRA_LIGHT: Color = Color(1.0, 0.94, 0.86, 1.0)
+const COLOR_MIRA_BODY: Color = Color("#E45C98")
+const COLOR_MIRA_RIM: Color = Color("#FFB8D4")
+const COLOR_MIRA_RIM_HI: Color = Color("#FFD8E8")
+const COLOR_MIRA_HALO: Color = Color("#F2BA86")
+const COLOR_MIRA_LIGHT: Color = Color(1.0, 0.78, 0.88, 1.0)
 
-const COLOR_SATIN_GOLD: Color = Color("#E5BC74")
-const COLOR_BRIGHT_GOLD: Color = Color("#F2CA8A")
+const COLOR_SATIN_GOLD: Color = Color("#F0B286")
+const COLOR_BRIGHT_GOLD: Color = Color("#F6C8A2")
 
 const BASE_LIGHT_ENERGY: float = 1.10
 const HIGHLIGHT_LIGHT_ENERGY: float = 1.65
@@ -34,7 +34,7 @@ const HIGHLIGHT_EMISSION_STRENGTH: float = 0.95
 const DIMMED_EMISSION_STRENGTH: float = 0.48
 
 const BASE_GOLD_EMISSION: float = 0.28
-const BASE_CRYSTAL_EMISSION: float = 0.55
+const BASE_CRYSTAL_EMISSION: float = 0.62
 const BASE_STAR_EMISSION: float = 1.35
 
 
@@ -277,49 +277,69 @@ func _init_materials() -> void:
 	_mira_body_mat.set_shader_parameter("hem_fade_start", 0.0)
 	_mira_body_mat.set_shader_parameter("hem_fade_end", 1.05)
 
-	# Shared angelic wing materials (ivory feather blades + brushed champagne-gold tips)
-	var wing_ivory_mat: StandardMaterial3D = StandardMaterial3D.new()
-	wing_ivory_mat.albedo_color = Color("#FCF7F0")
-	wing_ivory_mat.roughness = 0.42
-	wing_ivory_mat.metallic = 0.04
-	wing_ivory_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
-	wing_ivory_mat.emission_enabled = true
-	wing_ivory_mat.emission = Color("#FFF2DF")
-	wing_ivory_mat.emission_energy_multiplier = 0.10
+	# Per-mentor celestial wing materials (saturated sky-blue feathers for Alatea, sakura-pink for Mira)
+	var alatea_wing_mat: StandardMaterial3D = StandardMaterial3D.new()
+	alatea_wing_mat.albedo_color = Color("#74C6FA")
+	alatea_wing_mat.roughness = 0.42
+	alatea_wing_mat.metallic = 0.06
+	alatea_wing_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	alatea_wing_mat.emission_enabled = true
+	alatea_wing_mat.emission = Color("#9ED8FF")
+	alatea_wing_mat.emission_energy_multiplier = 0.14
 
-	var wing_gold_tip_mat: StandardMaterial3D = StandardMaterial3D.new()
-	wing_gold_tip_mat.albedo_color = Color("#E5BC74")
-	wing_gold_tip_mat.metallic = 0.78
-	wing_gold_tip_mat.roughness = 0.36
-	wing_gold_tip_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
-	wing_gold_tip_mat.emission_enabled = true
-	wing_gold_tip_mat.emission = Color("#F2CA8A")
-	wing_gold_tip_mat.emission_energy_multiplier = 0.14
+	var alatea_wing_tip_mat: StandardMaterial3D = StandardMaterial3D.new()
+	alatea_wing_tip_mat.albedo_color = Color("#F0B286")
+	alatea_wing_tip_mat.metallic = 0.78
+	alatea_wing_tip_mat.roughness = 0.36
+	alatea_wing_tip_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	alatea_wing_tip_mat.emission_enabled = true
+	alatea_wing_tip_mat.emission = Color("#F6C8A2")
+	alatea_wing_tip_mat.emission_energy_multiplier = 0.14
 
+	var mira_wing_mat: StandardMaterial3D = StandardMaterial3D.new()
+	mira_wing_mat.albedo_color = Color("#FA9CC0")
+	mira_wing_mat.roughness = 0.42
+	mira_wing_mat.metallic = 0.06
+	mira_wing_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	mira_wing_mat.emission_enabled = true
+	mira_wing_mat.emission = Color("#FFC0D8")
+	mira_wing_mat.emission_energy_multiplier = 0.14
+
+	var mira_wing_tip_mat: StandardMaterial3D = StandardMaterial3D.new()
+	mira_wing_tip_mat.albedo_color = Color("#F2BA86")
+	mira_wing_tip_mat.metallic = 0.78
+	mira_wing_tip_mat.roughness = 0.36
+	mira_wing_tip_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	mira_wing_tip_mat.emission_enabled = true
+	mira_wing_tip_mat.emission = Color("#FAD0A6")
+	mira_wing_tip_mat.emission_energy_multiplier = 0.14
+
+	# Alatea: Sapphire, Turquoise & Twilight-Violet Goddess
 	_alatea_mats = _create_mentor_material_set(
 		_alatea_body_mat,
-		Color("#F4F0F4"),
-		Color("#DCECF8"),
-		Color("#C8E8FF"),
-		Color(0.84, 0.94, 1.0, 0.52),
-		Color("#D8F0FF"),
-		Color("#74D4EC"),
-		Color("#A6ECFF"),
-		wing_ivory_mat,
-		wing_gold_tip_mat
+		Color("#FAD4C6"),
+		Color("#6C6AE6"),
+		Color("#8C8AFF"),
+		Color(0.36, 0.84, 1.0, 0.56),
+		Color("#78E4FF"),
+		Color("#3CE0FF"),
+		Color("#74EEFF"),
+		alatea_wing_mat,
+		alatea_wing_tip_mat
 	)
 
+	# Mira: Sakura-Rose, Coral-Peach & Amethyst Goddess
 	_mira_mats = _create_mentor_material_set(
 		_mira_body_mat,
-		Color("#F9F1EB"),
-		Color("#F2DCE2"),
-		Color("#FFE0D8"),
-		Color(1.0, 0.90, 0.93, 0.52),
-		Color("#FFE4EC"),
-		Color("#F7A8C4"),
-		Color("#FFD0E2"),
-		wing_ivory_mat,
-		wing_gold_tip_mat
+		Color("#FCD6C8"),
+		Color("#E076B2"),
+		Color("#FF96CE"),
+		Color(1.0, 0.62, 0.80, 0.56),
+		Color("#FF98C2"),
+		Color("#F568B8"),
+		Color("#FF9ED4"),
+		mira_wing_mat,
+		mira_wing_tip_mat
 	)
 
 	# Keep legacy references bound to Alatea's gold & starlight materials for procedural fallbacks
@@ -358,27 +378,27 @@ func _create_mentor_material_set(
 	mat_set.wing_ivory = wing_ivory_mat
 	mat_set.wing_gold_tip = wing_gold_tip_mat
 
-	# 1. Mat_MentorSkin: luminous sculpted porcelain-alabaster / pearl goddess skin
+	# 1. Mat_MentorSkin: warm living blush-peach porcelain goddess skin (never grey)
 	var skin_mat: StandardMaterial3D = StandardMaterial3D.new()
 	skin_mat.albedo_color = skin_albedo
 	skin_mat.roughness = 0.34
 	skin_mat.metallic = 0.02
 	skin_mat.emission_enabled = true
-	skin_mat.emission = Color("#FFE8DC")
-	skin_mat.emission_energy_multiplier = 0.14
+	skin_mat.emission = Color("#FFD8C8")
+	skin_mat.emission_energy_multiplier = 0.16
 	mat_set.skin = skin_mat
 
-	# 2. Mat_MentorHair: silky spun-pearl flowing hair
+	# 2. Mat_MentorHair: lush luminous jewel-pastel flowing hair
 	var hair_mat: StandardMaterial3D = StandardMaterial3D.new()
 	hair_mat.albedo_color = hair_albedo
 	hair_mat.roughness = 0.32
 	hair_mat.metallic = 0.18
 	hair_mat.emission_enabled = true
 	hair_mat.emission = hair_emission
-	hair_mat.emission_energy_multiplier = 0.12
+	hair_mat.emission_energy_multiplier = 0.16
 	mat_set.hair = hair_mat
 
-	# 4. Mat_MentorSilkVeil: ethereal translucent silk-organza
+	# 4. Mat_MentorSilkVeil: sheer luminous celestial organza
 	var veil_mat: StandardMaterial3D = StandardMaterial3D.new()
 	veil_mat.albedo_color = veil_albedo
 	veil_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
@@ -388,10 +408,10 @@ func _create_mentor_material_set(
 	veil_mat.metallic = 0.04
 	veil_mat.emission_enabled = true
 	veil_mat.emission = veil_emission
-	veil_mat.emission_energy_multiplier = 0.18
+	veil_mat.emission_energy_multiplier = 0.24
 	mat_set.silk_veil = veil_mat
 
-	# 7. Mat_MentorGold: ornate brushed satin champagne gold filigree
+	# 7. Mat_MentorGold: ornate brushed rose-champagne gold filigree
 	var gold_mat: StandardMaterial3D = StandardMaterial3D.new()
 	gold_mat.albedo_color = COLOR_SATIN_GOLD
 	gold_mat.metallic = 0.80
@@ -402,7 +422,7 @@ func _create_mentor_material_set(
 	gold_mat.emission_energy_multiplier = BASE_GOLD_EMISSION
 	mat_set.gold = gold_mat
 
-	# 8. Mat_MentorCrystal: faceted celestial crystal teardrops & tiara gems
+	# 8. Mat_MentorCrystal: vivid faceted celestial crystal teardrops & tiara gems
 	var crystal_mat: StandardMaterial3D = StandardMaterial3D.new()
 	crystal_mat.albedo_color = crystal_albedo
 	crystal_mat.roughness = 0.14
@@ -414,11 +434,11 @@ func _create_mentor_material_set(
 
 	# 9. Mat_MentorStar: serene radiant starlight heart & Fate Orb core
 	var star_mat: StandardMaterial3D = StandardMaterial3D.new()
-	star_mat.albedo_color = Color("#FFF8E6")
+	star_mat.albedo_color = Color("#FFF4F8")
 	star_mat.roughness = 0.18
 	star_mat.metallic = 0.15
 	star_mat.emission_enabled = true
-	star_mat.emission = Color("#FFE8B8")
+	star_mat.emission = Color("#FFD6EA")
 	star_mat.emission_energy_multiplier = BASE_STAR_EMISSION
 	mat_set.star = star_mat
 

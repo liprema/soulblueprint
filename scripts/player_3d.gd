@@ -190,6 +190,7 @@ func _ready() -> void:
 		_base_halo_y = star_halo.position.y
 
 	if spark_light:
+		spark_light.light_color = Color("#FFCEE4")
 		spark_light.light_energy = _base_light_energy
 		spark_light.omni_range = 7.5
 
@@ -289,40 +290,40 @@ func _apply_spark_energy_shader_recursive(node: Node, energy_shader: Shader) -> 
 				smat.shader = energy_shader
 
 				var mat_name: String = src_mat.resource_name if src_mat != null else ""
-				var albedo_col: Color = Color.html("#E2B46E")
-				var emit_col: Color = Color.html("#E5BC7C")
-				var emit_str: float = 0.11
+				var albedo_col: Color = Color.html("#F486B6")
+				var emit_col: Color = Color.html("#FF98C6")
+				var emit_str: float = 0.14
 				var metallic_v: float = 0.08
-				var roughness_v: float = 0.46
+				var roughness_v: float = 0.44
 
 				if mat_name.contains("CreamCore"):
-					# Inner heart & tail core: warm luminous pearl-ivory
-					albedo_col = Color.html("#F7EFE0")
-					emit_col = Color.html("#F5E6C8")
+					# Inner heart & tail core: soft blush-pearl white
+					albedo_col = Color.html("#FFF0F6")
+					emit_col = Color.html("#FFD4E8")
 					emit_str = 0.16
 					metallic_v = 0.04
 					roughness_v = 0.42
 				elif mat_name.contains("GoldenAmber"):
-					# Flame head & ribbons: soft sunlit champagne-apricot gold
-					albedo_col = Color.html("#E2B46E")
-					emit_col = Color.html("#E5BC7C")
-					emit_str = 0.11
+					# Main flame head & silk ribbons: tender luminous sakura-rose pink
+					albedo_col = Color.html("#F486B6")
+					emit_col = Color.html("#FF98C6")
+					emit_str = 0.14
 					metallic_v = 0.08
-					roughness_v = 0.46
+					roughness_v = 0.44
 				elif mat_name.contains("DeepAmber"):
-					# Diamond marks, collar clasp, inner folds: rich warm rose-bronze / honey-caramel
-					albedo_col = Color.html("#BE743E")
-					emit_col = Color.html("#C88048")
-					emit_str = 0.12
+					# Face diamond, collar clasp, underside: rich amethyst-orchid violet
+					albedo_col = Color.html("#9B5CE0")
+					emit_col = Color.html("#B274F2")
+					emit_str = 0.15
 					metallic_v = 0.16
-					roughness_v = 0.40
+					roughness_v = 0.38
 				elif mat_name.contains("PureGoldTrim"):
-					# Ribbon edges & star halo: refined champagne pearl-gold
-					albedo_col = Color.html("#F0DCAA")
-					emit_col = Color.html("#EED8A0")
-					emit_str = 0.18
-					metallic_v = 0.28
-					roughness_v = 0.36
+					# Ribbon edges & star halo: iridescent celestial sky-aqua
+					albedo_col = Color.html("#7AE4FF")
+					emit_col = Color.html("#9CEEFF")
+					emit_str = 0.20
+					metallic_v = 0.24
+					roughness_v = 0.34
 				elif src_mat is StandardMaterial3D:
 					var std_mat: StandardMaterial3D = src_mat as StandardMaterial3D
 					albedo_col = std_mat.albedo_color
@@ -331,15 +332,15 @@ func _apply_spark_energy_shader_recursive(node: Node, energy_shader: Shader) -> 
 						emit_str = clampf(std_mat.emission_energy_multiplier * 0.12, 0.10, 0.18)
 					else:
 						emit_col = albedo_col
-						emit_str = 0.11
+						emit_str = 0.14
 					metallic_v = clampf(std_mat.metallic, 0.0, 0.35)
-					roughness_v = clampf(std_mat.roughness, 0.36, 0.56)
+					roughness_v = clampf(std_mat.roughness, 0.34, 0.56)
 
 				# Pass Color directly so Godot converts source_color uniforms from sRGB to linear HDR
 				smat.set_shader_parameter("base_albedo", albedo_col)
-				smat.set_shader_parameter("shadow_tint", Color(0.68, 0.38, 0.18, 1.0))
+				smat.set_shader_parameter("shadow_tint", Color(0.45, 0.22, 0.56, 1.0))
 				smat.set_shader_parameter("emission_color", emit_col)
-				smat.set_shader_parameter("rim_color", Color(1.0, 0.94, 0.84, 1.0))
+				smat.set_shader_parameter("rim_color", Color(0.84, 0.96, 1.0, 1.0))
 				smat.set_shader_parameter("emission_strength", emit_str)
 				smat.set_shader_parameter("metallic_val", metallic_v)
 				smat.set_shader_parameter("roughness_val", roughness_v)
@@ -865,7 +866,7 @@ func _update_visual_rig(delta: float) -> void:
 	# Radiant additive light-wing flares bloom open on wing flaps, surge, or fast flight
 	var flare_vis: float = clampf(flap_burst * 0.85 + (_energy_flare * 0.35) + (0.14 if is_flying else 0.0), 0.0, 1.0)
 	if _wing_flare_mat:
-		_wing_flare_mat.albedo_color = Color(1.0, 0.93, 0.62, flare_vis * 0.72)
+		_wing_flare_mat.albedo_color = Color(1.0, 0.72, 0.88, flare_vis * 0.72)
 	var flare_scale: Vector3 = Vector3(lerpf(0.65, 1.45, flare_vis), lerpf(0.55, 1.35, flare_vis), 1.0)
 	if wing_flare_left:
 		wing_flare_left.visible = flare_vis > 0.02
@@ -965,7 +966,7 @@ func _setup_wingtip_trails() -> void:
 	trail_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
 	trail_mat.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED
 	trail_mat.vertex_color_use_as_albedo = true
-	trail_mat.albedo_color = Color(1.0, 0.94, 0.66, 1.0)
+	trail_mat.albedo_color = Color(0.86, 0.94, 1.0, 1.0)
 
 	_trail_left_mesh = ImmediateMesh.new()
 	_trail_left_node = MeshInstance3D.new()
@@ -1075,11 +1076,11 @@ func _rebuild_ribbon_mesh(
 		var taper: float = smoothstep(0.0, 1.0, life_t * index_t)
 		var half_w: float = base_width * 0.5 * (0.15 + 0.85 * taper)
 
-		# Luminous HDR white-gold core fading smoothly into soft amber tail
+		# Luminous iridescent sky-aqua & blush-pearl core fading smoothly into sakura-orchid tail
 		var col: Color = Color(
-			lerpf(0.95, 1.75, taper),
-			lerpf(0.58, 1.32, taper),
-			lerpf(0.16, 0.68, taper),
+			lerpf(0.76, 1.38, taper),
+			lerpf(0.46, 1.24, taper),
+			lerpf(0.96, 1.62, taper),
 			taper * taper * (0.94 if is_flying else 0.52)
 		)
 

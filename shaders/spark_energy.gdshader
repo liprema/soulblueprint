@@ -1,19 +1,19 @@
 shader_type spatial;
 render_mode blend_mix, depth_draw_opaque, cull_back;
 
-// Spark Celestial Flame & Silk Ribbon Shader (Godot 4.3 Forward+ ACES)
-// Stray-grade magical depth: warm amber-gold subsurface transillumination radiating
-// from within the translucent flame body, swirling internal starlight shimmer inside
-// the core and silk ribbons, and a delicate crisp warm-ivory Fresnel silhouette rim
-// that reads cleanly against both twilight stone and bright golden skies without blowout.
+// Spark Celestial Spirit & Silk Ribbon Shader (Godot 4.3 Forward+ ACES)
+// Stray-grade magical depth: luminous sakura-rose & orchid-lilac subsurface transillumination
+// radiating from within the translucent spirit body, swirling internal starlight shimmer inside
+// the core and silk ribbons, and an opalescent sky-pearl & rose-lilac Fresnel silhouette rim
+// that reads cleanly against both twilight stone and bright skies without blowout.
 
-uniform vec3 base_albedo : source_color = vec3(0.886, 0.706, 0.431);
-uniform vec3 shadow_tint : source_color = vec3(0.68, 0.38, 0.18);
-uniform vec3 emission_color : source_color = vec3(0.898, 0.737, 0.486);
-uniform vec3 rim_color : source_color = vec3(1.0, 0.94, 0.84);
-uniform float emission_strength : hint_range(0.0, 2.5) = 0.12;
+uniform vec3 base_albedo : source_color = vec3(0.957, 0.525, 0.714);
+uniform vec3 shadow_tint : source_color = vec3(0.45, 0.22, 0.56);
+uniform vec3 emission_color : source_color = vec3(1.0, 0.596, 0.776);
+uniform vec3 rim_color : source_color = vec3(0.84, 0.96, 1.0);
+uniform float emission_strength : hint_range(0.0, 2.5) = 0.14;
 uniform float metallic_val : hint_range(0.0, 1.0) = 0.08;
-uniform float roughness_val : hint_range(0.0, 1.0) = 0.46;
+uniform float roughness_val : hint_range(0.0, 1.0) = 0.44;
 
 uniform float flight_speed : hint_range(0.0, 40.0) = 0.0;
 uniform float energy_flare : hint_range(0.0, 2.5) = 0.0;
@@ -66,7 +66,7 @@ void vertex() {
 	float ribbon_mask = smoothstep(0.14, 0.76, radial_x) * smoothstep(1.02, 0.74, VERTEX.y);
 	v_ribbon_mask = ribbon_mask;
 
-	// Upper flame tip gentle living candle-flame flicker sway
+	// Upper flame tip gentle living spirit-flame flicker sway
 	float flame_tip_mask = smoothstep(1.22, 1.62, VERTEX.y) * (1.0 - smoothstep(0.16, 0.28, radial_x));
 
 	// Lower slender flame tail tip gentle trailing drift
@@ -101,13 +101,13 @@ void fragment() {
 	float speed_norm = clamp(flight_speed / 28.0, 0.0, 1.35);
 
 	// Sculptural hemisphere crevice shading in object space:
-	// deepens neck indentation, underside of lotus collar, and ribbon folds with warm rose-honey
+	// deepens neck indentation, underside of lotus collar, and ribbon folds with soft plum-lavender
 	float up_bias = clamp(normalize(v_local_normal).y * 0.5 + 0.5, 0.0, 1.0);
 	float crevice_factor = (1.0 - smoothstep(0.08, 0.78, up_bias)) * 0.40;
 	vec3 sculpted_albedo = base_albedo * mix(vec3(1.0), shadow_tint, crevice_factor);
 
-	// Soft internal amber-gold subsurface warmth radiating from the core outward
-	vec3 amber_sss = mix(shadow_tint, emission_color, 0.64);
+	// Soft internal sakura-orchid subsurface luminescence radiating from the core outward
+	vec3 spirit_sss = mix(shadow_tint, emission_color, 0.64);
 	float core_trans = pow(ndotv, 1.35) * (1.0 - v_ribbon_mask * 0.35);
 	float thin_trans = clamp(
 		v_ribbon_mask * 0.75
@@ -116,7 +116,7 @@ void fragment() {
 		0.0, 1.0
 	);
 
-	// Subtle swirling internal starlight shimmer inside the flame core & silk ribbons
+	// Subtle swirling internal starlight shimmer inside the spirit core & silk ribbons
 	float swirl_t = TIME * (1.35 + speed_norm * 1.65);
 	float swirl_ang = swirl_t + v_local_y * 3.4;
 	float cs = cos(swirl_ang * 0.35);
@@ -132,20 +132,23 @@ void fragment() {
 	float ribbon_flow = 0.5 + 0.5 * sin(abs(v_local_pos.x) * 14.0 - swirl_t * 2.2 + star_layer_a * 3.0);
 	float starlight_mask = (star_motes * (0.55 + core_trans * 0.45) + v_ribbon_mask * ribbon_flow * star_layer_b * 0.45);
 
-	// Delicate mother-of-pearl silk sheen tint along the gentle Fresnel rim (serene, non-blazing)
-	vec3 pearl_silk_sheen = vec3(1.0, 0.95, 0.90);
-	vec3 warm_ivory_rim = mix(rim_color, pearl_silk_sheen, 0.50);
+	// Opalescent sky-pearl & soft rose-lilac sheen along the gentle Fresnel rim (serene, non-blazing)
+	float opal_shift = 0.5 + 0.5 * sin(v_local_y * 3.6 + TIME * 1.05 + (1.0 - ndotv) * 3.2);
+	vec3 sky_pearl_sheen = vec3(0.88, 0.96, 1.0);
+	vec3 rose_lilac_sheen = vec3(1.0, 0.86, 0.94);
+	vec3 opal_sheen = mix(rose_lilac_sheen, sky_pearl_sheen, opal_shift);
+	vec3 opalescent_rim = mix(rim_color, opal_sheen, 0.50);
 
-	ALBEDO = mix(sculpted_albedo, warm_ivory_rim, fresnel_soft * 0.16);
+	ALBEDO = mix(sculpted_albedo, opalescent_rim, fresnel_soft * 0.16);
 	METALLIC = metallic_val;
 	ROUGHNESS = clamp(roughness_val - star_motes * 0.06, 0.22, 0.95);
 
-	// Compose serene living candlelight glow + starlight shimmer + mother-of-pearl silk rim
+	// Compose serene living spirit glow + starlight shimmer + opalescent sky-rose silk rim
 	float shimmer = 0.96 + 0.04 * sin(TIME * 3.2 - v_local_y * 4.5);
-	vec3 inner_glow = mix(emission_color, amber_sss, 0.32 * (1.0 - core_trans))
+	vec3 inner_glow = mix(emission_color, spirit_sss, 0.32 * (1.0 - core_trans))
 		* (emission_strength + core_trans * 0.05 + thin_trans * 0.035 + energy_flare * 0.14);
-	vec3 starlight_emit = warm_ivory_rim * starlight_mask * (0.075 + energy_flare * 0.08);
-	vec3 rim_emit = warm_ivory_rim * (
+	vec3 starlight_emit = opalescent_rim * starlight_mask * (0.075 + energy_flare * 0.08);
+	vec3 rim_emit = opalescent_rim * (
 		fresnel_soft * 0.10
 		+ fresnel_crisp * 0.15
 		+ v_ribbon_mask * fresnel_soft * 0.05

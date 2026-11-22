@@ -11,24 +11,24 @@ extends Node3D
 @export_group("Flight Corridor")
 @export var corridor_z_start: float = 50.0
 @export var corridor_z_end: float = -320.0
-@export var corridor_half_width: float = 28.0
+@export var corridor_half_width: float = 58.0
 
 @export_group("Cloud Sea Floor")
-@export var sea_floor_y: float = -24.0
-@export var floor_cluster_count: int = 72
+@export var sea_floor_y: float = -40.0
+@export var floor_cluster_count: int = 24
 @export var floor_x_extent: float = 205.0
 
 @export_group("Flanking Cloud Canyon")
-@export var canyon_clusters_per_side: int = 38
+@export var canyon_clusters_per_side: int = 10
 @export var canyon_outer_x: float = 152.0
-@export var canyon_min_y: float = -12.0
-@export var canyon_max_y: float = 46.0
+@export var canyon_min_y: float = -24.0
+@export var canyon_max_y: float = 22.0
 
 @export_group("Cathedral Cloud Amphitheater")
-@export var cathedral_cloud_count: int = 18
+@export var cathedral_cloud_count: int = 5
 
 @export_group("High Celestial Wisps")
-@export var high_wisp_count: int = 20
+@export var high_wisp_count: int = 4
 
 @export_group("Animation")
 @export var bob_amplitude_scale: float = 1.0
