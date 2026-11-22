@@ -58,6 +58,10 @@ var _mat_gold_thread: StandardMaterial3D
 var _mat_light_core: StandardMaterial3D
 var _mat_glass_skylight: StandardMaterial3D
 var _mat_warm_window: StandardMaterial3D
+var _mat_island_grass: StandardMaterial3D
+var _mat_island_rock: Material
+var _mat_waterfall: StandardMaterial3D
+var _mat_island_vine: StandardMaterial3D
 var _mat_mentor_body: Material
 var _mat_mentor_halo: StandardMaterial3D
 var _mat_god_rays: ShaderMaterial
@@ -253,6 +257,33 @@ func _init_materials() -> void:
 	_mat_warm_window.emission_enabled = true
 	_mat_warm_window.emission = Color("#FFE2A0")
 	_mat_warm_window.emission_energy_multiplier = 1.35
+
+	# Sculpted Floating Paradise Island materials (lush meadow grass, travertine sky-rock, turquoise waterfalls, hanging ivy)
+	_mat_island_grass = StandardMaterial3D.new()
+	_mat_island_grass.albedo_color = Color("#48A054")
+	_mat_island_grass.roughness = 0.82
+	_mat_island_grass.metallic = 0.0
+
+	_mat_island_rock = _create_velvet_stone_material(
+		Color("#C8C4BC"), Color("#E2DED4"), Color("#8A92A0"), 0.78, 0.12, 0.18, 0.45
+	)
+
+	_mat_waterfall = StandardMaterial3D.new()
+	_mat_waterfall.albedo_color = Color(0.408, 0.863, 0.910, 0.76)
+	_mat_waterfall.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	_mat_waterfall.roughness = 0.16
+	_mat_waterfall.metallic = 0.02
+	_mat_waterfall.cull_mode = BaseMaterial3D.CULL_DISABLED
+	_mat_waterfall.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_OPAQUE_ONLY
+	_mat_waterfall.emission_enabled = true
+	_mat_waterfall.emission = Color("#A8F4FF")
+	_mat_waterfall.emission_energy_multiplier = 0.35
+
+	_mat_island_vine = StandardMaterial3D.new()
+	_mat_island_vine.albedo_color = Color("#2E7D44")
+	_mat_island_vine.roughness = 0.72
+	_mat_island_vine.metallic = 0.0
+	_mat_island_vine.cull_mode = BaseMaterial3D.CULL_DISABLED
 
 	var mentor_mat: ShaderMaterial = ShaderMaterial.new()
 	mentor_mat.shader = MENTOR_SHADER
@@ -729,9 +760,13 @@ func _build_floating_temple_islands() -> void:
 # ---------------------------------------------------------------------------
 
 func _add_cathedral_colliders(root: Node3D) -> void:
-	# Lower flanking garden terrace wings (y = 0..4.0, x = +-15..+-44, z = -22..+32)
-	_add_box_collider(root, "CathedralLowerTerrace_W", Vector3(29.0, 4.0, 54.0), Vector3(-29.5, 2.0, 5.0))
-	_add_box_collider(root, "CathedralLowerTerrace_E", Vector3(29.0, 4.0, 54.0), Vector3(29.5, 2.0, 5.0))
+	# South arrival meadow apron flush at y = 0.0 in front of the grand front staircase (z = +36..+54)
+	_add_box_collider(root, "CathedralArrivalMeadowCollider", Vector3(34.0, 2.0, 18.0), Vector3(0.0, -1.0, 45.0))
+
+	# Lush outer lower island meadow terraces (top at y = 3.92, West/East flanks x = +-15..+-53 & North meadow z = -48..-22)
+	_add_box_collider(root, "CathedralLowerTerrace_W", Vector3(38.0, 4.0, 68.0), Vector3(-34.0, 1.92, 0.0))
+	_add_box_collider(root, "CathedralLowerTerrace_E", Vector3(38.0, 4.0, 68.0), Vector3(34.0, 1.92, 0.0))
+	_add_box_collider(root, "CathedralLowerTerrace_N", Vector3(56.0, 4.0, 26.0), Vector3(0.0, 1.92, -35.0))
 
 	# Main Rotunda & Panoramic Side Galleries floor slab (top strictly at y = 8.0, covering x = -38..+38, z = -22..+24)
 	_add_box_collider(root, "CathedralRotundaFloorCollider", Vector3(76.0, 4.0, 46.0), Vector3(0.0, 6.0, 1.0))
@@ -1320,7 +1355,15 @@ func _classify_glb_surface_material(src_mat: Material) -> Material:
 
 	if src_mat != null:
 		mat_name = src_mat.resource_name.to_lower()
-		# Explicit Walkable Fairytale Castle material mappings (zero shimmer, crisp identity)
+		# Explicit Walkable Fairytale Castle & Floating Island material mappings (zero shimmer, crisp identity)
+		if mat_name.contains("islandgrass") or mat_name.contains("island_grass"):
+			return _mat_island_grass
+		if mat_name.contains("islandrock") or mat_name.contains("island_rock"):
+			return _mat_island_rock
+		if mat_name.contains("waterfall"):
+			return _mat_waterfall
+		if mat_name.contains("islandvine") or mat_name.contains("island_vine") or mat_name.contains("vine"):
+			return _mat_island_vine
 		if mat_name.contains("glass") or mat_name.contains("skylight"):
 			return _mat_glass_skylight
 		if mat_name.contains("window"):

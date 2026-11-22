@@ -1,9 +1,9 @@
 shader_type spatial;
 render_mode blend_mix, depth_draw_never, cull_disabled, unshaded;
 
-// Hyper-Detailed Volumetric Painterly 3D Cumulus Cloud Shader
-// Combines 3D Worley/Voronoi cellular cauliflower lobes, 5-octave domain-warped FBM,
-// 3-tap directional sun-marching volumetric self-shadowing, and depth-soft architecture blending.
+// Hyper-Detailed Volumetric Painterly 3D Cumulus Cloud Shader (Retina 60 FPS Optimized)
+// Combines 3D Worley/Voronoi cellular cauliflower lobes, 3-octave domain-warped FBM,
+// fast 2-tap directional sun-marching volumetric self-shadowing, and depth-soft architecture blending.
 // Palette: #6C8CC0 deep shadow -> #9DB8E0 mid shadow -> #EDF2FA sunlit cloud -> #FFFFFF pure crown -> #FFEAC4 silver-lining.
 
 group_uniforms cloud_colors;
@@ -101,25 +101,18 @@ float worley_cumulus_3d(vec3 p) {
 	return dome * dome * (3.0 - 2.0 * dome);
 }
 
-// 5-octave sculpted cumulus FBM for fine wispy tufts and painterly brush detail
-float fbm_cloud_5(vec3 p) {
+// Crisp, punchy 3-octave sculpted cumulus FBM for wispy tufts and painterly brush detail
+float fbm_cloud_3(vec3 p) {
 	float v = 0.0;
-	float amp = 0.50;
+	float amp = 0.54;
 	float norm = 0.0;
-	for (int i = 0; i < 5; i++) {
+	for (int i = 0; i < 3; i++) {
 		v += amp * smooth_noise_3d(p);
 		norm += amp;
-		p = p * 2.07 + vec3(5.3, -3.7, 4.9);
-		amp *= 0.49;
+		p = p * 2.15 + vec3(5.3, -3.7, 4.9);
+		amp *= 0.48;
 	}
 	return v / max(norm, 0.001);
-}
-
-// Fast 2-octave Worley + value density used for 3-tap directional sun-marching
-float cloud_density_march(vec3 p) {
-	float w1 = worley_cumulus_3d(p * 1.08);
-	float n2 = smooth_noise_3d(p * 2.35 + vec3(3.1, -2.4, 5.7));
-	return clamp(w1 * 0.68 + n2 * 0.32, 0.0, 1.0);
 }
 
 void vertex() {
@@ -163,38 +156,31 @@ void fragment() {
 	vec3 drift = vec3(TIME * billow_speed * 0.045, TIME * billow_speed * 0.075, TIME * billow_speed * 0.09);
 	vec3 p_base = v_world_pos * 0.088 + drift;
 
-	// Domain warp for swirling painterly cumulus forms
-	vec3 warp = vec3(
-		smooth_noise_3d(p_base * 0.72 + vec3(1.7, 9.2, 3.4)),
-		smooth_noise_3d(p_base * 0.72 + vec3(8.3, 2.8, 6.1)),
-		smooth_noise_3d(p_base * 0.72 + vec3(4.1, 6.7, 1.9))
-	) - vec3(0.5);
+	// Lightweight 2-sample 3D domain warp for swirling painterly cumulus forms
+	float warp_a = smooth_noise_3d(p_base * 0.72 + vec3(1.7, 9.2, 3.4)) - 0.5;
+	float warp_b = smooth_noise_3d(p_base * 0.72 + vec3(8.3, 2.8, 6.1)) - 0.5;
+	vec3 warp = vec3(warp_a, warp_b, -(warp_a + warp_b) * 0.55);
 	vec3 p_warped = p_base + warp * 0.82;
 
-	// 2-octave 3D Worley cauliflower lobes + 5-octave domain-warped FBM wisps
-	float worley_large = worley_cumulus_3d(p_warped * 1.12);
-	float worley_med = worley_cumulus_3d(p_warped * 2.38 + vec3(3.7, -4.1, 2.9));
-	float cumulus_lobe = worley_large * 0.64 + worley_med * 0.36;
-
-	float warped_fbm = fbm_cloud_5(p_warped * 1.18);
-	float fine_tufts = smooth_noise_3d(p_warped * 4.2 + warp * 1.15);
+	// 1-octave 3D Worley cauliflower lobe + crisp 3-octave domain-warped FBM wisps
+	float cumulus_lobe = worley_cumulus_3d(p_warped * 1.24);
+	float warped_fbm = fbm_cloud_3(p_warped * 1.22);
 
 	// Sculpt crisp sunlit cauliflower crowns and deep tucked sky-blue crevices
 	float combined_detail = mix(warped_fbm, cumulus_lobe, 0.56);
 	float tuft_ridge = smoothstep(0.18, 0.84, combined_detail);
-	float valley_carve = (tuft_ridge - 0.46) * detail_contrast + (fine_tufts - 0.5) * (detail_contrast * 0.32);
+	float valley_carve = (tuft_ridge - 0.46) * (detail_contrast * 1.12);
 	float crevice_ao = (1.0 - smoothstep(0.10, 0.76, cumulus_lobe)) * crevice_ao_strength;
 
-	// 3-tap directional sun-marching toward sun_dir for authentic volumetric self-shadowing
-	float d_tap1 = cloud_density_march(p_warped + sun_dir * 0.24);
-	float d_tap2 = cloud_density_march(p_warped + sun_dir * 0.62);
-	float d_tap3 = cloud_density_march(p_warped + sun_dir * 1.25);
-	float optical_depth = d_tap1 * 0.46 + d_tap2 * 0.34 + d_tap3 * 0.20;
+	// Fast 2-tap directional sun-marching toward sun_dir using smooth_noise_3d for volumetric self-shadowing
+	float d_tap1 = smooth_noise_3d((p_warped + sun_dir * 0.28) * 1.35);
+	float d_tap2 = smooth_noise_3d((p_warped + sun_dir * 0.85) * 1.15 + vec3(2.7, -1.9, 4.3));
+	float optical_depth = d_tap1 * 0.60 + d_tap2 * 0.40;
 	float sun_transmittance = exp(-optical_depth * sun_shadow_strength);
 	// Local micro-relief highlights sunlit edge of each cauliflower bump
-	float micro_sun_relief = clamp((cumulus_lobe - d_tap1) * 1.45, -0.34, 0.38) * detail_contrast;
+	float micro_sun_relief = clamp((cumulus_lobe - d_tap1) * 1.38, -0.32, 0.36) * detail_contrast;
 
-	// Wrapped volumetric lighting combining sun direction, sky zenith bounce, 3-tap sun marching, and crevice AO
+	// Wrapped volumetric lighting combining sun direction, sky zenith bounce, 2-tap sun marching, and crevice AO
 	float sun_wrap = clamp(dot(n_world, sun_dir) * 0.55 + 0.45, 0.0, 1.0);
 	float up_grad = clamp(n_world.y * 0.5 + 0.5, 0.0, 1.0);
 	float base_shadow = v_base_mask * 0.28;
@@ -234,8 +220,8 @@ void fragment() {
 	float scatter_mod = mix(0.65, 1.25, sun_transmittance);
 	col += gold_rim_color * (forward_scatter * (0.26 + 0.74 * fresnel_rim) + backlit_silver * 0.90) * forward_scatter_strength * scatter_mod;
 
-	// Painterly scalloped cloud silhouette modulated by Worley domes + high-frequency FBM wisps
-	float edge_wisp = (cumulus_lobe - 0.5) * 0.24 + (warped_fbm - 0.5) * 0.22 + (fine_tufts - 0.5) * 0.14;
+	// Painterly scalloped cloud silhouette modulated by Worley domes + 3-octave FBM wisps
+	float edge_wisp = (cumulus_lobe - 0.5) * 0.26 + (warped_fbm - 0.5) * 0.30;
 	float feathered_ndotv = clamp(ndotv + edge_wisp, 0.0, 1.0);
 	float edge_alpha = smoothstep(0.04, fresnel_softness, feathered_ndotv);
 

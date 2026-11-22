@@ -23,13 +23,13 @@ signal flight_mode_changed(is_flying: bool)
 			else:
 				Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
-# --- Ground Movement (Stray Cat Feel) ---
+# --- Ground Movement (Fluid Meditative Feel) ---
 @export_group("Ground Movement")
 @export var ground_speed: float = 12.0
 @export var sprint_speed: float = 17.5
-@export var ground_acceleration: float = 34.0
-@export var ground_deceleration: float = 28.0
-@export var ground_turn_speed: float = 16.0
+@export var ground_acceleration: float = 24.0
+@export var ground_deceleration: float = 20.0
+@export var ground_turn_speed: float = 12.5
 @export var jump_velocity: float = 11.5
 @export var gravity: float = 24.0
 @export var fall_gravity_multiplier: float = 0.82
@@ -52,7 +52,7 @@ signal flight_mode_changed(is_flying: bool)
 @export var flight_descend_speed: float = 11.5
 @export var flight_max_speed: float = 34.0
 @export var flight_glide_sink: float = 0.85
-@export var flight_responsiveness: float = 7.5
+@export var flight_responsiveness: float = 6.0
 @export var max_bank_roll_deg: float = 34.0
 
 # --- Wing Energy & Abilities ---
@@ -68,18 +68,20 @@ signal flight_mode_changed(is_flying: bool)
 @export var call_cooldown: float = 1.4
 @export var call_pulse_duration: float = 0.78
 
-# --- Camera (Stray Third-Person Framing) ---
+# --- Camera (Silky Third-Person Framing) ---
 @export_group("Camera")
 @export var base_fov: float = 58.0
 @export var max_fov: float = 74.0
-@export var fov_lerp_speed: float = 5.2
+@export var fov_lerp_speed: float = 4.6
 @export var camera_follow_speed: float = 4.2
+@export var camera_rot_smooth: float = 18.0
+@export var camera_pos_smooth: float = 18.0
 @export var auto_center_delay: float = 1.8
 @export var camera_roll_factor: float = 0.22
 @export var spring_length_ground: float = 6.8
 @export var spring_length_flight: float = 8.8
 @export var spring_length_surge_bonus: float = 1.6
-@export var spring_arm_lerp_speed: float = 5.0
+@export var spring_arm_lerp_speed: float = 4.5
 @export var mouse_look_sensitivity: float = 0.0035
 @export var zoom_min_offset: float = -3.0
 @export var zoom_max_offset: float = 5.5
@@ -106,6 +108,9 @@ var visual_pitch: float = 0.0
 
 var cam_yaw: float = 0.0
 var cam_pitch: float = -0.22
+var _target_cam_yaw: float = 0.0
+var _target_cam_pitch: float = -0.22
+var _camera_rig_height: float = 1.9
 var cam_zoom_offset: float = 0.0
 var _target_zoom_offset: float = 0.0
 var _manual_cam_timer: float = 0.0
@@ -171,12 +176,20 @@ func _ready() -> void:
 	wing_energy = max_wing_energy
 	facing_yaw = rotation.y
 	cam_yaw = facing_yaw
+	_target_cam_yaw = cam_yaw
+	_target_cam_pitch = cam_pitch
 	_was_input_enabled = input_enabled
 
 	if input_enabled:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	else:
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+
+	if camera_rig:
+		_camera_rig_height = camera_rig.position.y
+		camera_rig.top_level = true
+		camera_rig.global_position = global_position + Vector3(0.0, _camera_rig_height, 0.0)
+		camera_rig.rotation = Vector3(cam_pitch, cam_yaw, 0.0)
 
 	if spring_arm:
 		spring_arm.add_excluded_object(get_rid())
@@ -190,7 +203,7 @@ func _ready() -> void:
 		_base_halo_y = star_halo.position.y
 
 	if spark_light:
-		spark_light.light_color = Color("#FFCEE4")
+		spark_light.light_color = Color("#E874B8")
 		spark_light.light_energy = _base_light_energy
 		spark_light.omni_range = 7.5
 
@@ -236,6 +249,7 @@ func _load_spark_model() -> void:
 	_spark_model_instance.name = "SparkModel"
 	# VisualPivot sits at y = 0.9 while spark.glb has its base at y = 0.0
 	_spark_model_instance.position = Vector3(0.0, -0.9, 0.0)
+	_spark_model_instance.scale = Vector3(1.18, 1.18, 1.18)
 	visual_pivot.add_child(_spark_model_instance)
 
 	_spark_halo_node = _spark_model_instance.find_child("SparkStarHalo", true, false) as Node3D
@@ -298,76 +312,76 @@ func _apply_spark_energy_shader_recursive(node: Node, energy_shader: Shader) -> 
 
 				var mat_name: String = src_mat.resource_name if src_mat != null else ""
 
-				# Default: SparkCrystalBody (pearlescent liquid-crystal glass)
-				var albedo_col: Color = Color.html("#F7EEF6")
-				var shadow_col: Color = Color.html("#8B5BB8")
-				var emit_col: Color = Color.html("#F4A0C8")
-				var rim_col: Color = Color.html("#9CEBFF")
-				var irid_col: Color = Color.html("#B48AF2")
-				var emit_str: float = 0.15
-				var metallic_v: float = 0.12
-				var roughness_v: float = 0.11
-				var clearcoat_v: float = 0.95
-				var alpha_v: float = 0.92
-				var irid_str: float = 1.05
+				# Default: SparkCrystalBody (rich jewel orchid-rose & royal amethyst crystal)
+				var albedo_col: Color = Color.html("#D9468F")
+				var shadow_col: Color = Color.html("#2A1052")
+				var emit_col: Color = Color.html("#9B44E8")
+				var rim_col: Color = Color.html("#5CE1FF")
+				var irid_col: Color = Color.html("#9B44E8")
+				var emit_str: float = 0.24
+				var metallic_v: float = 0.16
+				var roughness_v: float = 0.10
+				var clearcoat_v: float = 0.96
+				var alpha_v: float = 0.96
+				var irid_str: float = 1.10
 				var wing_flag: float = 0.0
 				var droplet_flag: float = 0.0
 				var sway_v: float = 1.0
 
 				if is_wing_ribbon or mat_name.contains("WingRibbon"):
-					# Gossamer iridescent sakura-orchid-aqua ribbon-wings
-					albedo_col = Color.html("#F6DCFA")
-					shadow_col = Color.html("#8C5CD6")
-					emit_col = Color.html("#B48AF2")
-					rim_col = Color.html("#9CEBFF")
-					irid_col = Color.html("#F4A0C8")
-					emit_str = 0.20
-					metallic_v = 0.10
-					roughness_v = 0.15
-					clearcoat_v = 0.85
-					alpha_v = 0.74
+					# Vibrant magenta-orchid to glowing sky-turquoise gossamer wing-ribbons
+					albedo_col = Color.html("#E052A0")
+					shadow_col = Color.html("#321466")
+					emit_col = Color.html("#4ED8FF")
+					rim_col = Color.html("#7CEEFF")
+					irid_col = Color.html("#4ED8FF")
+					emit_str = 0.28
+					metallic_v = 0.12
+					roughness_v = 0.13
+					clearcoat_v = 0.90
+					alpha_v = 0.82
 					irid_str = 1.35
 					wing_flag = 1.0
 					sway_v = 1.0
 				elif is_droplet or mat_name.contains("Droplets"):
-					# Orbiting liquid-crystal splash light-droplets
-					albedo_col = Color.html("#EFFAFF")
-					shadow_col = Color.html("#7A68C8")
-					emit_col = Color.html("#9CEBFF")
-					rim_col = Color.html("#FFFFFF")
-					irid_col = Color.html("#F4A0C8")
-					emit_str = 0.22
-					metallic_v = 0.18
+					# Bright sparkling jewel-cyan & rose-pearl orbiting light-droplets
+					albedo_col = Color.html("#4ED8FF")
+					shadow_col = Color.html("#3A1B78")
+					emit_col = Color.html("#6CE8FF")
+					rim_col = Color.html("#FFB8E2")
+					irid_col = Color.html("#E052A0")
+					emit_str = 0.34
+					metallic_v = 0.22
 					roughness_v = 0.08
 					clearcoat_v = 1.0
-					alpha_v = 0.88
+					alpha_v = 0.94
 					irid_str = 1.25
 					droplet_flag = 1.0
 					sway_v = 1.0
 				elif is_halo or mat_name.contains("StarHalo"):
-					# Floating celestial starlight crescent & star-crystal halo
-					albedo_col = Color.html("#E6F8FF")
-					shadow_col = Color.html("#7A84D8")
-					emit_col = Color.html("#9CEBFF")
-					rim_col = Color.html("#FFF5FA")
-					irid_col = Color.html("#B48AF2")
-					emit_str = 0.26
-					metallic_v = 0.24
-					roughness_v = 0.09
+					# Bright sparkling jewel-cyan & rose-pearl celestial star-halo
+					albedo_col = Color.html("#5CE1FF")
+					shadow_col = Color.html("#4A1E8A")
+					emit_col = Color.html("#F078C8")
+					rim_col = Color.html("#8CF2FF")
+					irid_col = Color.html("#9B44E8")
+					emit_str = 0.36
+					metallic_v = 0.26
+					roughness_v = 0.08
 					clearcoat_v = 1.0
-					alpha_v = 0.95
-					irid_str = 1.15
+					alpha_v = 0.96
+					irid_str = 1.20
 					sway_v = 0.0
 				elif mat_name.contains("CrystalBody"):
-					# Explicit match for SparkCrystalBodyMat (uses pearlescent crystal defaults above)
+					# Explicit match for SparkCrystalBodyMat (uses jewel orchid-rose crystal defaults above)
 					pass
 				elif src_mat is StandardMaterial3D:
 					var std_mat: StandardMaterial3D = src_mat as StandardMaterial3D
 					albedo_col = std_mat.albedo_color
 					if std_mat.emission_enabled:
 						emit_col = std_mat.emission
-						emit_str = clampf(std_mat.emission_energy_multiplier * 0.14, 0.10, 0.22)
-					metallic_v = clampf(std_mat.metallic, 0.08, 0.28)
+						emit_str = clampf(std_mat.emission_energy_multiplier * 0.18, 0.14, 0.28)
+					metallic_v = clampf(std_mat.metallic, 0.10, 0.28)
 					roughness_v = clampf(std_mat.roughness, 0.08, 0.18)
 
 				# Pass Color directly so Godot converts source_color uniforms from sRGB to linear HDR
@@ -426,8 +440,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		var is_dragging: bool = Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT) or Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)
 		if is_captured or is_dragging:
 			var motion: InputEventMouseMotion = event as InputEventMouseMotion
-			cam_yaw -= motion.relative.x * mouse_look_sensitivity
-			cam_pitch = clampf(cam_pitch - motion.relative.y * mouse_look_sensitivity, deg_to_rad(-68.0), deg_to_rad(52.0))
+			_target_cam_yaw -= motion.relative.x * mouse_look_sensitivity
+			_target_cam_pitch = clampf(_target_cam_pitch - motion.relative.y * mouse_look_sensitivity, deg_to_rad(-68.0), deg_to_rad(52.0))
 			_manual_cam_timer = auto_center_delay
 
 
@@ -497,6 +511,26 @@ func recharge_wing_energy(amount: float) -> void:
 		wing_energy_changed.emit(wing_energy, max_wing_energy)
 
 
+## Public API: Synchronizes damped camera yaw/pitch targets and snaps CameraRig immediately.
+func reset_camera(yaw: float = facing_yaw, pitch: float = -0.22) -> void:
+	cam_yaw = yaw
+	_target_cam_yaw = yaw
+	cam_pitch = clampf(pitch, deg_to_rad(-68.0), deg_to_rad(52.0))
+	_target_cam_pitch = cam_pitch
+	if camera_rig:
+		camera_rig.global_position = global_position + Vector3(0.0, _camera_rig_height, 0.0)
+		camera_rig.rotation = Vector3(cam_pitch, cam_yaw, 0.0)
+
+
+## Public API: Teleports Spark cleanly while keeping damped camera targets and rig in sync.
+func teleport_to(target_pos: Vector3, new_yaw: float = facing_yaw) -> void:
+	global_position = target_pos
+	velocity = Vector3.ZERO
+	_boost_velocity = Vector3.ZERO
+	facing_yaw = new_yaw
+	reset_camera(new_yaw, cam_pitch)
+
+
 # ==============================================================================
 # PHYSICS STATES
 # ==============================================================================
@@ -536,7 +570,9 @@ func _process_disabled_state(delta: float) -> void:
 	if is_flying:
 		velocity = velocity.lerp(Vector3.ZERO, 1.0 - exp(-4.0 * delta))
 	else:
-		var horiz: Vector3 = Vector3(velocity.x, 0.0, velocity.z).move_toward(Vector3.ZERO, ground_deceleration * delta)
+		var horiz: Vector3 = Vector3(velocity.x, 0.0, velocity.z).lerp(Vector3.ZERO, 1.0 - exp(-ground_deceleration * 0.45 * delta))
+		if horiz.length_squared() < 0.002:
+			horiz = Vector3.ZERO
 		velocity.x = horiz.x
 		velocity.z = horiz.z
 		if not is_on_floor():
@@ -569,13 +605,15 @@ func _physics_ground(delta: float, steer_x: float, move_z: float) -> void:
 		wish_dir = wish_dir.normalized()
 		var target_horiz: Vector3 = wish_dir * active_ground_speed
 		var accel_rate: float = ground_acceleration * (0.35 if _ledge_leap_timer > 0.0 else 1.0)
-		horiz_vel = horiz_vel.move_toward(target_horiz, accel_rate * delta)
+		horiz_vel = horiz_vel.lerp(target_horiz, 1.0 - exp(-accel_rate * 0.45 * delta))
 
 		var target_yaw: float = atan2(-wish_dir.x, -wish_dir.z)
 		turn_angle_diff = wrapf(target_yaw - facing_yaw, -PI, PI)
 		facing_yaw = lerp_angle(facing_yaw, target_yaw, 1.0 - exp(-ground_turn_speed * delta))
 	elif _ledge_leap_timer <= 0.0:
-		horiz_vel = horiz_vel.move_toward(Vector3.ZERO, ground_deceleration * delta)
+		horiz_vel = horiz_vel.lerp(Vector3.ZERO, 1.0 - exp(-ground_deceleration * 0.45 * delta))
+		if horiz_vel.length_squared() < 0.002:
+			horiz_vel = Vector3.ZERO
 
 	# Apply Golden Forward Surge if active
 	if _surge_timer > 0.0:
@@ -930,8 +968,8 @@ func _update_camera(delta: float) -> void:
 		var key_cam_x: float = (1.0 if Input.is_key_pressed(KEY_RIGHT) else 0.0) - (1.0 if Input.is_key_pressed(KEY_LEFT) else 0.0)
 		var key_cam_y: float = (1.0 if Input.is_key_pressed(KEY_UP) else 0.0) - (1.0 if Input.is_key_pressed(KEY_DOWN) else 0.0)
 		if absf(key_cam_x) > 0.01 or absf(key_cam_y) > 0.01:
-			cam_yaw -= key_cam_x * keyboard_cam_yaw_speed * delta
-			cam_pitch = clampf(cam_pitch + key_cam_y * keyboard_cam_pitch_speed * delta, deg_to_rad(-68.0), deg_to_rad(52.0))
+			_target_cam_yaw -= key_cam_x * keyboard_cam_yaw_speed * delta
+			_target_cam_pitch = clampf(_target_cam_pitch + key_cam_y * keyboard_cam_pitch_speed * delta, deg_to_rad(-68.0), deg_to_rad(52.0))
 			_manual_cam_timer = auto_center_delay
 
 	# Gentle Stray-style auto-centering behind Spark's travel direction after 1.8s of no manual input
@@ -941,9 +979,22 @@ func _update_camera(delta: float) -> void:
 		if horiz_speed > 1.5:
 			var travel_yaw: float = atan2(-horiz_vel.x, -horiz_vel.z)
 			var follow_rate: float = camera_follow_speed * (0.65 if is_flying else 0.45)
-			cam_yaw = lerp_angle(cam_yaw, travel_yaw, 1.0 - exp(-follow_rate * delta))
+			_target_cam_yaw = lerp_angle(_target_cam_yaw, travel_yaw, 1.0 - exp(-follow_rate * delta))
 			if not is_flying:
-				cam_pitch = lerpf(cam_pitch, -0.22, 1.0 - exp(-follow_rate * 0.4 * delta))
+				_target_cam_pitch = lerpf(_target_cam_pitch, -0.22, 1.0 - exp(-follow_rate * 0.4 * delta))
+
+	# Silky exponential rotational inertia for mouse & keyboard orbit (zero micro-stutter)
+	var rot_t: float = 1.0 - exp(-camera_rot_smooth * delta)
+	cam_yaw = lerp_angle(cam_yaw, _target_cam_yaw, rot_t)
+	cam_pitch = lerpf(cam_pitch, _target_cam_pitch, rot_t)
+
+	# Smooth top_level CameraRig position tracking with instant snap on teleports (> 12m)
+	var target_rig_pos: Vector3 = global_position + Vector3(0.0, _camera_rig_height, 0.0)
+	if camera_rig.global_position.distance_squared_to(target_rig_pos) > 144.0:
+		camera_rig.global_position = target_rig_pos
+	else:
+		var pos_rate: float = camera_pos_smooth * (0.85 if is_flying else 1.1)
+		camera_rig.global_position = camera_rig.global_position.lerp(target_rig_pos, 1.0 - exp(-pos_rate * delta))
 
 	camera_rig.rotation = Vector3(cam_pitch, cam_yaw, 0.0)
 

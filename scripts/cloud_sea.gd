@@ -16,17 +16,17 @@ extends Node3D
 
 @export_group("Cloud Sea Floor")
 @export var sea_floor_y: float = -42.0
-@export var floor_cluster_count: int = 16
+@export var floor_cluster_count: int = 13
 @export var floor_x_extent: float = 215.0
 
 @export_group("Under-Viaduct Billows")
 @export var viaduct_x_offset: float = 56.0
-@export var viaduct_billows_per_side: int = 5
+@export var viaduct_billows_per_side: int = 4
 @export var viaduct_billow_min_y: float = -38.0
 @export var viaduct_billow_max_y: float = -26.0
 
 @export_group("Flanking Cloud Canyon")
-@export var canyon_clusters_per_side: int = 9
+@export var canyon_clusters_per_side: int = 8
 @export var canyon_inner_x: float = 74.0
 @export var canyon_outer_x: float = 162.0
 @export var canyon_min_y: float = -22.0
@@ -68,8 +68,8 @@ func _setup_shared_resources() -> void:
 	_shared_mesh = SphereMesh.new()
 	_shared_mesh.radius = 1.0
 	_shared_mesh.height = 2.0
-	_shared_mesh.radial_segments = 28
-	_shared_mesh.rings = 16
+	_shared_mesh.radial_segments = 24
+	_shared_mesh.rings = 14
 
 	_shared_material = ShaderMaterial.new()
 	_shared_material.shader = cloud_shader
@@ -111,11 +111,11 @@ func _generate_sea_floor() -> void:
 			y_pos -= _rng.randf_range(5.0, 11.0)
 
 		var base_scale: Vector3 = Vector3(
-			_rng.randf_range(18.0, 35.0),
-			_rng.randf_range(7.0, 13.0),
-			_rng.randf_range(18.0, 34.0)
+			_rng.randf_range(19.5, 37.0),
+			_rng.randf_range(7.5, 13.5),
+			_rng.randf_range(19.5, 36.0)
 		)
-		var puff_count: int = _rng.randi_range(5, 6)
+		var puff_count: int = _rng.randi_range(4, 5)
 		_spawn_cumulus_tower(
 			"SeaFloor_%02d" % i,
 			Vector3(x_pos, y_pos, z_pos),
@@ -143,11 +143,11 @@ func _generate_viaduct_billows(side_sign: float) -> void:
 		var y_pos: float = _rng.randf_range(viaduct_billow_min_y, viaduct_billow_max_y)
 
 		var base_scale: Vector3 = Vector3(
-			_rng.randf_range(11.0, 18.0),
-			_rng.randf_range(4.2, 7.2),
-			_rng.randf_range(12.0, 20.0)
+			_rng.randf_range(11.5, 18.5),
+			_rng.randf_range(4.4, 7.4),
+			_rng.randf_range(12.5, 20.5)
 		)
-		var puff_count: int = _rng.randi_range(3, 4)
+		var puff_count: int = _rng.randi_range(2, 3)
 		_spawn_stratified_cloud(
 			"ViaductBillow_%s_%02d" % [side_label, i],
 			Vector3(x_pos, y_pos, z_pos),
@@ -180,11 +180,11 @@ func _generate_canyon_wall(side_sign: float) -> void:
 		var y_pos: float = lerpf(canyon_min_y, canyon_max_y, pow(tier_ratio, 0.74)) + _rng.randf_range(-6.0, 8.0)
 
 		var base_scale: Vector3 = Vector3(
-			_rng.randf_range(16.0, 29.0),
-			_rng.randf_range(9.5, 17.5),
-			_rng.randf_range(17.0, 30.0)
+			_rng.randf_range(17.0, 30.0),
+			_rng.randf_range(10.0, 18.0),
+			_rng.randf_range(18.0, 31.0)
 		)
-		var puff_count: int = _rng.randi_range(6, 8)
+		var puff_count: int = _rng.randi_range(4, 6)
 		_spawn_cumulus_tower(
 			"Canyon_%s_%02d" % [side_label, i],
 			Vector3(x_pos, y_pos, z_pos),
@@ -200,20 +200,21 @@ func _generate_canyon_wall(side_sign: float) -> void:
 
 func _generate_cathedral_amphitheater() -> void:
 	# Sweeping sunlit cumulus towers embracing the lower base & flanks of the Castle at z = -280
+	# Radius 96..156m frames the ~60m Floating Castle Island cleanly without clipping lakes/waterfalls
 	for i: int in range(cathedral_cloud_count):
 		var t: float = float(i) / maxf(float(cathedral_cloud_count - 1), 1.0)
 		var angle: float = lerpf(-0.84 * PI, -0.16 * PI, t)
-		var radius: float = _rng.randf_range(92.0, 152.0)
+		var radius: float = _rng.randf_range(96.0, 156.0)
 		var x_pos: float = cos(angle) * radius
 		var z_pos: float = -280.0 + sin(angle) * (radius * 0.54)
 		var y_pos: float = lerpf(-22.0, 26.0, absf(cos(angle))) + _rng.randf_range(-7.0, 10.0)
 
 		var base_scale: Vector3 = Vector3(
-			_rng.randf_range(22.0, 38.0),
-			_rng.randf_range(11.5, 20.5),
-			_rng.randf_range(20.0, 34.0)
+			_rng.randf_range(23.0, 39.0),
+			_rng.randf_range(12.0, 21.0),
+			_rng.randf_range(21.0, 35.0)
 		)
-		var puff_count: int = _rng.randi_range(7, 9)
+		var puff_count: int = _rng.randi_range(5, 6)
 		_spawn_cumulus_tower(
 			"CathedralBank_%02d" % i,
 			Vector3(x_pos, y_pos, z_pos),
@@ -238,11 +239,11 @@ func _generate_high_wisps() -> void:
 		var y_pos: float = _rng.randf_range(62.0, 98.0)
 
 		var base_scale: Vector3 = Vector3(
-			_rng.randf_range(20.0, 36.0),
-			_rng.randf_range(4.0, 7.8),
-			_rng.randf_range(15.0, 26.0)
+			_rng.randf_range(21.0, 37.0),
+			_rng.randf_range(4.2, 8.0),
+			_rng.randf_range(16.0, 27.0)
 		)
-		var puff_count: int = _rng.randi_range(3, 4)
+		var puff_count: int = _rng.randi_range(2, 3)
 		_spawn_stratified_cloud(
 			"HighWisp_%02d" % i,
 			Vector3(x_pos, y_pos, z_pos),
@@ -266,7 +267,7 @@ func _spawn_cumulus_tower(
 	drift_speed_min: float,
 	drift_speed_max: float
 ) -> void:
-	## Builds a sculpted 3-tier fairytale cumulus tower:
+	## Builds a sculpted 3-tier fairytale cumulus tower (4-6 well-placed puffs for minimal overdraw):
 	## Tier 1: Wide flat-bottomed base lobes forming a grounded cloud deck.
 	## Tier 2: Rising rounded mid-domes billowing upward into shoulders.
 	## Tier 3: Smaller crisp cauliflower crown turrets crowning the sunlit summit.
@@ -276,10 +277,10 @@ func _spawn_cumulus_tower(
 	add_child(cluster)
 
 	var clamped_count: int = maxi(puff_count, 4)
-	var base_lobes: int = 3 if clamped_count >= 6 else 2
+	var base_lobes: int = 3 if clamped_count >= 7 else 2
 	var remaining: int = clamped_count - base_lobes
-	var mid_domes: int = maxi(1, int(ceil(float(remaining) * 0.55)))
-	var crown_turrets: int = maxi(1, remaining - mid_domes)
+	var crown_turrets: int = maxi(1, int(floor(float(remaining) * 0.5)))
+	var mid_domes: int = maxi(1, remaining - crown_turrets)
 
 	var base_angle_offset: float = _rng.randf_range(0.0, TAU)
 
@@ -288,16 +289,16 @@ func _spawn_cumulus_tower(
 		var pos: Vector3 = Vector3.ZERO
 		var scl: Vector3 = base_scale
 		if b == 0:
-			scl = Vector3(base_scale.x * 1.06, base_scale.y * 0.84, base_scale.z * 1.04)
+			scl = Vector3(base_scale.x * 1.08, base_scale.y * 0.84, base_scale.z * 1.06)
 		else:
 			var angle: float = base_angle_offset + (float(b - 1) / maxf(float(base_lobes - 1), 1.0)) * TAU + _rng.randf_range(-0.45, 0.45)
-			var dist: float = _rng.randf_range(0.46, 0.78)
+			var dist: float = _rng.randf_range(0.50, 0.82)
 			pos = Vector3(
 				cos(angle) * base_scale.x * dist,
 				_rng.randf_range(-0.14, 0.08) * base_scale.y,
 				sin(angle) * base_scale.z * dist
 			)
-			var factor: float = _rng.randf_range(0.68, 0.90)
+			var factor: float = _rng.randf_range(0.70, 0.92)
 			scl = Vector3(
 				base_scale.x * factor * _rng.randf_range(0.92, 1.15),
 				base_scale.y * factor * _rng.randf_range(0.72, 0.92),
@@ -309,13 +310,13 @@ func _spawn_cumulus_tower(
 	var mid_angle_offset: float = base_angle_offset + _rng.randf_range(0.5, 1.6)
 	for m: int in range(mid_domes):
 		var angle: float = mid_angle_offset + (float(m) / maxf(float(mid_domes), 1.0)) * TAU + _rng.randf_range(-0.4, 0.4)
-		var dist: float = _rng.randf_range(0.18, 0.52)
+		var dist: float = _rng.randf_range(0.22, 0.54) if mid_domes > 1 else _rng.randf_range(0.08, 0.24)
 		var pos: Vector3 = Vector3(
 			cos(angle) * base_scale.x * dist,
 			_rng.randf_range(0.28, 0.54) * base_scale.y * tower_height_factor,
 			sin(angle) * base_scale.z * dist
 		)
-		var factor: float = _rng.randf_range(0.56, 0.78)
+		var factor: float = _rng.randf_range(0.58, 0.80)
 		var scl: Vector3 = Vector3(
 			base_scale.x * factor * _rng.randf_range(0.86, 1.08),
 			base_scale.y * factor * _rng.randf_range(0.96, 1.24) * tower_height_factor,
@@ -327,13 +328,13 @@ func _spawn_cumulus_tower(
 	var crown_angle_offset: float = mid_angle_offset + _rng.randf_range(0.4, 1.4)
 	for c: int in range(crown_turrets):
 		var angle: float = crown_angle_offset + (float(c) / maxf(float(crown_turrets), 1.0)) * TAU + _rng.randf_range(-0.35, 0.35)
-		var dist: float = _rng.randf_range(0.05, 0.30) if crown_turrets > 1 else _rng.randf_range(0.0, 0.14)
+		var dist: float = _rng.randf_range(0.08, 0.32) if crown_turrets > 1 else _rng.randf_range(0.0, 0.14)
 		var pos: Vector3 = Vector3(
 			cos(angle) * base_scale.x * dist,
 			_rng.randf_range(0.58, 0.90) * base_scale.y * tower_height_factor,
 			sin(angle) * base_scale.z * dist
 		)
-		var factor: float = _rng.randf_range(0.36, 0.56)
+		var factor: float = _rng.randf_range(0.38, 0.58)
 		var scl: Vector3 = Vector3(
 			base_scale.x * factor * _rng.randf_range(0.82, 1.05),
 			base_scale.y * factor * _rng.randf_range(1.05, 1.38) * tower_height_factor,

@@ -1,16 +1,18 @@
 class_name AkashaGardenDecorator
 extends Node3D
 
-## Lush botanical and ornamental world decorator for the Akashic Chronicles Prologue.
-## Populates the Starting Monolith Plaza, all 5 Floating Temple Islands, and the
-## Colossal Cathedral Podium & Sanctuary with Sakura trees, carved blooming marble
-## planters, celestial silk-and-crystal garden ornaments, and cascading emerald ivy
-## & sakura-blossom vine garlands.
+## Eden Garden, Reflecting Lakes & Waterfalls Artist for the Akashic Chronicles Prologue.
+## Transforms the Starting Monolith Plaza, Twin Flanking Viaducts, 5 Floating Temple Islands,
+## and the Colossal Fairytale Castle Sanctuary into a lush sunlit Heavenly Garden Paradise
+## while staying locked at 60 FPS on macOS Retina via GPU-instanced MultiMeshInstance3D
+## batches (grass tufts, 4-color flowerbeds, lily pads, lotus flowers, cascading ivy vines,
+## and fluttering luminous butterflies).
 
 const SAKURA_TREE_PATH: String = "res://assets/models/props/sakura_tree.glb"
 const GARDEN_PLANTER_PATH: String = "res://assets/models/props/garden_planter.glb"
 const CELESTIAL_ORNAMENT_PATH: String = "res://assets/models/props/celestial_ornament.glb"
 const LUSH_BUSH_PATH: String = "res://assets/models/props/lush_bush_hedge.glb"
+const WATER_SHADER_PATH: String = "res://shaders/akasha_water.gdshader"
 
 const ORNAMENT_SWAY_MAX_RAD: float = 0.02617994 # 1.5 degrees in radians
 
@@ -18,8 +20,9 @@ var _sakura_tree_scene: PackedScene = null
 var _garden_planter_scene: PackedScene = null
 var _celestial_ornament_scene: PackedScene = null
 var _lush_bush_scene: PackedScene = null
+var _water_shader: Shader = null
 
-# Shared lightweight materials for cascading vines, verdant tree variants & procedural fallbacks
+# Shared lightweight materials
 var _mat_leaf_spring: StandardMaterial3D = null
 var _mat_leaf_emerald: StandardMaterial3D = null
 var _mat_leaf_mint: StandardMaterial3D = null
@@ -31,20 +34,63 @@ var _mat_blossom_blush: StandardMaterial3D = null
 var _mat_blossom_lilac: StandardMaterial3D = null
 var _mat_bark: StandardMaterial3D = null
 var _mat_marble: StandardMaterial3D = null
+var _mat_marble_curb: StandardMaterial3D = null
+var _mat_moss_border: StandardMaterial3D = null
+var _mat_lakebed: StandardMaterial3D = null
 var _mat_gold_trim: StandardMaterial3D = null
 var _mat_crystal: StandardMaterial3D = null
 var _mat_silk: StandardMaterial3D = null
+var _mat_water_oval: ShaderMaterial = null
+var _mat_water_ring: ShaderMaterial = null
+var _mat_grass_mm: StandardMaterial3D = null
+var _mat_flower_mm: StandardMaterial3D = null
+var _mat_lily_mm: StandardMaterial3D = null
+var _mat_lotus_mm: StandardMaterial3D = null
+var _mat_vine_leaf_mm: StandardMaterial3D = null
+var _mat_vine_blossom_mm: StandardMaterial3D = null
+var _mat_butterfly_mm: StandardMaterial3D = null
 
-# Shared lightweight meshes for instanced foliage & vine clusters
+# Shared lightweight meshes
 var _mesh_vine_stem: BoxMesh = null
 var _mesh_leaf_cluster: BoxMesh = null
 var _mesh_blossom_cluster: SphereMesh = null
 var _mesh_blossom_small: SphereMesh = null
+var _mesh_grass_tuft: ArrayMesh = null
+var _mesh_flower_cluster: ArrayMesh = null
+var _mesh_lily_pad: ArrayMesh = null
+var _mesh_lotus_flower: ArrayMesh = null
+var _mesh_butterfly: ArrayMesh = null
+
+# Batched GPU-instanced transform/color collectors (flushed to MultiMeshInstance3D at end)
+var _vine_stem_xforms: Array[Transform3D] = []
+var _vine_leaf_xforms: Array[Transform3D] = []
+var _vine_leaf_colors: Array[Color] = []
+var _vine_blossom_xforms: Array[Transform3D] = []
+var _vine_blossom_colors: Array[Color] = []
+
+var _grass_xforms: Array[Transform3D] = []
+var _grass_colors: Array[Color] = []
+var _flower_xforms: Array[Transform3D] = []
+var _flower_colors: Array[Color] = []
+
+var _lily_xforms: Array[Transform3D] = []
+var _lily_colors: Array[Color] = []
+var _lotus_xforms: Array[Transform3D] = []
+var _lotus_colors: Array[Color] = []
 
 # Animated celestial ornaments for gentle wind breathing
 var _sway_ornaments: Array[Node3D] = []
 var _sway_base_rot: Array[Vector3] = []
 var _sway_phases: Array[float] = []
+
+# Animated GPU-instanced butterflies
+var _butterfly_mmi: MultiMeshInstance3D = null
+var _butterfly_centers: Array[Vector3] = []
+var _butterfly_radii: Array[Vector2] = []
+var _butterfly_speeds: Array[float] = []
+var _butterfly_phases: Array[float] = []
+var _butterfly_scales: Array[float] = []
+
 var _elapsed_time: float = 0.0
 var _is_populated: bool = false
 
@@ -55,6 +101,8 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
 	_elapsed_time += delta
+
+	# Gentle wind breathing on celestial silk-and-crystal ornaments
 	var ornament_count: int = _sway_ornaments.size()
 	for i: int in range(ornament_count):
 		var ornament: Node3D = _sway_ornaments[i]
@@ -66,9 +114,41 @@ func _process(delta: float) -> void:
 		var sway_x: float = cos(_elapsed_time * 0.85 + phase * 1.37) * (ORNAMENT_SWAY_MAX_RAD * 0.65)
 		ornament.rotation = Vector3(base_rot.x + sway_x, base_rot.y, base_rot.z + sway_z)
 
+	# Smooth fluttering flight for luminous butterflies (single MultiMeshInstance3D draw call)
+	if _butterfly_mmi != null and _butterfly_mmi.multimesh != null:
+		var mm: MultiMesh = _butterfly_mmi.multimesh
+		var b_count: int = _butterfly_centers.size()
+		for i: int in range(b_count):
+			var center: Vector3 = _butterfly_centers[i]
+			var rad: Vector2 = _butterfly_radii[i]
+			var spd: float = _butterfly_speeds[i]
+			var ph: float = _butterfly_phases[i]
+			var sc: float = _butterfly_scales[i]
 
-## Populates the entire Prologue world with Sakura & verdant palace trees, lush rose-and-emerald
-## bush hedges, blooming planters, celestial ornaments, and thick cascading emerald ivy garlands.
+			var t: float = _elapsed_time * spd + ph
+			var px: float = center.x + sin(t) * rad.x
+			var pz: float = center.z + sin(t * 2.0 + 0.6) * rad.y * 0.55 + cos(t * 0.7) * rad.y * 0.45
+			var py: float = center.y + sin(t * 2.7 + ph * 1.3) * 0.52 + cos(t * 1.4) * 0.22
+
+			# Tangent velocity for natural forward heading
+			var vx: float = cos(t) * rad.x * spd
+			var vz: float = (cos(t * 2.0 + 0.6) * 2.0 * 0.55 - sin(t * 0.7) * 0.7 * 0.45) * rad.y * spd
+			var yaw: float = atan2(vx, vz)
+
+			# Subtle wing-flap squash along X/Y so wings flutter organically
+			var flap: float = sin(_elapsed_time * (11.5 + spd * 4.0) + ph * 3.1)
+			var wing_x: float = sc * (0.76 + 0.34 * absf(flap))
+			var wing_y: float = sc * (0.65 + 0.45 * flap)
+			var bank: float = clampf(sin(t) * 0.28, -0.35, 0.35)
+
+			var basis: Basis = Basis(Vector3.UP, yaw) * Basis(Vector3.FORWARD, bank)
+			basis = basis.scaled(Vector3(wing_x, maxf(0.28, absf(wing_y)), sc))
+			mm.set_instance_transform(i, Transform3D(basis, Vector3(px, py, pz)))
+
+
+## Populates the entire Prologue world with reflecting turquoise lakes, lily pads, lotuses,
+## waterfall mist plumes, 2.5x denser verdant & sakura groves, Rotunda potted urns,
+## GPU-instanced grass & 4-color flowerbeds, cascading ivy curtains, and fluttering butterflies.
 func populate_garden(architecture: Node3D = null) -> void:
 	if _is_populated:
 		return
@@ -77,10 +157,17 @@ func populate_garden(architecture: Node3D = null) -> void:
 	_load_prop_scenes()
 	_init_shared_resources()
 
+	var island_positions: Array[Vector3] = _resolve_island_positions(architecture)
+
 	_decorate_starting_plaza()
 	_decorate_twin_viaducts()
-	_decorate_floating_islands(architecture)
+	_decorate_floating_islands(island_positions)
 	_decorate_cathedral_sanctuary()
+	_build_reflecting_lakes_and_ponds(island_positions)
+	_build_waterfall_mist_plumes()
+	_populate_meadow_grass_and_flowerbeds(island_positions)
+	_flush_multimesh_batches()
+	_build_fluttering_butterflies(island_positions)
 
 
 func _load_prop_scenes() -> void:
@@ -88,6 +175,10 @@ func _load_prop_scenes() -> void:
 	_garden_planter_scene = _safe_load_scene(GARDEN_PLANTER_PATH)
 	_celestial_ornament_scene = _safe_load_scene(CELESTIAL_ORNAMENT_PATH)
 	_lush_bush_scene = _safe_load_scene(LUSH_BUSH_PATH)
+	if ResourceLoader.exists(WATER_SHADER_PATH):
+		var loaded_shader: Resource = load(WATER_SHADER_PATH)
+		if loaded_shader is Shader:
+			_water_shader = loaded_shader as Shader
 
 
 func _safe_load_scene(res_path: String) -> PackedScene:
@@ -106,9 +197,9 @@ func _init_shared_resources() -> void:
 	_mat_leaf_mint = _create_botanical_material(Color("#6EC274"), 0.56, 0.0, Color(0.0, 0.0, 0.0), 0.0)
 
 	# Double-sided sunlit emerald canopy materials for lush green palace tree variants
-	_mat_canopy_emerald_deep = _create_botanical_material(Color("#3E9250"), 0.58, 0.0, Color(0.0, 0.0, 0.0), 0.0)
+	_mat_canopy_emerald_deep = _create_botanical_material(Color("#348A49"), 0.58, 0.0, Color(0.0, 0.0, 0.0), 0.0)
 	_mat_canopy_emerald_deep.cull_mode = BaseMaterial3D.CULL_DISABLED
-	_mat_canopy_emerald_sunlit = _create_botanical_material(Color("#58B064"), 0.54, 0.0, Color(0.0, 0.0, 0.0), 0.0)
+	_mat_canopy_emerald_sunlit = _create_botanical_material(Color("#54B262"), 0.54, 0.0, Color(0.0, 0.0, 0.0), 0.0)
 	_mat_canopy_emerald_sunlit.cull_mode = BaseMaterial3D.CULL_DISABLED
 	_mat_canopy_flower_accent = _create_botanical_material(Color("#FFF0F5"), 0.48, 0.0, Color("#FFE6EE"), 0.08)
 	_mat_canopy_flower_accent.cull_mode = BaseMaterial3D.CULL_DISABLED
@@ -117,19 +208,53 @@ func _init_shared_resources() -> void:
 	_mat_blossom_blush = _create_botanical_material(Color("#FFC8D8"), 0.55, 0.0, Color("#FFD6E4"), 0.18)
 	_mat_blossom_lilac = _create_botanical_material(Color("#C89EEB"), 0.56, 0.0, Color("#D6B6F5"), 0.16)
 
-	# Fallback prop materials (harmonized with Akasha sunlit alabaster & champagne gold)
+	# Architectural garden stone, moss, and lakebed materials
 	_mat_bark = _create_botanical_material(Color("#6E534B"), 0.85, 0.0, Color(0.0, 0.0, 0.0), 0.0)
 	_mat_marble = _create_botanical_material(Color("#EDE6DC"), 0.42, 0.04, Color(0.0, 0.0, 0.0), 0.0)
+	_mat_marble_curb = _create_botanical_material(Color("#F5F1EA"), 0.36, 0.04, Color("#FFFDF8"), 0.04)
+	_mat_moss_border = _create_botanical_material(Color("#3C8D4E"), 0.82, 0.0, Color(0.0, 0.0, 0.0), 0.0)
+	_mat_lakebed = _create_botanical_material(Color("#1A5F78"), 0.65, 0.05, Color("#248FA8"), 0.14)
 	_mat_gold_trim = _create_botanical_material(Color("#DFC48E"), 0.36, 0.75, Color("#EDD29A"), 0.12)
 	_mat_crystal = _create_botanical_material(Color("#C6E8FF"), 0.18, 0.10, Color("#B8E6FF"), 0.55)
 	_mat_silk = _create_botanical_material(Color("#F9D8E6"), 0.52, 0.05, Color("#FFE2EE"), 0.14)
 
-	# Shared lightweight meshes for vine garlands
+	# Turquoise-Crystal Lake & Pond ShaderMaterials
+	_mat_water_oval = _create_water_material(0.0, 0.68, 0.14)
+	_mat_water_ring = _create_water_material(1.0, 0.95, 0.22)
+
+	# GPU-instanced MultiMesh materials (vertex_color_use_as_albedo = true for per-instance tinting)
+	_mat_grass_mm = _create_botanical_material(Color(1.0, 1.0, 1.0), 0.64, 0.0, Color(0.0, 0.0, 0.0), 0.0)
+	_mat_grass_mm.vertex_color_use_as_albedo = true
+	_mat_grass_mm.cull_mode = BaseMaterial3D.CULL_DISABLED
+
+	_mat_flower_mm = _create_botanical_material(Color(1.0, 1.0, 1.0), 0.50, 0.0, Color("#FFE8F4"), 0.12)
+	_mat_flower_mm.vertex_color_use_as_albedo = true
+	_mat_flower_mm.cull_mode = BaseMaterial3D.CULL_DISABLED
+
+	_mat_lily_mm = _create_botanical_material(Color(1.0, 1.0, 1.0), 0.44, 0.02, Color(0.0, 0.0, 0.0), 0.0)
+	_mat_lily_mm.vertex_color_use_as_albedo = true
+	_mat_lily_mm.cull_mode = BaseMaterial3D.CULL_DISABLED
+
+	_mat_lotus_mm = _create_botanical_material(Color(1.0, 1.0, 1.0), 0.42, 0.0, Color("#FFEBF4"), 0.22)
+	_mat_lotus_mm.vertex_color_use_as_albedo = true
+	_mat_lotus_mm.cull_mode = BaseMaterial3D.CULL_DISABLED
+
+	_mat_vine_leaf_mm = _create_botanical_material(Color(1.0, 1.0, 1.0), 0.60, 0.0, Color(0.0, 0.0, 0.0), 0.0)
+	_mat_vine_leaf_mm.vertex_color_use_as_albedo = true
+
+	_mat_vine_blossom_mm = _create_botanical_material(Color(1.0, 1.0, 1.0), 0.54, 0.0, Color("#FFD8EC"), 0.16)
+	_mat_vine_blossom_mm.vertex_color_use_as_albedo = true
+
+	_mat_butterfly_mm = _create_botanical_material(Color(1.0, 1.0, 1.0), 0.25, 0.05, Color("#FFF4D4"), 0.72)
+	_mat_butterfly_mm.vertex_color_use_as_albedo = true
+	_mat_butterfly_mm.cull_mode = BaseMaterial3D.CULL_DISABLED
+
+	# Shared lightweight meshes
 	_mesh_vine_stem = BoxMesh.new()
-	_mesh_vine_stem.size = Vector3(0.08, 0.44, 0.08)
+	_mesh_vine_stem.size = Vector3(0.08, 0.46, 0.08)
 
 	_mesh_leaf_cluster = BoxMesh.new()
-	_mesh_leaf_cluster.size = Vector3(0.36, 0.26, 0.32)
+	_mesh_leaf_cluster.size = Vector3(0.38, 0.28, 0.34)
 
 	_mesh_blossom_cluster = SphereMesh.new()
 	_mesh_blossom_cluster.radius = 0.16
@@ -142,6 +267,35 @@ func _init_shared_resources() -> void:
 	_mesh_blossom_small.height = 0.20
 	_mesh_blossom_small.radial_segments = 7
 	_mesh_blossom_small.rings = 4
+
+	_mesh_grass_tuft = _create_grass_tuft_mesh()
+	_mesh_flower_cluster = _create_flower_cluster_mesh()
+	_mesh_lily_pad = _create_lily_pad_mesh()
+	_mesh_lotus_flower = _create_lotus_flower_mesh()
+	_mesh_butterfly = _create_butterfly_mesh()
+
+
+func _create_water_material(ring_mode_val: float, wave_scale_val: float, foam_w: float) -> ShaderMaterial:
+	var mat: ShaderMaterial = ShaderMaterial.new()
+	if _water_shader != null:
+		mat.shader = _water_shader
+		mat.set_shader_parameter("shallow_color", Color("#7CE8F0"))
+		mat.set_shader_parameter("mid_color", Color("#2AA8B8"))
+		mat.set_shader_parameter("deep_color", Color("#1E7A96"))
+		mat.set_shader_parameter("sky_reflect_color", Color("#D8F2FF"))
+		mat.set_shader_parameter("foam_color", Color("#F2FCFF"))
+		mat.set_shader_parameter("caustic_color", Color("#9EF5FA"))
+		mat.set_shader_parameter("water_alpha", 0.84)
+		mat.set_shader_parameter("wave_speed", 0.42)
+		mat.set_shader_parameter("wave_scale", wave_scale_val)
+		mat.set_shader_parameter("normal_strength", 0.14)
+		mat.set_shader_parameter("fresnel_power", 3.2)
+		mat.set_shader_parameter("fresnel_strength", 0.62)
+		mat.set_shader_parameter("sparkle_strength", 0.90)
+		mat.set_shader_parameter("caustic_strength", 0.26)
+		mat.set_shader_parameter("foam_width", foam_w)
+		mat.set_shader_parameter("ring_mode", ring_mode_val)
+	return mat
 
 
 func _create_botanical_material(
@@ -171,27 +325,29 @@ func _decorate_starting_plaza() -> void:
 	root.name = "PlazaGarden"
 	add_child(root)
 
-	# 4 trees framing the plaza: 2 pink Sakura at rear corners + 2 lush verdant green trees forward
-	_place_sakura_tree(root, "PlazaSakura_L", Vector3(-6.1, 0.0, 44.2), deg_to_rad(-34.0), 0.95)
-	_place_sakura_tree(root, "PlazaSakura_R", Vector3(6.1, 0.0, 44.2), deg_to_rad(34.0), 0.95)
+	# 6 lush trees framing the plaza: 2 pink Sakura at rear corners, 2 verdant mid-flanks, 2 leaning forward emerald trees
+	_place_sakura_tree(root, "PlazaSakura_L", Vector3(-6.2, 0.0, 44.4), deg_to_rad(-34.0), 1.02)
+	_place_sakura_tree(root, "PlazaSakura_R", Vector3(6.2, 0.0, 44.4), deg_to_rad(34.0), 1.02)
+
+	_place_verdant_tree(root, "PlazaVerdantMid_L", Vector3(-6.8, 0.0, 36.4), deg_to_rad(-72.0), 0.90)
+	_place_verdant_tree(root, "PlazaVerdantMid_R", Vector3(6.8, 0.0, 36.4), deg_to_rad(72.0), 0.90)
 
 	var plaza_green_l: Node3D = _place_verdant_tree(
-		root, "PlazaVerdantTree_L", Vector3(-6.4, 0.0, 29.0), deg_to_rad(-118.0), 0.78
+		root, "PlazaVerdantTree_L", Vector3(-6.5, 0.0, 28.8), deg_to_rad(-118.0), 0.84
 	)
-	plaza_green_l.rotation.z = deg_to_rad(8.5)
+	plaza_green_l.rotation.z = deg_to_rad(9.0)
 	var plaza_green_r: Node3D = _place_verdant_tree(
-		root, "PlazaVerdantTree_R", Vector3(6.4, 0.0, 29.0), deg_to_rad(118.0), 0.78
+		root, "PlazaVerdantTree_R", Vector3(6.5, 0.0, 28.8), deg_to_rad(118.0), 0.84
 	)
-	plaza_green_r.rotation.z = deg_to_rad(-8.5)
+	plaza_green_r.rotation.z = deg_to_rad(-9.0)
 
-	# 10 lush rose-and-emerald bush hedges lining BOTH balustrades (z = 25..44, x = +-6.35)
-	# Tucked neatly between lanterns (z = 27, 41) and planters (z = 31, 38), center walkway 100% clear
-	var plaza_bush_z: Array[float] = [25.4, 33.3, 35.7, 39.6, 42.6]
-	var plaza_bush_scales: Array[float] = [0.88, 0.92, 0.90, 0.86, 0.94]
+	# 16 lush rose-and-emerald bush hedges lining BOTH balustrades (center walkway 100% clear)
+	var plaza_bush_z: Array[float] = [25.2, 28.2, 32.5, 34.8, 37.0, 39.4, 42.2, 44.8]
+	var plaza_bush_scales: Array[float] = [0.92, 0.86, 0.94, 0.96, 0.90, 0.88, 0.96, 0.92]
 	for i: int in range(plaza_bush_z.size()):
 		var z_val: float = plaza_bush_z[i]
 		var sc: float = plaza_bush_scales[i]
-		var yaw_jitter: float = deg_to_rad(5.0 if i % 2 == 0 else -5.0)
+		var yaw_jitter: float = deg_to_rad(6.0 if i % 2 == 0 else -6.0)
 		_place_lush_bush(
 			root,
 			"PlazaBush_L_%02d" % i,
@@ -207,33 +363,32 @@ func _decorate_starting_plaza() -> void:
 			sc
 		)
 
-	# 4 carved blooming marble planters along the balustrades (clear of lanterns at z = 41 and z = 27)
-	_place_garden_planter(root, "PlazaPlanter_NW", Vector3(-6.1, 0.0, 38.0), deg_to_rad(90.0), 1.0)
-	_place_garden_planter(root, "PlazaPlanter_NE", Vector3(6.1, 0.0, 38.0), deg_to_rad(-90.0), 1.0)
-	_place_garden_planter(root, "PlazaPlanter_SW", Vector3(-6.1, 0.0, 31.0), deg_to_rad(90.0), 1.0)
-	_place_garden_planter(root, "PlazaPlanter_SE", Vector3(6.1, 0.0, 31.0), deg_to_rad(-90.0), 1.0)
+	# 6 carved blooming marble planters along the balustrades (clear of lanterns at z = 41 and z = 27)
+	_place_garden_planter(root, "PlazaPlanter_NW", Vector3(-6.1, 0.0, 38.2), deg_to_rad(90.0), 1.04)
+	_place_garden_planter(root, "PlazaPlanter_NE", Vector3(6.1, 0.0, 38.2), deg_to_rad(-90.0), 1.04)
+	_place_garden_planter(root, "PlazaPlanter_MidW", Vector3(-6.1, 0.0, 34.0), deg_to_rad(90.0), 0.98)
+	_place_garden_planter(root, "PlazaPlanter_MidE", Vector3(6.1, 0.0, 34.0), deg_to_rad(-90.0), 0.98)
+	_place_garden_planter(root, "PlazaPlanter_SW", Vector3(-6.1, 0.0, 30.6), deg_to_rad(90.0), 1.04)
+	_place_garden_planter(root, "PlazaPlanter_SE", Vector3(6.1, 0.0, 30.6), deg_to_rad(-90.0), 1.04)
 
-	# 2 celestial silk-and-crystal ornaments framing the forward ceremonial prow (facing inward)
-	_place_celestial_ornament(root, "PlazaOrnament_L", Vector3(-4.8, 0.0, 23.2), deg_to_rad(68.0), 1.0, 0.0)
-	_place_celestial_ornament(root, "PlazaOrnament_R", Vector3(4.8, 0.0, 23.2), deg_to_rad(-68.0), 1.0, 1.8)
+	# 4 celestial silk-and-crystal floral archways framing both the rear arrival & forward ceremonial prow
+	_place_celestial_ornament(root, "PlazaOrnament_ProwL", Vector3(-4.8, 0.0, 23.2), deg_to_rad(68.0), 1.04, 0.0)
+	_place_celestial_ornament(root, "PlazaOrnament_ProwR", Vector3(4.8, 0.0, 23.2), deg_to_rad(-68.0), 1.04, 1.8)
+	_place_celestial_ornament(root, "PlazaOrnament_RearL", Vector3(-5.2, 0.0, 44.8), deg_to_rad(118.0), 0.96, 3.1)
+	_place_celestial_ornament(root, "PlazaOrnament_RearR", Vector3(5.2, 0.0, 44.8), deg_to_rad(-118.0), 0.96, 4.7)
 
-	# Double-density cascading emerald ivy & flowering garlands along both plaza sides AND the prow
-	var vine_root: Node3D = Node3D.new()
-	vine_root.name = "PlazaHangingVines"
-	root.add_child(vine_root)
-
-	var z_slots: int = 18
+	# Lush cascading emerald ivy & flowering garlands along both plaza sides AND the prow (GPU-instanced)
+	var z_slots: int = 24
 	for side_idx: int in range(2):
 		var side_sign: float = -1.0 if side_idx == 0 else 1.0
 		var edge_x: float = side_sign * 8.05
 		var outward_dir: Vector3 = Vector3(side_sign, 0.0, 0.0)
 		for i: int in range(z_slots):
 			var t: float = float(i) / float(z_slots - 1)
-			var z_pos: float = lerpf(24.5, 45.0, t)
+			var z_pos: float = lerpf(24.2, 45.4, t)
 			var seed_val: float = float(side_idx * 17 + i * 7 + 3)
-			var drop_len: float = 1.85 + fmod(seed_val * 0.6180339, 1.0) * 2.55 # 1.85m .. 4.40m
-			_build_vine_garland(
-				vine_root,
+			var drop_len: float = 2.1 + fmod(seed_val * 0.6180339, 1.0) * 2.9
+			_append_vine_garland(
 				Vector3(edge_x, -0.1, z_pos),
 				outward_dir,
 				drop_len,
@@ -255,8 +410,8 @@ func _decorate_starting_plaza() -> void:
 		var anchor_pt: Vector3 = prow_anchors[p_idx]
 		var side_x: float = -0.35 if anchor_pt.x < 0.0 else 0.35
 		var prow_out: Vector3 = Vector3(side_x, 0.0, -1.0).normalized()
-		var prow_drop: float = 1.9 + fmod(float(p_idx * 13 + 5) * 0.6180339, 1.0) * 2.15
-		_build_vine_garland(vine_root, anchor_pt, prow_out, prow_drop, 80 + p_idx)
+		var prow_drop: float = 2.0 + fmod(float(p_idx * 13 + 5) * 0.6180339, 1.0) * 2.4
+		_append_vine_garland(anchor_pt, prow_out, prow_drop, 80 + p_idx)
 
 
 # ---------------------------------------------------------------------------
@@ -268,18 +423,18 @@ func _decorate_twin_viaducts() -> void:
 	root.name = "TwinViaductsGarden"
 	add_child(root)
 
-	var vine_root: Node3D = Node3D.new()
-	vine_root.name = "ViaductHangingVines"
-	root.add_child(vine_root)
-
-	var planter_zs: Array[float] = [6.0, -36.0, -80.0, -124.0, -168.0, -212.0]
-	var vine_zs: Array[float] = [10.0, -14.0, -38.0, -62.0, -86.0, -110.0, -134.0, -158.0, -182.0, -206.0, -230.0]
+	var planter_zs: Array[float] = [8.0, -24.0, -56.0, -88.0, -120.0, -152.0, -184.0, -216.0]
+	var tree_zs: Array[float] = [-8.0, -48.0, -96.0, -144.0, -192.0, -226.0]
+	var bush_zs: Array[float] = [2.0, -16.0, -36.0, -68.0, -108.0, -136.0, -168.0, -204.0]
+	var ornament_zs: Array[float] = [-28.0, -106.0, -180.0]
 
 	for side_idx: int in range(2):
 		var side_sign: float = -1.0 if side_idx == 0 else 1.0
 		var side_tag: String = "W" if side_sign < 0.0 else "E"
 		var inward_dir: Vector3 = Vector3(-side_sign, 0.0, 0.0)
 		var planter_x: float = side_sign * 52.2
+		var tree_x: float = side_sign * 54.4
+		var bush_x: float = side_sign * 52.8
 		var vine_x: float = side_sign * 50.9
 		var yaw_inward: float = deg_to_rad(90.0 if side_sign < 0.0 else -90.0)
 
@@ -290,77 +445,121 @@ func _decorate_twin_viaducts() -> void:
 				"ViaductPlanter_%s_%02d" % [side_tag, i],
 				Vector3(planter_x, 14.0, pz),
 				yaw_inward,
-				1.05
+				1.08
 			)
 
-		for j: int in range(vine_zs.size()):
-			var vz: float = vine_zs[j]
-			var drop_len: float = 2.6 + fmod(float(side_idx * 13 + j * 7 + 2) * 0.6180339, 1.0) * 2.4
-			_build_vine_garland(
-				vine_root,
+		for t_idx: int in range(tree_zs.size()):
+			var tz: float = tree_zs[t_idx]
+			var t_scale: float = 0.96 + fmod(float(side_idx * 5 + t_idx * 3 + 1) * 0.37, 1.0) * 0.24
+			if t_idx % 2 == 0:
+				_place_verdant_tree(
+					root,
+					"ViaductVerdant_%s_%02d" % [side_tag, t_idx],
+					Vector3(tree_x, 14.0, tz),
+					yaw_inward + deg_to_rad(18.0 if t_idx % 3 == 0 else -18.0),
+					t_scale
+				)
+			else:
+				_place_sakura_tree(
+					root,
+					"ViaductSakura_%s_%02d" % [side_tag, t_idx],
+					Vector3(tree_x, 14.0, tz),
+					yaw_inward + deg_to_rad(-16.0),
+					t_scale
+				)
+
+		for b_idx: int in range(bush_zs.size()):
+			_place_lush_bush(
+				root,
+				"ViaductBush_%s_%02d" % [side_tag, b_idx],
+				Vector3(bush_x, 14.0, bush_zs[b_idx]),
+				yaw_inward,
+				1.02
+			)
+
+		for o_idx: int in range(ornament_zs.size()):
+			_place_celestial_ornament(
+				root,
+				"ViaductOrnament_%s_%02d" % [side_tag, o_idx],
+				Vector3(side_sign * 51.8, 14.0, ornament_zs[o_idx]),
+				yaw_inward,
+				1.05,
+				float(side_idx * 3 + o_idx) * 1.4
+			)
+
+		# Dense cascading emerald ivy curtains along the full 240m viaduct inner ledge
+		var vine_count: int = 20
+		for j: int in range(vine_count):
+			var frac: float = float(j) / float(vine_count - 1)
+			var vz: float = lerpf(12.0, -234.0, frac)
+			var drop_len: float = 2.8 + fmod(float(side_idx * 13 + j * 7 + 2) * 0.6180339, 1.0) * 3.0
+			_append_vine_garland(
 				Vector3(vine_x, 13.9, vz),
 				inward_dir,
 				drop_len,
-				300 + side_idx * 20 + j
+				300 + side_idx * 30 + j
 			)
 
 
 # ---------------------------------------------------------------------------
-# 2. Five Floating Temple Islands
+# 2. Five Floating Temple Islands (Overflowing with Groves, Hedges, Archways & Vines)
 # ---------------------------------------------------------------------------
 
-func _decorate_floating_islands(architecture: Node3D) -> void:
+func _decorate_floating_islands(island_positions: Array[Vector3]) -> void:
 	var root: Node3D = Node3D.new()
 	root.name = "FloatingIslandsGarden"
 	add_child(root)
 
-	var island_positions: Array[Vector3] = _resolve_island_positions(architecture)
-	var sakura_angles_deg: Array[float] = [45.0, 225.0]
-	var planter_angles_deg: Array[float] = [135.0, 328.0]
-	# 6 outer-perimeter bush angles keeping all 4 cardinal approaches (0, 90, 180, 270) & center clear
-	var bush_angles_deg: Array[float] = [26.0, 66.0, 114.0, 156.0, 204.0, 246.0]
-	var bush_radii: Array[float] = [6.5, 6.4, 6.6, 6.4, 6.5, 6.6]
+	# 5 trees per island (2 pink Sakura + 3 lush emerald park trees) keeping all 4 cardinal approaches clear
+	var sakura_angles_deg: Array[float] = [44.0, 224.0]
+	var verdant_angles_deg: Array[float] = [134.0, 306.0, 326.0]
+	var planter_angles_deg: Array[float] = [116.0, 206.0, 294.0]
+	var bush_angles_deg: Array[float] = [24.0, 64.0, 112.0, 154.0, 202.0, 246.0, 290.0, 338.0]
+	var bush_radii: Array[float] = [6.6, 6.5, 6.7, 6.5, 6.6, 6.7, 6.5, 6.6]
 
 	for idx: int in range(island_positions.size()):
 		var center: Vector3 = island_positions[idx]
+		var is_central: bool = (idx == 2)
+		var rad_mult: float = 1.12 if is_central else 1.0
 		var island_node: Node3D = Node3D.new()
 		island_node.name = "IslandGarden_%02d" % idx
 		root.add_child(island_node)
 
-		# 3 trees per island: 2 pink Sakura (45°, 225°) + 1 lush green palace tree (304°) at r = 5.4..5.9m
 		for t_idx: int in range(sakura_angles_deg.size()):
 			var angle_rad: float = deg_to_rad(sakura_angles_deg[t_idx])
-			var offset: Vector3 = Vector3(cos(angle_rad) * 5.5, 0.0, sin(angle_rad) * 5.5)
-			var tree_pos: Vector3 = center + offset
+			var r_tree: float = 5.7 * rad_mult
+			var offset: Vector3 = Vector3(cos(angle_rad) * r_tree, 0.0, sin(angle_rad) * r_tree)
 			var face_inward_yaw: float = atan2(-offset.x, -offset.z) + deg_to_rad(14.0 if t_idx == 0 else -14.0)
-			var scale_factor: float = 0.85 + fmod(float(idx * 3 + t_idx * 5 + 1) * 0.37, 1.0) * 0.20
+			var scale_factor: float = 0.90 + fmod(float(idx * 3 + t_idx * 5 + 1) * 0.37, 1.0) * 0.22
 			_place_sakura_tree(
 				island_node,
 				"Island_%02d_Sakura_%d" % [idx, t_idx],
-				tree_pos,
+				center + offset,
 				face_inward_yaw,
 				scale_factor
 			)
 
-		var green_angle: float = deg_to_rad(304.0)
-		var green_offset: Vector3 = Vector3(cos(green_angle) * 5.75, 0.0, sin(green_angle) * 5.75)
-		var green_yaw: float = atan2(-green_offset.x, -green_offset.z) + deg_to_rad(-16.0)
-		var green_scale: float = 0.88 + fmod(float(idx * 7 + 2) * 0.41, 1.0) * 0.18
-		_place_verdant_tree(
-			island_node,
-			"Island_%02d_VerdantTree" % idx,
-			center + green_offset,
-			green_yaw,
-			green_scale
-		)
+		for g_idx: int in range(verdant_angles_deg.size()):
+			var green_angle: float = deg_to_rad(verdant_angles_deg[g_idx])
+			var r_green: float = (6.05 if g_idx < 2 else 6.55) * rad_mult
+			var green_offset: Vector3 = Vector3(cos(green_angle) * r_green, 0.0, sin(green_angle) * r_green)
+			var green_yaw: float = atan2(-green_offset.x, -green_offset.z) + deg_to_rad(-16.0 + float(g_idx) * 14.0)
+			var green_scale: float = 0.86 + fmod(float(idx * 7 + g_idx * 4 + 2) * 0.41, 1.0) * 0.22
+			_place_verdant_tree(
+				island_node,
+				"Island_%02d_VerdantTree_%d" % [idx, g_idx],
+				center + green_offset,
+				green_yaw,
+				green_scale
+			)
 
-		# 6 lush rose-and-emerald bushes ringing the outer perimeter (r = 6.2..6.8m)
+		# 8 lush rose-and-emerald bushes ringing the outer perimeter
 		for b_idx: int in range(bush_angles_deg.size()):
 			var b_angle: float = deg_to_rad(bush_angles_deg[b_idx])
-			var b_rad: float = bush_radii[b_idx]
+			var b_rad: float = bush_radii[b_idx] * rad_mult
 			var b_offset: Vector3 = Vector3(cos(b_angle) * b_rad, 0.0, sin(b_angle) * b_rad)
 			var b_yaw: float = atan2(-b_offset.x, -b_offset.z)
-			var b_scale: float = 0.82 + fmod(float(idx * 5 + b_idx * 3 + 1) * 0.29, 1.0) * 0.18
+			var b_scale: float = 0.86 + fmod(float(idx * 5 + b_idx * 3 + 1) * 0.29, 1.0) * 0.20
 			_place_lush_bush(
 				island_node,
 				"Island_%02d_Bush_%d" % [idx, b_idx],
@@ -369,53 +568,51 @@ func _decorate_floating_islands(architecture: Node3D) -> void:
 				b_scale
 			)
 
-		# 2 blooming garden planters at diagonal bays (r = 5.5m)
+		# 3 blooming marble garden planters at diagonal bays
 		for p_idx: int in range(planter_angles_deg.size()):
 			var angle_rad: float = deg_to_rad(planter_angles_deg[p_idx])
-			var offset: Vector3 = Vector3(cos(angle_rad) * 5.5, 0.0, sin(angle_rad) * 5.5)
-			var planter_pos: Vector3 = center + offset
+			var p_rad: float = 5.65 * rad_mult
+			var offset: Vector3 = Vector3(cos(angle_rad) * p_rad, 0.0, sin(angle_rad) * p_rad)
 			var face_inward_yaw: float = atan2(-offset.x, -offset.z)
 			_place_garden_planter(
 				island_node,
 				"Island_%02d_Planter_%d" % [idx, p_idx],
-				planter_pos,
+				center + offset,
 				face_inward_yaw,
-				0.96
+				0.98
 			)
 
-		# 1 celestial silk-and-crystal ornament at angle 128° (r = 6.3m, rotated toward center)
-		var orn_angle: float = deg_to_rad(128.0)
-		var orn_offset: Vector3 = Vector3(cos(orn_angle) * 6.3, 0.0, sin(orn_angle) * 6.3)
-		var orn_pos: Vector3 = center + orn_offset
-		var orn_yaw: float = atan2(-orn_offset.x, -orn_offset.z)
-		_place_celestial_ornament(
-			island_node,
-			"Island_%02d_Ornament" % idx,
-			orn_pos,
-			orn_yaw,
-			1.0,
-			float(idx) * 1.35 + 0.7
-		)
+		# 2 celestial silk-and-crystal floral archways on opposite diagonal rims
+		var orn_angles: Array[float] = [128.0, 308.0]
+		for o_idx: int in range(orn_angles.size()):
+			var orn_angle: float = deg_to_rad(orn_angles[o_idx])
+			var orn_rad: float = 6.45 * rad_mult
+			var orn_offset: Vector3 = Vector3(cos(orn_angle) * orn_rad, 0.0, sin(orn_angle) * orn_rad)
+			var orn_yaw: float = atan2(-orn_offset.x, -orn_offset.z)
+			_place_celestial_ornament(
+				island_node,
+				"Island_%02d_Ornament_%d" % [idx, o_idx],
+				center + orn_offset,
+				orn_yaw,
+				1.02,
+				float(idx * 2 + o_idx) * 1.35 + 0.7
+			)
 
-		# 10 dense cascading emerald ivy curtains draping down y = -0.2..-8.0m around the island rim
-		var vine_group: Node3D = Node3D.new()
-		vine_group.name = "Island_%02d_HangingVines" % idx
-		island_node.add_child(vine_group)
-
+		# 14 dense cascading emerald ivy curtains draping down around the island rim
 		var phase_deg: float = float(idx) * 18.0
-		for v_idx: int in range(10):
-			var v_angle: float = deg_to_rad(float(v_idx) * 36.0 + phase_deg)
+		var rim_r: float = 8.2 * rad_mult
+		for v_idx: int in range(14):
+			var v_angle: float = deg_to_rad(float(v_idx) * (360.0 / 14.0) + phase_deg)
 			var out_dir: Vector3 = Vector3(cos(v_angle), 0.0, sin(v_angle))
-			var anchor: Vector3 = center + Vector3(out_dir.x * 8.2, -0.2, out_dir.z * 8.2)
+			var anchor: Vector3 = center + Vector3(out_dir.x * rim_r, -0.2, out_dir.z * rim_r)
 			var drop_seed: float = float(idx * 11 + v_idx * 5 + 2)
-			var main_drop: float = 4.0 + fmod(drop_seed * 0.6180339, 1.0) * 3.8 # y = -0.2 .. -8.0m
-			_build_vine_garland(vine_group, anchor, out_dir, main_drop, idx * 41 + v_idx * 3)
+			var main_drop: float = 4.2 + fmod(drop_seed * 0.6180339, 1.0) * 4.0
+			_append_vine_garland(anchor, out_dir, main_drop, idx * 51 + v_idx * 3)
 
-			# Secondary side tendril for thick overflowing emerald curtain
 			var tangent: Vector3 = Vector3(-out_dir.z, 0.0, out_dir.x)
 			var side_anchor: Vector3 = anchor + tangent * 0.62
-			var side_drop: float = clampf(main_drop * 0.68, 2.2, 5.4)
-			_build_vine_garland(vine_group, side_anchor, out_dir, side_drop, idx * 41 + v_idx * 3 + 1)
+			var side_drop: float = clampf(main_drop * 0.68, 2.3, 5.6)
+			_append_vine_garland(side_anchor, out_dir, side_drop, idx * 51 + v_idx * 3 + 1)
 
 
 func _resolve_island_positions(architecture: Node3D) -> Array[Vector3]:
@@ -444,7 +641,7 @@ func _get_default_island_positions() -> Array[Vector3]:
 
 
 # ---------------------------------------------------------------------------
-# 3. Walkable Fairytale Castle Outer Terraces, Grand Staircase & Panoramic Galleries (z = -280)
+# 3. Walkable Fairytale Castle Eden Grove, Rotunda Urns & Panoramic Balconies (z = -280)
 # ---------------------------------------------------------------------------
 
 func _decorate_cathedral_sanctuary() -> void:
@@ -452,93 +649,803 @@ func _decorate_cathedral_sanctuary() -> void:
 	root.name = "CathedralSanctuaryGarden"
 	add_child(root)
 
-	# 12 majestic Castle Trees (6 pink Sakura + 6 lush verdant emerald palace trees, scale 1.15..1.44)
-	# Strictly on the outer lower castle garden terraces (y = 4.0, x = +-21..+-42, z = -250..-294)
-	# keeping the Rotunda interior, front stairs, panoramic galleries, and all 3 relic spots 100% clear!
-	_place_sakura_tree(root, "CathedralSakura_LowerL", Vector3(-21.5, 4.0, -251.5), deg_to_rad(28.0), 1.20)
-	_place_sakura_tree(root, "CathedralSakura_LowerR", Vector3(21.5, 4.0, -251.5), deg_to_rad(-28.0), 1.20)
-	_place_verdant_tree(root, "CathedralVerdant_MidL", Vector3(-28.5, 4.0, -250.5), deg_to_rad(42.0), 1.28)
-	_place_verdant_tree(root, "CathedralVerdant_MidR", Vector3(28.5, 4.0, -250.5), deg_to_rad(-42.0), 1.28)
-	_place_sakura_tree(root, "CathedralSakura_OuterFrontL", Vector3(-36.5, 4.0, -252.5), deg_to_rad(52.0), 1.34)
-	_place_sakura_tree(root, "CathedralSakura_OuterFrontR", Vector3(36.5, 4.0, -252.5), deg_to_rad(-52.0), 1.34)
-	_place_verdant_tree(root, "CathedralVerdant_FlankFrontL", Vector3(-41.5, 4.0, -264.0), deg_to_rad(64.0), 1.40)
-	_place_verdant_tree(root, "CathedralVerdant_FlankFrontR", Vector3(41.5, 4.0, -264.0), deg_to_rad(-64.0), 1.40)
-	_place_sakura_tree(root, "CathedralSakura_FlankMidL", Vector3(-41.5, 4.0, -278.0), deg_to_rad(78.0), 1.32)
-	_place_sakura_tree(root, "CathedralSakura_FlankMidR", Vector3(41.5, 4.0, -278.0), deg_to_rad(-78.0), 1.32)
-	_place_verdant_tree(root, "CathedralVerdant_FlankRearL", Vector3(-41.0, 4.0, -292.0), deg_to_rad(106.0), 1.36)
-	_place_verdant_tree(root, "CathedralVerdant_FlankRearR", Vector3(41.0, 4.0, -292.0), deg_to_rad(-106.0), 1.36)
+	# -----------------------------------------------------------------------
+	# 3a. Lush Botanical Grove (30 majestic emerald park & sakura trees, ~2.5x density!)
+	# Framed gracefully around the 4 reflecting lakes, lower garden terraces (y = 4.0),
+	# and outer cliff rim (y = 0.0) — 100% clear of stairs, lakes, Rotunda & 5 relic spots!
+	# -----------------------------------------------------------------------
+	var castle_trees: Array[Dictionary] = [
+		# Front courtyard flanking the two Lotus Pools (pools centered at +-24, -252, rx=5.5, rz=5.0)
+		{"pos": Vector3(-17.8, 4.0, -252.2), "yaw": 26.0, "sc": 1.18, "sakura": true},
+		{"pos": Vector3(17.8, 4.0, -252.2), "yaw": -26.0, "sc": 1.18, "sakura": true},
+		{"pos": Vector3(-31.8, 4.0, -250.0), "yaw": 44.0, "sc": 1.32, "sakura": false},
+		{"pos": Vector3(31.8, 4.0, -250.0), "yaw": -44.0, "sc": 1.32, "sakura": false},
+		{"pos": Vector3(-37.8, 4.0, -254.0), "yaw": 54.0, "sc": 1.38, "sakura": true},
+		{"pos": Vector3(37.8, 4.0, -254.0), "yaw": -54.0, "sc": 1.38, "sakura": true},
+		{"pos": Vector3(-43.2, 4.0, -256.5), "yaw": 62.0, "sc": 1.44, "sakura": false},
+		{"pos": Vector3(43.2, 4.0, -256.5), "yaw": -62.0, "sc": 1.44, "sakura": false},
+		# Framing the West & East Castle Garden Lakes (lakes at +-44, -280, rx=7.0, rz=12.0 -> z=-268..-292)
+		{"pos": Vector3(-41.8, 4.0, -264.6), "yaw": 68.0, "sc": 1.42, "sakura": false},
+		{"pos": Vector3(41.8, 4.0, -264.6), "yaw": -68.0, "sc": 1.42, "sakura": false},
+		{"pos": Vector3(-52.2, 4.0, -271.5), "yaw": 84.0, "sc": 1.36, "sakura": true},
+		{"pos": Vector3(52.2, 4.0, -271.5), "yaw": -84.0, "sc": 1.36, "sakura": true},
+		{"pos": Vector3(-52.8, 4.0, -280.0), "yaw": 92.0, "sc": 1.46, "sakura": false},
+		{"pos": Vector3(52.8, 4.0, -280.0), "yaw": -92.0, "sc": 1.46, "sakura": false},
+		{"pos": Vector3(-52.0, 4.0, -289.2), "yaw": 108.0, "sc": 1.38, "sakura": true},
+		{"pos": Vector3(52.0, 4.0, -289.2), "yaw": -108.0, "sc": 1.38, "sakura": true},
+		{"pos": Vector3(-42.5, 4.0, -295.8), "yaw": 118.0, "sc": 1.44, "sakura": false},
+		{"pos": Vector3(42.5, 4.0, -295.8), "yaw": -118.0, "sc": 1.44, "sakura": false},
+		{"pos": Vector3(-36.2, 4.0, -299.6), "yaw": 132.0, "sc": 1.34, "sakura": true},
+		{"pos": Vector3(36.2, 4.0, -299.6), "yaw": -132.0, "sc": 1.34, "sakura": true},
+		# Rear North-Flank Botanical Grove framing the North Cloud Horizon Terrace
+		{"pos": Vector3(-28.5, 4.0, -301.2), "yaw": 146.0, "sc": 1.36, "sakura": false},
+		{"pos": Vector3(28.5, 4.0, -301.2), "yaw": -146.0, "sc": 1.36, "sakura": false},
+		{"pos": Vector3(-21.2, 4.0, -304.5), "yaw": 158.0, "sc": 1.28, "sakura": true},
+		{"pos": Vector3(21.2, 4.0, -304.5), "yaw": -158.0, "sc": 1.28, "sakura": true},
+		# Lower Arrival Rim (y = 0.0) welcoming the player at the base of the grand staircase
+		{"pos": Vector3(-20.4, 0.0, -242.5), "yaw": 24.0, "sc": 1.22, "sakura": false},
+		{"pos": Vector3(20.4, 0.0, -242.5), "yaw": -24.0, "sc": 1.22, "sakura": false},
+		{"pos": Vector3(-28.8, 0.0, -243.5), "yaw": 36.0, "sc": 1.28, "sakura": true},
+		{"pos": Vector3(28.8, 0.0, -243.5), "yaw": -36.0, "sc": 1.28, "sakura": true},
+		{"pos": Vector3(-37.5, 0.0, -245.5), "yaw": 48.0, "sc": 1.30, "sakura": false},
+		{"pos": Vector3(37.5, 0.0, -245.5), "yaw": -48.0, "sc": 1.30, "sakura": false},
+	]
+	for i: int in range(castle_trees.size()):
+		var spec: Dictionary = castle_trees[i]
+		var pos: Vector3 = spec["pos"] as Vector3
+		var yaw: float = deg_to_rad(float(spec["yaw"]))
+		var sc: float = float(spec["sc"])
+		var is_sakura: bool = bool(spec["sakura"])
+		if is_sakura:
+			_place_sakura_tree(root, "CastleGroveSakura_%02d" % i, pos, yaw, sc)
+		else:
+			_place_verdant_tree(root, "CastleGroveVerdant_%02d" % i, pos, yaw, sc)
 
-	# 12 lush rose-and-emerald hedges framing the staircase cheek walls & lower terrace edges
-	# (Zero obstruction of the x = -13..+13 grand staircase or x = -12..+12 portal doorway)
-	_place_lush_bush(root, "CathedralHedge_StairBaseL", Vector3(-16.8, 0.0, -242.5), deg_to_rad(90.0), 1.10)
-	_place_lush_bush(root, "CathedralHedge_StairBaseR", Vector3(16.8, 0.0, -242.5), deg_to_rad(-90.0), 1.10)
-	_place_lush_bush(root, "CathedralHedge_StairMidL", Vector3(-16.8, 4.0, -248.8), deg_to_rad(90.0), 1.12)
-	_place_lush_bush(root, "CathedralHedge_StairMidR", Vector3(16.8, 4.0, -248.8), deg_to_rad(-90.0), 1.12)
-	_place_lush_bush(root, "CathedralHedge_StairTopL", Vector3(-17.4, 8.0, -256.8), deg_to_rad(90.0), 1.05)
-	_place_lush_bush(root, "CathedralHedge_StairTopR", Vector3(17.4, 8.0, -256.8), deg_to_rad(-90.0), 1.05)
-	# Front edges of lower terrace (y = 4.0)
-	_place_lush_bush(root, "CathedralHedge_LowerFrontInL", Vector3(-22.5, 4.0, -248.4), deg_to_rad(4.0), 1.18)
-	_place_lush_bush(root, "CathedralHedge_LowerFrontInR", Vector3(22.5, 4.0, -248.4), deg_to_rad(-4.0), 1.18)
-	_place_lush_bush(root, "CathedralHedge_LowerFrontOutL", Vector3(-31.5, 4.0, -248.4), deg_to_rad(-6.0), 1.22)
-	_place_lush_bush(root, "CathedralHedge_LowerFrontOutR", Vector3(31.5, 4.0, -248.4), deg_to_rad(6.0), 1.22)
-	# Outer front corners of the panoramic side galleries (y = 8.0, well clear of (-24,8,-276) & (+24,8,-276))
-	_place_lush_bush(root, "CathedralHedge_GalleryFrontL", Vector3(-34.8, 8.0, -261.6), deg_to_rad(18.0), 1.02)
-	_place_lush_bush(root, "CathedralHedge_GalleryFrontR", Vector3(34.8, 8.0, -261.6), deg_to_rad(-18.0), 1.02)
+	# -----------------------------------------------------------------------
+	# 3b. 28 Dense Rose-and-Emerald Hedges framing stairs, lakeshores, terraces & balconies
+	# -----------------------------------------------------------------------
+	var castle_hedges: Array[Dictionary] = [
+		# Grand staircase cheek walls (y = 0, 4, 8)
+		{"pos": Vector3(-16.8, 0.0, -242.5), "yaw": 90.0, "sc": 1.12},
+		{"pos": Vector3(16.8, 0.0, -242.5), "yaw": -90.0, "sc": 1.12},
+		{"pos": Vector3(-16.8, 4.0, -248.8), "yaw": 90.0, "sc": 1.14},
+		{"pos": Vector3(16.8, 4.0, -248.8), "yaw": -90.0, "sc": 1.14},
+		{"pos": Vector3(-17.4, 8.0, -256.8), "yaw": 90.0, "sc": 1.06},
+		{"pos": Vector3(17.4, 8.0, -256.8), "yaw": -90.0, "sc": 1.06},
+		# Lower terrace front rim framing the Lotus Pools
+		{"pos": Vector3(-19.0, 4.0, -246.2), "yaw": 6.0, "sc": 1.16},
+		{"pos": Vector3(19.0, 4.0, -246.2), "yaw": -6.0, "sc": 1.16},
+		{"pos": Vector3(-29.2, 4.0, -246.2), "yaw": -5.0, "sc": 1.20},
+		{"pos": Vector3(29.2, 4.0, -246.2), "yaw": 5.0, "sc": 1.20},
+		{"pos": Vector3(-35.5, 4.0, -249.2), "yaw": 18.0, "sc": 1.18},
+		{"pos": Vector3(35.5, 4.0, -249.2), "yaw": -18.0, "sc": 1.18},
+		# Framing the West & East Castle Garden Lakeshores
+		{"pos": Vector3(-40.2, 4.0, -261.2), "yaw": 34.0, "sc": 1.22},
+		{"pos": Vector3(40.2, 4.0, -261.2), "yaw": -34.0, "sc": 1.22},
+		{"pos": Vector3(-51.6, 4.0, -275.5), "yaw": 88.0, "sc": 1.24},
+		{"pos": Vector3(51.6, 4.0, -275.5), "yaw": -88.0, "sc": 1.24},
+		{"pos": Vector3(-51.6, 4.0, -284.8), "yaw": 92.0, "sc": 1.24},
+		{"pos": Vector3(51.6, 4.0, -284.8), "yaw": -92.0, "sc": 1.24},
+		{"pos": Vector3(-40.0, 4.0, -296.8), "yaw": 136.0, "sc": 1.20},
+		{"pos": Vector3(40.0, 4.0, -296.8), "yaw": -136.0, "sc": 1.20},
+		# Panoramic Side Galleries outer corners (y = 8.0, well clear of Fountain/Book at +-24, -276)
+		{"pos": Vector3(-35.2, 8.0, -261.8), "yaw": 18.0, "sc": 1.04},
+		{"pos": Vector3(35.2, 8.0, -261.8), "yaw": -18.0, "sc": 1.04},
+		{"pos": Vector3(-35.6, 8.0, -271.2), "yaw": 90.0, "sc": 0.96},
+		{"pos": Vector3(35.6, 8.0, -271.2), "yaw": -90.0, "sc": 0.96},
+		{"pos": Vector3(-35.6, 8.0, -284.8), "yaw": 90.0, "sc": 0.96},
+		{"pos": Vector3(35.6, 8.0, -284.8), "yaw": -90.0, "sc": 0.96},
+		# North Cloud Terrace outer flank hedges (y = 8.0, clear of Astrolabe at 0, 8, -304)
+		{"pos": Vector3(-14.4, 8.0, -305.5), "yaw": 90.0, "sc": 1.00},
+		{"pos": Vector3(14.4, 8.0, -305.5), "yaw": -90.0, "sc": 1.00},
+	]
+	for h_idx: int in range(castle_hedges.size()):
+		var h_spec: Dictionary = castle_hedges[h_idx]
+		_place_lush_bush(
+			root,
+			"CathedralHedge_%02d" % h_idx,
+			h_spec["pos"] as Vector3,
+			deg_to_rad(float(h_spec["yaw"])),
+			float(h_spec["sc"])
+		)
 
-	# 10 blooming marble planters (scale 1.08..1.15) lining staircase cheek walls, gallery corners & North Terrace entrance
-	# Completely clear of Mentors (0,8,-267), Earth Mirror (0,8,-278), Fountain (-24,8,-276), Book (+24,8,-276), Astrolabe (0,8,-304)
-	_place_garden_planter(root, "CathedralPlanter_BaseL", Vector3(-15.5, 0.0, -242.0), deg_to_rad(90.0), 1.15)
-	_place_garden_planter(root, "CathedralPlanter_BaseR", Vector3(15.5, 0.0, -242.0), deg_to_rad(-90.0), 1.15)
-	_place_garden_planter(root, "CathedralPlanter_MidL", Vector3(-15.5, 4.0, -248.8), deg_to_rad(90.0), 1.15)
-	_place_garden_planter(root, "CathedralPlanter_MidR", Vector3(15.5, 4.0, -248.8), deg_to_rad(-90.0), 1.15)
-	_place_garden_planter(root, "CathedralPlanter_TopL", Vector3(-15.6, 8.0, -255.8), deg_to_rad(90.0), 1.12)
-	_place_garden_planter(root, "CathedralPlanter_TopR", Vector3(15.6, 8.0, -255.8), deg_to_rad(-90.0), 1.12)
-	_place_garden_planter(root, "CathedralPlanter_GalleryRearL", Vector3(-35.2, 8.0, -295.8), deg_to_rad(135.0), 1.08)
-	_place_garden_planter(root, "CathedralPlanter_GalleryRearR", Vector3(35.2, 8.0, -295.8), deg_to_rad(-135.0), 1.08)
-	_place_garden_planter(root, "CathedralPlanter_NorthTerraceL", Vector3(-13.8, 8.0, -300.2), deg_to_rad(90.0), 1.08)
-	_place_garden_planter(root, "CathedralPlanter_NorthTerraceR", Vector3(13.8, 8.0, -300.2), deg_to_rad(-90.0), 1.08)
+	# -----------------------------------------------------------------------
+	# 3c. Rotunda Interior Potted Greenery & Marble Urns (beside the 16 marble columns!)
+	# Inspired by sunlit cathedral rotunda greenery — all 4 cardinal archways 100% open!
+	# -----------------------------------------------------------------------
+	var rotunda_root: Node3D = Node3D.new()
+	rotunda_root.name = "RotundaInteriorGreenery"
+	root.add_child(rotunda_root)
 
-	# 4 celestial silk-and-crystal ornaments framing the Rotunda diagonal bays (all 4 cardinal archways 100% open!)
+	var rotunda_center: Vector3 = Vector3(0.0, 8.0, -280.0)
+	var rotunda_urn_angles_deg: Array[float] = [
+		22.5, 45.0, 67.5,
+		112.5, 135.0, 157.5,
+		202.5, 225.0, 247.5,
+		292.5, 315.0, 337.5,
+	]
+	for u_idx: int in range(rotunda_urn_angles_deg.size()):
+		var ang_rad: float = deg_to_rad(rotunda_urn_angles_deg[u_idx])
+		var r_urn: float = 15.8 if (u_idx % 3 == 1) else 16.3
+		var u_pos: Vector3 = rotunda_center + Vector3(cos(ang_rad) * r_urn, 0.0, sin(ang_rad) * r_urn)
+		var face_center: float = atan2(-cos(ang_rad), -sin(ang_rad))
+		if u_idx % 2 == 0:
+			_place_rotunda_potted_urn(rotunda_root, "RotundaFernUrn_%02d" % u_idx, u_pos, face_center, 1.08)
+		else:
+			_place_garden_planter(rotunda_root, "RotundaMarblePlanter_%02d" % u_idx, u_pos, face_center, 0.96)
+
+	# -----------------------------------------------------------------------
+	# 3d. Blooming Marble Planters & Flower Urns along Staircase, Panoramic Balconies & North Terrace
+	# -----------------------------------------------------------------------
+	var castle_planters: Array[Dictionary] = [
+		# Grand staircase cheek walls
+		{"pos": Vector3(-15.5, 0.0, -242.0), "yaw": 90.0, "sc": 1.15},
+		{"pos": Vector3(15.5, 0.0, -242.0), "yaw": -90.0, "sc": 1.15},
+		{"pos": Vector3(-15.5, 4.0, -248.8), "yaw": 90.0, "sc": 1.15},
+		{"pos": Vector3(15.5, 4.0, -248.8), "yaw": -90.0, "sc": 1.15},
+		{"pos": Vector3(-15.6, 8.0, -255.8), "yaw": 90.0, "sc": 1.12},
+		{"pos": Vector3(15.6, 8.0, -255.8), "yaw": -90.0, "sc": 1.12},
+		# East & West Panoramic Balconies (x = +-35.6, y = 8.0, framing Fountain & Book)
+		{"pos": Vector3(-35.6, 8.0, -266.2), "yaw": 90.0, "sc": 1.05},
+		{"pos": Vector3(35.6, 8.0, -266.2), "yaw": -90.0, "sc": 1.05},
+		{"pos": Vector3(-35.6, 8.0, -278.0), "yaw": 90.0, "sc": 1.08},
+		{"pos": Vector3(35.6, 8.0, -278.0), "yaw": -90.0, "sc": 1.08},
+		{"pos": Vector3(-35.6, 8.0, -290.2), "yaw": 90.0, "sc": 1.05},
+		{"pos": Vector3(35.6, 8.0, -290.2), "yaw": -90.0, "sc": 1.05},
+		{"pos": Vector3(-35.2, 8.0, -295.8), "yaw": 135.0, "sc": 1.08},
+		{"pos": Vector3(35.2, 8.0, -295.8), "yaw": -135.0, "sc": 1.08},
+		# North Cloud Terrace blooming urns & planters
+		{"pos": Vector3(-13.8, 8.0, -300.2), "yaw": 90.0, "sc": 1.08},
+		{"pos": Vector3(13.8, 8.0, -300.2), "yaw": -90.0, "sc": 1.08},
+		{"pos": Vector3(-13.8, 8.0, -310.8), "yaw": 122.0, "sc": 1.06},
+		{"pos": Vector3(13.8, 8.0, -310.8), "yaw": -122.0, "sc": 1.06},
+		{"pos": Vector3(-7.4, 8.0, -312.2), "yaw": 180.0, "sc": 1.02},
+		{"pos": Vector3(7.4, 8.0, -312.2), "yaw": 180.0, "sc": 1.02},
+	]
+	for p_idx: int in range(castle_planters.size()):
+		var p_spec: Dictionary = castle_planters[p_idx]
+		var p_pos: Vector3 = p_spec["pos"] as Vector3
+		var p_yaw: float = deg_to_rad(float(p_spec["yaw"]))
+		var p_sc: float = float(p_spec["sc"])
+		if p_idx >= 14 and p_idx % 2 == 0:
+			_place_rotunda_potted_urn(root, "TerraceBloomUrn_%02d" % p_idx, p_pos, p_yaw, p_sc)
+		else:
+			_place_garden_planter(root, "CathedralPlanter_%02d" % p_idx, p_pos, p_yaw, p_sc)
+
+	# 6 celestial silk-and-crystal floral archways (4 Rotunda diagonal bays + 2 North Terrace rim)
 	_place_celestial_ornament(root, "SanctuaryOrnament_SouthDiagL", Vector3(-14.2, 8.0, -264.8), deg_to_rad(64.0), 1.12, 0.5)
 	_place_celestial_ornament(root, "SanctuaryOrnament_SouthDiagR", Vector3(14.2, 8.0, -264.8), deg_to_rad(-64.0), 1.12, 2.2)
 	_place_celestial_ornament(root, "SanctuaryOrnament_NorthDiagL", Vector3(-14.2, 8.0, -294.2), deg_to_rad(118.0), 1.12, 3.6)
 	_place_celestial_ornament(root, "SanctuaryOrnament_NorthDiagR", Vector3(14.2, 8.0, -294.2), deg_to_rad(-118.0), 1.12, 5.1)
+	_place_celestial_ornament(root, "NorthTerraceOrnament_L", Vector3(-11.4, 8.0, -311.8), deg_to_rad(152.0), 1.04, 1.4)
+	_place_celestial_ornament(root, "NorthTerraceOrnament_R", Vector3(11.4, 8.0, -311.8), deg_to_rad(-152.0), 1.04, 4.2)
 
-	# Dense cascading emerald ivy walls along the castle lower terrace parapets
-	var vine_root: Node3D = Node3D.new()
-	vine_root.name = "CathedralHangingVines"
-	root.add_child(vine_root)
-
+	# Dense cascading emerald ivy walls along the castle lower terrace parapets (GPU-instanced)
 	var forward_dir: Vector3 = Vector3(0.0, 0.0, 1.0)
 	var lower_x_coords: Array[float] = [
-		-42.0, -39.0, -36.0, -33.0, -30.0, -27.0, -24.0, -21.0, -18.0,
-		18.0, 21.0, 24.0, 27.0, 30.0, 33.0, 36.0, 39.0, 42.0,
+		-43.0, -40.5, -38.0, -35.5, -33.0, -30.5, -28.0, -25.5, -23.0, -20.5, -18.0,
+		18.0, 20.5, 23.0, 25.5, 28.0, 30.5, 33.0, 35.5, 38.0, 40.5, 43.0,
 	]
 	for i: int in range(lower_x_coords.size()):
 		var x_val: float = lower_x_coords[i]
-		var drop_len: float = 2.4 + fmod(float(i * 7 + 5) * 0.6180339, 1.0) * 1.95 # 2.4m .. 4.35m
-		_build_vine_garland(
-			vine_root,
-			Vector3(x_val, 3.9, -247.8),
-			forward_dir,
-			drop_len,
-			100 + i
-		)
+		var drop_len: float = 2.6 + fmod(float(i * 7 + 5) * 0.6180339, 1.0) * 2.2
+		_append_vine_garland(Vector3(x_val, 3.9, -247.8), forward_dir, drop_len, 100 + i)
 
-	# Outer lower terrace side parapet ivy curtains (x = +-43.9, z = -252..-296)
-	var side_z_coords: Array[float] = [-252.0, -258.0, -264.0, -270.0, -276.0, -282.0, -288.0, -294.0]
+	var side_z_coords: Array[float] = [
+		-250.0, -254.0, -258.0, -262.0, -266.0, -270.0, -274.0,
+		-278.0, -282.0, -286.0, -290.0, -294.0, -298.0,
+	]
 	for side_idx: int in range(2):
 		var s_sign: float = -1.0 if side_idx == 0 else 1.0
 		var s_dir: Vector3 = Vector3(s_sign, 0.0, 0.0)
 		for j: int in range(side_z_coords.size()):
-			var drop_len: float = 2.6 + fmod(float(side_idx * 9 + j * 5 + 1) * 0.6180339, 1.0) * 1.9
-			_build_vine_garland(
-				vine_root,
+			var drop_len: float = 2.8 + fmod(float(side_idx * 9 + j * 5 + 1) * 0.6180339, 1.0) * 2.3
+			_append_vine_garland(
 				Vector3(s_sign * 43.9, 3.9, side_z_coords[j]),
 				s_dir,
 				drop_len,
-				200 + side_idx * 10 + j
+				200 + side_idx * 20 + j
 			)
+
+
+# ---------------------------------------------------------------------------
+# 4. Shimmering Reflecting Lakes, Lotus Pools & Central Sky-Island Pond Ring
+# ---------------------------------------------------------------------------
+
+func _build_reflecting_lakes_and_ponds(island_positions: Array[Vector3]) -> void:
+	var root: Node3D = Node3D.new()
+	root.name = "ReflectingLakesAndPonds"
+	add_child(root)
+
+	# 1 & 2. West & East Castle Garden Lakes (organic sculpted ovals ~14m x 24m at y = 4.05)
+	_create_sculpted_oval_lake(root, "WestCastleGardenLake", Vector3(-44.0, 4.05, -280.0), 7.0, 12.0, 26, 11, 101)
+	_create_sculpted_oval_lake(root, "EastCastleGardenLake", Vector3(44.0, 4.05, -280.0), 7.0, 12.0, 26, 11, 202)
+
+	# 3 & 4. Front Courtyard Lotus Reflecting Pools (~11m x 10m at y = 4.05)
+	_create_sculpted_oval_lake(root, "WestCourtyardLotusPool", Vector3(-24.0, 4.05, -252.0), 5.5, 5.0, 16, 7, 303)
+	_create_sculpted_oval_lake(root, "EastCourtyardLotusPool", Vector3(24.0, 4.05, -252.0), 5.5, 5.0, 16, 7, 404)
+
+	# 5. Central Sky-Island Sanctuary Pond Ring on the Central Axial Island (0.0, 6.55, -106.0)
+	var central_island: Vector3 = Vector3(0.0, 6.5, -106.0)
+	if island_positions.size() >= 3:
+		central_island = island_positions[2]
+	_create_sanctuary_pond_ring(
+		root,
+		"CentralIslandPondRing",
+		Vector3(central_island.x, central_island.y + 0.05, central_island.z),
+		3.45,
+		5.15,
+		22,
+		9
+	)
+
+
+func _create_sculpted_oval_lake(
+	parent: Node3D,
+	lake_name: String,
+	center: Vector3,
+	rx: float,
+	rz: float,
+	lily_count: int,
+	lotus_count: int,
+	seed_offset: int
+) -> void:
+	var lake: Node3D = Node3D.new()
+	lake.name = lake_name
+	lake.position = center
+	parent.add_child(lake)
+
+	# Grounded teal-marble lakebed slightly beneath water surface
+	var bed_inst: MeshInstance3D = MeshInstance3D.new()
+	bed_inst.name = "Lakebed"
+	bed_inst.mesh = _create_oval_water_mesh(rx * 1.01, rz * 1.01, 44, 4)
+	bed_inst.material_override = _mat_lakebed
+	bed_inst.position = Vector3(0.0, -0.14, 0.0)
+	bed_inst.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	lake.add_child(bed_inst)
+
+	# Shimmering Turquoise-Crystal water surface
+	var water_inst: MeshInstance3D = MeshInstance3D.new()
+	water_inst.name = "WaterSurface"
+	water_inst.mesh = _create_oval_water_mesh(rx, rz, 48, 8)
+	water_inst.material_override = _mat_water_oval
+	water_inst.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	lake.add_child(water_inst)
+
+	# Carved white-marble curb ring framing the lake
+	var curb_inst: MeshInstance3D = MeshInstance3D.new()
+	curb_inst.name = "MarbleCurbRing"
+	curb_inst.mesh = _create_oval_curb_mesh(rx, rz, 0.56, 0.26, 48)
+	curb_inst.material_override = _mat_marble_curb
+	curb_inst.position = Vector3(0.0, -0.04, 0.0)
+	lake.add_child(curb_inst)
+
+	# Lush emerald moss outer rim hugging the marble curb
+	var moss_inst: MeshInstance3D = MeshInstance3D.new()
+	moss_inst.name = "MossBorderRing"
+	moss_inst.mesh = _create_oval_curb_mesh(rx + 0.52, rz + 0.52, 0.78, 0.14, 48)
+	moss_inst.material_override = _mat_moss_border
+	moss_inst.position = Vector3(0.0, -0.06, 0.0)
+	moss_inst.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	lake.add_child(moss_inst)
+
+	# Populate floating emerald lily pads & blooming pink/pearl lotuses (batched to MultiMesh)
+	var lily_palette: Array[Color] = [
+		Color("#2F8A4E"),
+		Color("#3FA258"),
+		Color("#267542"),
+		Color("#52B466"),
+	]
+	var lotus_palette: Array[Color] = [
+		Color("#FF9CC2"), # Soft rose-pink lotus
+		Color("#FFF8FC"), # Pearl-white lotus
+		Color("#FFC4DC"), # Blush sakura lotus
+		Color("#FFEAF4"), # Creamy pearl lotus
+	]
+
+	for i: int in range(lily_count):
+		var a: float = float(i) * 2.3999632 + float(seed_offset) * 0.37 # Golden angle spiral
+		var r_frac: float = sqrt((float(i) + 0.5) / float(lily_count)) * 0.80
+		var lobe: float = _oval_lobe_factor(a)
+		var lx: float = cos(a) * rx * r_frac * lobe
+		var lz: float = sin(a) * rz * r_frac * lobe
+		var pad_scale: float = 0.72 + _hash01(seed_offset * 31 + i * 13) * 0.78
+		var pad_yaw: float = _hash01(seed_offset * 19 + i * 7) * TAU
+		var pad_basis: Basis = Basis(Vector3.UP, pad_yaw).scaled(Vector3(pad_scale, 1.0, pad_scale))
+		_lily_xforms.append(Transform3D(pad_basis, center + Vector3(lx, 0.032, lz)))
+		_lily_colors.append(lily_palette[(i + seed_offset) % lily_palette.size()])
+
+		# Place blooming lotus flowers on selected lily pads so they float naturally
+		if i < lotus_count:
+			var l_scale: float = 0.78 + _hash01(seed_offset * 47 + i * 17) * 0.52
+			var l_yaw: float = _hash01(seed_offset * 29 + i * 11) * TAU
+			var l_basis: Basis = Basis(Vector3.UP, l_yaw).scaled(Vector3(l_scale, l_scale, l_scale))
+			_lotus_xforms.append(Transform3D(l_basis, center + Vector3(lx, 0.055, lz)))
+			_lotus_colors.append(lotus_palette[(i + seed_offset) % lotus_palette.size()])
+
+	# Gentle rising water-sparkle mist particles over the lake
+	_add_water_sparkle_mist(lake, Vector3(rx * 0.68, 0.25, rz * 0.68), 22 if rx > 6.0 else 14)
+
+
+func _create_sanctuary_pond_ring(
+	parent: Node3D,
+	ring_name: String,
+	center: Vector3,
+	r_inner: float,
+	r_outer: float,
+	lily_count: int,
+	lotus_count: int
+) -> void:
+	var pond: Node3D = Node3D.new()
+	pond.name = ring_name
+	pond.position = center
+	parent.add_child(pond)
+
+	var bed_inst: MeshInstance3D = MeshInstance3D.new()
+	bed_inst.name = "RingLakebed"
+	bed_inst.mesh = _create_ring_water_mesh(r_inner - 0.05, r_outer + 0.05, 48, 2)
+	bed_inst.material_override = _mat_lakebed
+	bed_inst.position = Vector3(0.0, -0.07, 0.0)
+	bed_inst.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	pond.add_child(bed_inst)
+
+	var water_inst: MeshInstance3D = MeshInstance3D.new()
+	water_inst.name = "RingWaterSurface"
+	water_inst.mesh = _create_ring_water_mesh(r_inner, r_outer, 56, 5)
+	water_inst.material_override = _mat_water_ring
+	water_inst.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	pond.add_child(water_inst)
+
+	# Inner and outer carved marble curb rings
+	var inner_curb: MeshInstance3D = MeshInstance3D.new()
+	inner_curb.name = "InnerMarbleCurb"
+	inner_curb.mesh = _create_ring_curb_mesh(r_inner - 0.14, 0.28, 0.16, 48)
+	inner_curb.material_override = _mat_marble_curb
+	inner_curb.position = Vector3(0.0, -0.02, 0.0)
+	pond.add_child(inner_curb)
+
+	var outer_curb: MeshInstance3D = MeshInstance3D.new()
+	outer_curb.name = "OuterMarbleCurb"
+	outer_curb.mesh = _create_ring_curb_mesh(r_outer + 0.16, 0.32, 0.18, 48)
+	outer_curb.material_override = _mat_marble_curb
+	outer_curb.position = Vector3(0.0, -0.02, 0.0)
+	pond.add_child(outer_curb)
+
+	var lily_palette: Array[Color] = [Color("#349452"), Color("#48B064"), Color("#2A7E46")]
+	var lotus_palette: Array[Color] = [Color("#FFA4C8"), Color("#FFF9FD"), Color("#FFD0E4")]
+	for i: int in range(lily_count):
+		var a: float = (TAU / float(lily_count)) * float(i) + _hash01(501 + i) * 0.22
+		var r_pos: float = lerpf(r_inner + 0.38, r_outer - 0.38, _hash01(601 + i * 7))
+		var lx: float = cos(a) * r_pos
+		var lz: float = sin(a) * r_pos
+		var pad_scale: float = 0.62 + _hash01(701 + i * 11) * 0.45
+		var pad_basis: Basis = Basis(Vector3.UP, a * 1.7).scaled(Vector3(pad_scale, 1.0, pad_scale))
+		_lily_xforms.append(Transform3D(pad_basis, center + Vector3(lx, 0.028, lz)))
+		_lily_colors.append(lily_palette[i % lily_palette.size()])
+
+		if i % 2 == 0 and (i / 2) < lotus_count:
+			var l_scale: float = 0.70 + _hash01(801 + i * 13) * 0.38
+			var l_basis: Basis = Basis(Vector3.UP, a).scaled(Vector3(l_scale, l_scale, l_scale))
+			_lotus_xforms.append(Transform3D(l_basis, center + Vector3(lx, 0.048, lz)))
+			_lotus_colors.append(lotus_palette[(i / 2) % lotus_palette.size()])
+
+	_add_water_sparkle_mist(pond, Vector3(r_outer * 0.78, 0.22, r_outer * 0.78), 16)
+
+
+func _add_water_sparkle_mist(parent: Node3D, box_extents: Vector3, amount: int) -> void:
+	var particles: GPUParticles3D = GPUParticles3D.new()
+	particles.name = "WaterSparkleMist"
+	particles.amount = amount
+	particles.lifetime = 3.8
+	particles.preprocess = 1.5
+	particles.position = Vector3(0.0, 0.18, 0.0)
+	particles.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+
+	var proc: ParticleProcessMaterial = ParticleProcessMaterial.new()
+	proc.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
+	proc.emission_box_extents = box_extents
+	proc.direction = Vector3(0.0, 1.0, 0.0)
+	proc.spread = 22.0
+	proc.initial_velocity_min = 0.18
+	proc.initial_velocity_max = 0.48
+	proc.gravity = Vector3(0.0, 0.04, 0.0)
+	proc.scale_min = 0.55
+	proc.scale_max = 1.25
+	proc.color = Color(0.84, 0.98, 1.0, 0.65)
+	particles.process_material = proc
+
+	var quad: QuadMesh = QuadMesh.new()
+	quad.size = Vector2(0.24, 0.24)
+	var mat: StandardMaterial3D = StandardMaterial3D.new()
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	mat.albedo_color = Color(0.78, 0.96, 1.0, 0.42)
+	mat.albedo_texture = _create_soft_radial_texture(32)
+	quad.material = mat
+
+	particles.draw_pass_1 = quad
+	parent.add_child(particles)
+
+
+# ---------------------------------------------------------------------------
+# 5. Waterfall Mist Plumes (GPUParticles3D at the 4 Castle Island Cliff Waterfalls)
+# ---------------------------------------------------------------------------
+
+func _build_waterfall_mist_plumes() -> void:
+	var root: Node3D = Node3D.new()
+	root.name = "WaterfallMistPlumes"
+	add_child(root)
+
+	var mist_tex: ImageTexture = _create_soft_radial_texture(64)
+	var mist_mat: StandardMaterial3D = StandardMaterial3D.new()
+	mist_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mist_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mist_mat.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	mist_mat.albedo_color = Color(0.86, 0.97, 1.0, 0.34)
+	mist_mat.albedo_texture = mist_tex
+	mist_mat.vertex_color_use_as_albedo = true
+
+	var mist_quad: QuadMesh = QuadMesh.new()
+	mist_quad.size = Vector2(4.6, 4.6)
+	mist_quad.material = mist_mat
+
+	var waterfall_coords: Array[Vector3] = [
+		Vector3(-44.0, 2.0, -284.0),
+		Vector3(44.0, 2.0, -284.0),
+		Vector3(-32.0, 2.0, -312.0),
+		Vector3(32.0, 2.0, -312.0),
+	]
+
+	for idx: int in range(waterfall_coords.size()):
+		var plume: GPUParticles3D = GPUParticles3D.new()
+		plume.name = "WaterfallMistPlume_%02d" % idx
+		plume.position = waterfall_coords[idx]
+		plume.amount = 28
+		plume.lifetime = 4.2
+		plume.preprocess = 2.0
+		plume.visibility_aabb = AABB(Vector3(-10.0, -8.0, -10.0), Vector3(20.0, 18.0, 20.0))
+		plume.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+
+		var proc: ParticleProcessMaterial = ParticleProcessMaterial.new()
+		proc.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
+		proc.emission_sphere_radius = 2.6
+		proc.direction = Vector3(0.0, 0.85, 0.25 if idx < 2 else -0.35).normalized()
+		proc.spread = 48.0
+		proc.initial_velocity_min = 0.65
+		proc.initial_velocity_max = 1.65
+		proc.gravity = Vector3(0.0, -0.18, 0.0)
+		proc.damping_min = 0.25
+		proc.damping_max = 0.55
+		proc.scale_min = 0.85
+		proc.scale_max = 2.05
+
+		var grad: Gradient = Gradient.new()
+		grad.offsets = PackedFloat32Array([0.0, 0.28, 0.72, 1.0])
+		grad.colors = PackedColorArray([
+			Color(0.84, 0.98, 1.0, 0.0),
+			Color(0.88, 0.98, 1.0, 0.55),
+			Color(0.82, 0.96, 1.0, 0.36),
+			Color(0.92, 0.99, 1.0, 0.0),
+		])
+		var grad_tex: GradientTexture1D = GradientTexture1D.new()
+		grad_tex.gradient = grad
+		proc.color_ramp = grad_tex
+
+		plume.process_material = proc
+		plume.draw_pass_1 = mist_quad
+		root.add_child(plume)
+
+
+# ---------------------------------------------------------------------------
+# 6. GPU-Instanced Lush Grass (1,800+) & 4-Color Flowerbeds (1,400+)
+# ---------------------------------------------------------------------------
+
+func _populate_meadow_grass_and_flowerbeds(island_positions: Array[Vector3]) -> void:
+	var grass_palette: Array[Color] = [
+		Color("#2F8A47"), # Rich emerald
+		Color("#42A456"), # Sunlit meadow green
+		Color("#56BC64"), # Fresh spring grass
+		Color("#3A9650"), # Lush fern green
+		Color("#68C86E"), # Sun-kissed mint tip
+	]
+	# 4-Color Heavenly Flowerbed Palette: Sakura-Pink, Lavender, Sky-Blue Hydrangea, Creamy Jasmine & Buttercup
+	var flower_palette: Array[Color] = [
+		Color("#F98EB6"), # Blush sakura-pink rose
+		Color("#FFB8D4"), # Soft petal pink
+		Color("#BC94F2"), # Soft lavender
+		Color("#D2B6FA"), # Pale lilac-lavender
+		Color("#74C6FA"), # Sky-blue hydrangea
+		Color("#A4DEFF"), # Celestial baby-blue
+		Color("#FFF8E8"), # Creamy white jasmine
+		Color("#FFE074"), # Sunlit golden buttercup
+	]
+
+	# A. Castle Island Lower Garden Meadows (y = 4.0) — ~1,100 grass tufts + ~820 flower clusters
+	var seed_id: int = 1000
+	for i: int in range(1350):
+		seed_id += 1
+		var side_sign: float = -1.0 if (i % 2 == 0) else 1.0
+		var gx: float = side_sign * lerpf(15.2, 51.5, _hash01(seed_id * 17 + 3))
+		var gz: float = lerpf(-247.5, -301.5, _hash01(seed_id * 29 + 7))
+
+		# Skip Rotunda & Panoramic Galleries elevated footprint (x = -37..+37, z = -256.5..-298.5)
+		if absf(gx) < 37.6 and gz < -256.2 and gz > -298.8:
+			continue
+		# Skip inside the 4 Reflecting Lakes & Pools
+		if _is_inside_any_castle_lake(gx, gz, 0.72):
+			continue
+
+		var yaw: float = _hash01(seed_id * 13) * TAU
+		var sc: float = 0.75 + _hash01(seed_id * 37) * 0.85
+		var basis: Basis = Basis(Vector3.UP, yaw).scaled(Vector3(sc, sc * (0.85 + _hash01(seed_id * 41) * 0.4), sc))
+		_grass_xforms.append(Transform3D(basis, Vector3(gx, 4.0, gz)))
+		_grass_colors.append(grass_palette[seed_id % grass_palette.size()])
+
+		if _hash01(seed_id * 53 + 11) < 0.72:
+			var f_off_x: float = (_hash01(seed_id * 61) - 0.5) * 0.65
+			var f_off_z: float = (_hash01(seed_id * 67) - 0.5) * 0.65
+			var f_sc: float = 0.78 + _hash01(seed_id * 71) * 0.76
+			var f_basis: Basis = Basis(Vector3.UP, yaw + 0.9).scaled(Vector3(f_sc, f_sc, f_sc))
+			# Cluster flower colors gently by spatial zone so beds look intentionally planted
+			var zone_idx: int = int(absf(floorf(gx * 0.18) + floorf(gz * 0.16))) % 4
+			var col_idx: int = zone_idx * 2 + (seed_id % 2)
+			_flower_xforms.append(Transform3D(f_basis, Vector3(gx + f_off_x, 4.02, gz + f_off_z)))
+			_flower_colors.append(flower_palette[col_idx])
+
+	# B. Dedicated Lush Lakeshore Rings around all 4 Castle Lakes & Pools (~360 grass + ~340 flowers!)
+	var lake_specs: Array[Dictionary] = [
+		{"cx": -44.0, "cz": -280.0, "rx": 7.0, "rz": 12.0, "count": 105},
+		{"cx": 44.0, "cz": -280.0, "rx": 7.0, "rz": 12.0, "count": 105},
+		{"cx": -24.0, "cz": -252.0, "rx": 5.5, "rz": 5.0, "count": 75},
+		{"cx": 24.0, "cz": -252.0, "rx": 5.5, "rz": 5.0, "count": 75},
+	]
+	for l_idx: int in range(lake_specs.size()):
+		var ls: Dictionary = lake_specs[l_idx]
+		var cx: float = float(ls["cx"])
+		var cz: float = float(ls["cz"])
+		var rx: float = float(ls["rx"])
+		var rz: float = float(ls["rz"])
+		var cnt: int = int(ls["count"])
+		for k: int in range(cnt):
+			seed_id += 1
+			var ang: float = (TAU / float(cnt)) * float(k) + _hash01(seed_id * 11) * 0.08
+			var lobe: float = _oval_lobe_factor(ang)
+			var shore_pad: float = 0.85 + _hash01(seed_id * 19) * 1.45
+			var sx: float = cx + cos(ang) * (rx * lobe + shore_pad)
+			var sz: float = cz + sin(ang) * (rz * lobe + shore_pad)
+			# Keep staircase clear
+			if absf(sx) < 15.2 and sz > -256.5:
+				continue
+			# Keep elevated gallery clear
+			if absf(sx) < 37.5 and sz < -256.2 and sz > -298.8:
+				continue
+
+			var sc: float = 0.85 + _hash01(seed_id * 23) * 0.72
+			var g_basis: Basis = Basis(Vector3.UP, ang * 2.1).scaled(Vector3(sc, sc, sc))
+			_grass_xforms.append(Transform3D(g_basis, Vector3(sx, 4.0, sz)))
+			_grass_colors.append(grass_palette[seed_id % grass_palette.size()])
+
+			var f_sc: float = 0.82 + _hash01(seed_id * 31) * 0.68
+			var f_basis: Basis = Basis(Vector3.UP, ang * 1.4 + 0.5).scaled(Vector3(f_sc, f_sc, f_sc))
+			_flower_xforms.append(Transform3D(f_basis, Vector3(sx, 4.03, sz)))
+			_flower_colors.append(flower_palette[(k / 3 + l_idx * 2) % flower_palette.size()])
+
+	# C. Castle Lower Arrival Apron (y = 0.0, flanking front staircase base)
+	for i: int in range(120):
+		seed_id += 1
+		var side_sign: float = -1.0 if (i % 2 == 0) else 1.0
+		var ax: float = side_sign * lerpf(16.2, 41.0, _hash01(seed_id * 17))
+		var az: float = lerpf(-240.5, -247.0, _hash01(seed_id * 23))
+		var sc: float = 0.80 + _hash01(seed_id * 31) * 0.75
+		var basis: Basis = Basis(Vector3.UP, _hash01(seed_id * 13) * TAU).scaled(Vector3(sc, sc, sc))
+		_grass_xforms.append(Transform3D(basis, Vector3(ax, 0.0, az)))
+		_grass_colors.append(grass_palette[seed_id % grass_palette.size()])
+		if i % 2 == 0:
+			var f_basis: Basis = Basis(Vector3.UP, _hash01(seed_id * 19) * TAU).scaled(Vector3(sc, sc, sc))
+			_flower_xforms.append(Transform3D(f_basis, Vector3(ax, 0.02, az)))
+			_flower_colors.append(flower_palette[seed_id % flower_palette.size()])
+
+	# D. Five Floating Temple Islands (outer perimeter meadows, skipping cardinal approach lanes)
+	for idx: int in range(island_positions.size()):
+		var center: Vector3 = island_positions[idx]
+		var rad_mult: float = 1.12 if idx == 2 else 1.0
+		var count_per_island: int = 84
+		for k: int in range(count_per_island):
+			seed_id += 1
+			var ang_deg: float = _hash01(seed_id * 17 + idx) * 360.0
+			# Keep 4 cardinal approach walkways clear (+-12 deg around 0, 90, 180, 270)
+			var mod90: float = fmod(ang_deg, 90.0)
+			if mod90 < 12.0 or mod90 > 78.0:
+				continue
+			var ang: float = deg_to_rad(ang_deg)
+			var r_val: float = lerpf(5.45, 7.65, _hash01(seed_id * 29)) * rad_mult
+			var px: float = center.x + cos(ang) * r_val
+			var pz: float = center.z + sin(ang) * r_val
+			var sc: float = 0.72 + _hash01(seed_id * 37) * 0.68
+			var basis: Basis = Basis(Vector3.UP, ang * 2.0).scaled(Vector3(sc, sc, sc))
+			_grass_xforms.append(Transform3D(basis, Vector3(px, center.y, pz)))
+			_grass_colors.append(grass_palette[seed_id % grass_palette.size()])
+
+			if _hash01(seed_id * 43) < 0.74:
+				var f_sc: float = 0.76 + _hash01(seed_id * 47) * 0.58
+				var f_basis: Basis = Basis(Vector3.UP, ang + 0.7).scaled(Vector3(f_sc, f_sc, f_sc))
+				_flower_xforms.append(Transform3D(f_basis, Vector3(px, center.y + 0.02, pz)))
+				_flower_colors.append(flower_palette[(seed_id + idx * 2) % flower_palette.size()])
+
+	# E. Starting Monolith Plaza Borders (x = +-5.8..+-7.6, z = 24.4..45.0, center walkway 100% clear)
+	for i: int in range(130):
+		seed_id += 1
+		var side_sign: float = -1.0 if (i % 2 == 0) else 1.0
+		var px: float = side_sign * lerpf(5.85, 7.65, _hash01(seed_id * 17))
+		var pz: float = lerpf(24.4, 45.0, _hash01(seed_id * 29))
+		var sc: float = 0.68 + _hash01(seed_id * 31) * 0.56
+		var basis: Basis = Basis(Vector3.UP, _hash01(seed_id * 13) * TAU).scaled(Vector3(sc, sc, sc))
+		_grass_xforms.append(Transform3D(basis, Vector3(px, 0.0, pz)))
+		_grass_colors.append(grass_palette[seed_id % grass_palette.size()])
+
+		if _hash01(seed_id * 41) < 0.78:
+			var f_sc: float = 0.72 + _hash01(seed_id * 53) * 0.52
+			var f_basis: Basis = Basis(Vector3.UP, _hash01(seed_id * 19) * TAU).scaled(Vector3(f_sc, f_sc, f_sc))
+			_flower_xforms.append(Transform3D(f_basis, Vector3(px, 0.02, pz)))
+			_flower_colors.append(flower_palette[seed_id % flower_palette.size()])
+
+	# F. Twin Viaduct Ledges (x = +-51.2..+-54.0, y = 14.0, z = 10..-232)
+	for i: int in range(220):
+		seed_id += 1
+		var side_sign: float = -1.0 if (i % 2 == 0) else 1.0
+		var vx: float = side_sign * lerpf(51.2, 54.0, _hash01(seed_id * 17))
+		var vz: float = lerpf(10.0, -232.0, _hash01(seed_id * 29))
+		var sc: float = 0.78 + _hash01(seed_id * 37) * 0.68
+		var basis: Basis = Basis(Vector3.UP, _hash01(seed_id * 13) * TAU).scaled(Vector3(sc, sc, sc))
+		_grass_xforms.append(Transform3D(basis, Vector3(vx, 14.0, vz)))
+		_grass_colors.append(grass_palette[seed_id % grass_palette.size()])
+
+		if _hash01(seed_id * 43) < 0.68:
+			var f_basis: Basis = Basis(Vector3.UP, _hash01(seed_id * 23) * TAU).scaled(Vector3(sc, sc, sc))
+			_flower_xforms.append(Transform3D(f_basis, Vector3(vx, 14.02, vz)))
+			_flower_colors.append(flower_palette[seed_id % flower_palette.size()])
+
+
+func _is_inside_any_castle_lake(x: float, z: float, margin: float) -> bool:
+	# West & East Castle Garden Lakes: (+-44.0, -280.0), rx = 7.0, rz = 12.0
+	var dx_w: float = (x + 44.0) / (7.0 + margin)
+	var dz_w: float = (z + 280.0) / (12.0 + margin)
+	if dx_w * dx_w + dz_w * dz_w < 1.0:
+		return true
+
+	var dx_e: float = (x - 44.0) / (7.0 + margin)
+	var dz_e: float = (z + 280.0) / (12.0 + margin)
+	if dx_e * dx_e + dz_e * dz_e < 1.0:
+		return true
+
+	# West & East Courtyard Lotus Pools: (+-24.0, -252.0), rx = 5.5, rz = 5.0
+	var dx_pw: float = (x + 24.0) / (5.5 + margin)
+	var dz_pw: float = (z + 252.0) / (5.0 + margin)
+	if dx_pw * dx_pw + dz_pw * dz_pw < 1.0:
+		return true
+
+	var dx_pe: float = (x - 24.0) / (5.5 + margin)
+	var dz_pe: float = (z + 252.0) / (5.0 + margin)
+	if dx_pe * dx_pe + dz_pe * dz_pe < 1.0:
+		return true
+
+	return false
+
+
+func _flush_multimesh_batches() -> void:
+	var root: Node3D = Node3D.new()
+	root.name = "InstancedBotanicalBatches"
+	add_child(root)
+
+	_create_multimesh_batch(root, "MeadowGrassTuftsMM", _mesh_grass_tuft, _mat_grass_mm, _grass_xforms, _grass_colors)
+	_create_multimesh_batch(root, "FourColorFlowerbedsMM", _mesh_flower_cluster, _mat_flower_mm, _flower_xforms, _flower_colors)
+	_create_multimesh_batch(root, "FloatingLilyPadsMM", _mesh_lily_pad, _mat_lily_mm, _lily_xforms, _lily_colors)
+	_create_multimesh_batch(root, "BloomingLotusesMM", _mesh_lotus_flower, _mat_lotus_mm, _lotus_xforms, _lotus_colors)
+	_create_multimesh_batch(root, "CascadingVineStemsMM", _mesh_vine_stem, _mat_leaf_emerald, _vine_stem_xforms, [])
+	_create_multimesh_batch(root, "CascadingVineLeavesMM", _mesh_leaf_cluster, _mat_vine_leaf_mm, _vine_leaf_xforms, _vine_leaf_colors)
+	_create_multimesh_batch(root, "CascadingVineBlossomsMM", _mesh_blossom_cluster, _mat_vine_blossom_mm, _vine_blossom_xforms, _vine_blossom_colors)
+
+
+func _create_multimesh_batch(
+	parent: Node3D,
+	batch_name: String,
+	mesh_res: Mesh,
+	mat_res: Material,
+	xforms: Array[Transform3D],
+	colors: Array[Color]
+) -> MultiMeshInstance3D:
+	if xforms.is_empty():
+		return null
+	var mm: MultiMesh = MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	var has_colors: bool = (colors.size() == xforms.size())
+	mm.use_colors = has_colors
+	mm.mesh = mesh_res
+	mm.instance_count = xforms.size()
+
+	for i: int in range(xforms.size()):
+		mm.set_instance_transform(i, xforms[i])
+		if has_colors:
+			mm.set_instance_color(i, colors[i])
+
+	var mmi: MultiMeshInstance3D = MultiMeshInstance3D.new()
+	mmi.name = batch_name
+	mmi.multimesh = mm
+	mmi.material_override = mat_res
+	mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	parent.add_child(mmi)
+	return mmi
+
+
+# ---------------------------------------------------------------------------
+# 7. Gentle Fluttering Luminous Butterflies (Single Animated MultiMeshInstance3D)
+# ---------------------------------------------------------------------------
+
+func _build_fluttering_butterflies(island_positions: Array[Vector3]) -> void:
+	var zones: Array[Dictionary] = [
+		# West & East Castle Garden Lakes
+		{"center": Vector3(-44.0, 5.6, -280.0), "rx": 6.5, "rz": 10.5, "count": 9},
+		{"center": Vector3(44.0, 5.6, -280.0), "rx": 6.5, "rz": 10.5, "count": 9},
+		# Front Courtyard Lotus Pools
+		{"center": Vector3(-24.0, 5.4, -252.0), "rx": 5.2, "rz": 4.8, "count": 6},
+		{"center": Vector3(24.0, 5.4, -252.0), "rx": 5.2, "rz": 4.8, "count": 6},
+		# Starting Monolith Plaza Flowerbeds
+		{"center": Vector3(0.0, 2.2, 34.0), "rx": 6.4, "rz": 8.5, "count": 7},
+		# Rotunda & Panoramic Balconies
+		{"center": Vector3(0.0, 10.4, -280.0), "rx": 12.0, "rz": 12.0, "count": 5},
+	]
+	if island_positions.size() >= 3:
+		var ci: Vector3 = island_positions[2]
+		zones.append({"center": Vector3(ci.x, ci.y + 2.2, ci.z), "rx": 5.8, "rz": 5.8, "count": 6})
+
+	var butterfly_palette: Array[Color] = [
+		Color("#FFE896"), # Pastel sunlight gold
+		Color("#A6F4FF"), # Aqua-pearl shimmer
+		Color("#FFD2EA"), # Soft sakura blush
+		Color("#E2D4FF"), # Ethereal lavender-pearl
+	]
+	var b_colors: Array[Color] = []
+	var b_seed: int = 9000
+
+	for z_spec: Dictionary in zones:
+		var zc: Vector3 = z_spec["center"] as Vector3
+		var zrx: float = float(z_spec["rx"])
+		var zrz: float = float(z_spec["rz"])
+		var zcnt: int = int(z_spec["count"])
+		for k: int in range(zcnt):
+			b_seed += 1
+			var offset_x: float = (_hash01(b_seed * 17) - 0.5) * zrx * 0.7
+			var offset_z: float = (_hash01(b_seed * 23) - 0.5) * zrz * 0.7
+			var offset_y: float = (_hash01(b_seed * 29) - 0.5) * 1.1
+			_butterfly_centers.append(zc + Vector3(offset_x, offset_y, offset_z))
+			_butterfly_radii.append(Vector2(1.4 + _hash01(b_seed * 31) * 2.4, 1.4 + _hash01(b_seed * 37) * 2.4))
+			_butterfly_speeds.append(0.38 + _hash01(b_seed * 41) * 0.34)
+			_butterfly_phases.append(_hash01(b_seed * 43) * TAU)
+			_butterfly_scales.append(0.75 + _hash01(b_seed * 47) * 0.55)
+			b_colors.append(butterfly_palette[b_seed % butterfly_palette.size()])
+
+	var total_b: int = _butterfly_centers.size()
+	if total_b == 0:
+		return
+
+	var mm: MultiMesh = MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.use_colors = true
+	mm.mesh = _mesh_butterfly
+	mm.instance_count = total_b
+
+	for i: int in range(total_b):
+		mm.set_instance_transform(i, Transform3D(Basis.IDENTITY, _butterfly_centers[i]))
+		mm.set_instance_color(i, b_colors[i])
+
+	_butterfly_mmi = MultiMeshInstance3D.new()
+	_butterfly_mmi.name = "LuminousButterfliesMM"
+	_butterfly_mmi.multimesh = mm
+	_butterfly_mmi.material_override = _mat_butterfly_mm
+	_butterfly_mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(_butterfly_mmi)
 
 
 # ---------------------------------------------------------------------------
@@ -564,8 +1471,6 @@ func _place_sakura_tree(parent: Node3D, node_name: String, pos: Vector3, yaw_rad
 	return prop
 
 
-## Spawns a lush emerald-green palace garden tree by overriding sakura blossom surfaces
-## with rich sunlit emerald & spring green foliage plus small cream-pink flower accents.
 func _place_verdant_tree(parent: Node3D, node_name: String, pos: Vector3, yaw_rad: float, scale_factor: float) -> Node3D:
 	var prop: Node3D = null
 	var is_glb: bool = false
@@ -679,34 +1584,133 @@ func _place_celestial_ornament(
 	return prop
 
 
-# ---------------------------------------------------------------------------
-# Procedural Cascading Emerald Ivy & Sakura-Blossom Vine Garlands
-# ---------------------------------------------------------------------------
+## Classical carved white-marble urn overflowing with lush emerald ferns & blossoms
+## (for the sunlit Rotunda interior beside the 16 marble columns and panoramic terraces).
+func _place_rotunda_potted_urn(parent: Node3D, node_name: String, pos: Vector3, yaw_rad: float, scale_factor: float) -> Node3D:
+	var urn: Node3D = Node3D.new()
+	urn.name = node_name
+	urn.position = pos
+	urn.rotation = Vector3(0.0, yaw_rad, 0.0)
+	urn.scale = Vector3(scale_factor, scale_factor, scale_factor)
+	parent.add_child(urn)
 
-func _build_vine_garland(
-	parent: Node3D,
-	anchor_pos: Vector3,
-	outward_dir: Vector3,
-	drop_length: float,
-	seed_index: int
-) -> void:
-	var strand: Node3D = Node3D.new()
-	strand.name = "VineGarland_%03d" % seed_index
-	strand.position = anchor_pos
-	parent.add_child(strand)
+	# Carved marble pedestal base
+	var foot_mesh: CylinderMesh = CylinderMesh.new()
+	foot_mesh.top_radius = 0.28
+	foot_mesh.bottom_radius = 0.44
+	foot_mesh.height = 0.34
+	foot_mesh.radial_segments = 12
+	var foot: MeshInstance3D = MeshInstance3D.new()
+	foot.mesh = foot_mesh
+	foot.material_override = _mat_marble_curb
+	foot.position = Vector3(0.0, 0.17, 0.0)
+	urn.add_child(foot)
 
-	var tangent: Vector3 = Vector3(-outward_dir.z, 0.0, outward_dir.x)
-	var seg_step: float = 0.44
-	var seg_count: int = maxi(3, int(roundf(drop_length / seg_step)))
+	# Fluted white-marble urn bowl
+	var bowl_mesh: CylinderMesh = CylinderMesh.new()
+	bowl_mesh.top_radius = 0.56
+	bowl_mesh.bottom_radius = 0.28
+	bowl_mesh.height = 0.88
+	bowl_mesh.radial_segments = 14
+	var bowl: MeshInstance3D = MeshInstance3D.new()
+	bowl.mesh = bowl_mesh
+	bowl.material_override = _mat_marble_curb
+	bowl.position = Vector3(0.0, 0.76, 0.0)
+	urn.add_child(bowl)
+
+	# Champagne gold rim
+	var rim_mesh: TorusMesh = TorusMesh.new()
+	rim_mesh.inner_radius = 0.48
+	rim_mesh.outer_radius = 0.60
+	rim_mesh.rings = 16
+	rim_mesh.ring_segments = 8
+	var rim: MeshInstance3D = MeshInstance3D.new()
+	rim.mesh = rim_mesh
+	rim.material_override = _mat_gold_trim
+	rim.position = Vector3(0.0, 1.20, 0.0)
+	rim.scale = Vector3(1.0, 0.55, 1.0)
+	urn.add_child(rim)
+
+	# Lush overflowing emerald foliage & fern fronds
 	var leaf_mats: Array[StandardMaterial3D] = [
 		_mat_leaf_emerald,
 		_mat_leaf_spring,
 		_mat_leaf_mint,
 	]
-	var blossom_mats: Array[StandardMaterial3D] = [
-		_mat_blossom_pink,
+	var foliage_offsets: Array[Vector3] = [
+		Vector3(0.0, 1.62, 0.0),
+		Vector3(-0.36, 1.48, 0.22),
+		Vector3(0.38, 1.46, -0.18),
+		Vector3(0.18, 1.54, 0.36),
+		Vector3(-0.24, 1.50, -0.34),
+		Vector3(0.04, 2.02, -0.04),
+	]
+	var foliage_scales: Array[Vector3] = [
+		Vector3(2.1, 2.4, 2.1),
+		Vector3(1.8, 1.9, 1.8),
+		Vector3(1.8, 1.8, 1.8),
+		Vector3(1.7, 1.8, 1.7),
+		Vector3(1.7, 1.8, 1.7),
+		Vector3(1.5, 2.2, 1.5),
+	]
+	for i: int in range(foliage_offsets.size()):
+		var bush: MeshInstance3D = MeshInstance3D.new()
+		bush.mesh = _mesh_leaf_cluster
+		bush.material_override = leaf_mats[i % leaf_mats.size()]
+		bush.position = foliage_offsets[i]
+		bush.scale = foliage_scales[i]
+		bush.rotation = Vector3(0.22 * float((i % 3) - 1), float(i) * 0.95, 0.16 * float((i % 2) * 2 - 1))
+		urn.add_child(bush)
+
+	# Delicate blush & cream-pink blossom accents tucked into the emerald foliage
+	var bloom_offsets: Array[Vector3] = [
+		Vector3(-0.32, 1.78, 0.26),
+		Vector3(0.34, 1.74, 0.18),
+		Vector3(0.0, 2.22, 0.12),
+		Vector3(-0.16, 1.86, -0.32),
+		Vector3(0.22, 1.92, -0.22),
+	]
+	var bloom_mats: Array[StandardMaterial3D] = [
 		_mat_blossom_blush,
+		_mat_blossom_pink,
+		_mat_canopy_flower_accent,
 		_mat_blossom_lilac,
+		_mat_blossom_blush,
+	]
+	for b_idx: int in range(bloom_offsets.size()):
+		var bloom: MeshInstance3D = MeshInstance3D.new()
+		bloom.mesh = _mesh_blossom_cluster
+		bloom.material_override = bloom_mats[b_idx]
+		bloom.position = bloom_offsets[b_idx]
+		bloom.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		urn.add_child(bloom)
+
+	return urn
+
+
+# ---------------------------------------------------------------------------
+# GPU-Instanced Cascading Emerald Ivy & Sakura-Blossom Vine Garlands
+# ---------------------------------------------------------------------------
+
+func _append_vine_garland(
+	anchor_pos: Vector3,
+	outward_dir: Vector3,
+	drop_length: float,
+	seed_index: int
+) -> void:
+	var tangent: Vector3 = Vector3(-outward_dir.z, 0.0, outward_dir.x)
+	var seg_step: float = 0.44
+	var seg_count: int = maxi(3, int(roundf(drop_length / seg_step)))
+	var leaf_cols: Array[Color] = [
+		Color("#2B6E40"),
+		Color("#449656"),
+		Color("#6EC274"),
+	]
+	var blossom_cols: Array[Color] = [
+		Color("#F78EB0"),
+		Color("#FFC8D8"),
+		Color("#C89EEB"),
+		Color("#A6DEFF"),
 	]
 
 	for s: int in range(seg_count):
@@ -714,40 +1718,408 @@ func _build_vine_garland(
 		var y_off: float = -float(s) * seg_step
 		var sway_wave: float = sin(frac * PI * 1.6 + float(seed_index) * 0.9) * 0.16
 		var out_curve: float = 0.12 + sin(frac * PI * 0.85) * 0.18
-		var local_pos: Vector3 = outward_dir * out_curve + tangent * sway_wave + Vector3(0.0, y_off, 0.0)
+		var world_pos: Vector3 = anchor_pos + outward_dir * out_curve + tangent * sway_wave + Vector3(0.0, y_off, 0.0)
 
-		# Slender emerald stem link
-		var stem: MeshInstance3D = MeshInstance3D.new()
-		stem.mesh = _mesh_vine_stem
-		stem.material_override = _mat_leaf_emerald
-		stem.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		stem.position = local_pos
-		stem.rotation = Vector3(0.0, float(seed_index + s) * 0.5, sway_wave * 0.6)
-		strand.add_child(stem)
+		# Stem transform
+		var stem_basis: Basis = Basis.from_euler(Vector3(0.0, float(seed_index + s) * 0.5, sway_wave * 0.6))
+		_vine_stem_xforms.append(Transform3D(stem_basis, world_pos))
 
-		# Lush tapered 3-tone emerald/spring/mint ivy foliage cluster
-		var taper: float = lerpf(1.26, 0.56, frac)
-		var leaf: MeshInstance3D = MeshInstance3D.new()
-		leaf.mesh = _mesh_leaf_cluster
-		leaf.material_override = leaf_mats[(s + seed_index) % leaf_mats.size()]
-		leaf.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		leaf.position = local_pos + outward_dir * 0.08
-		leaf.rotation = Vector3(0.25 * float((s % 3) - 1), float(seed_index + s) * 0.85, 0.22 * sway_wave)
-		leaf.scale = Vector3(taper, taper * 0.90, taper)
-		strand.add_child(leaf)
+		# Tapered 3-tone emerald/spring/mint ivy foliage cluster
+		var taper: float = lerpf(1.28, 0.58, frac)
+		var leaf_basis: Basis = Basis.from_euler(
+			Vector3(0.25 * float((s % 3) - 1), float(seed_index + s) * 0.85, 0.22 * sway_wave)
+		).scaled(Vector3(taper, taper * 0.90, taper))
+		_vine_leaf_xforms.append(Transform3D(leaf_basis, world_pos + outward_dir * 0.08))
+		_vine_leaf_colors.append(leaf_cols[(s + seed_index) % leaf_cols.size()])
 
-		# Flowering sakura / rose blossom accents nestled into the cascading emerald ivy
+		# Flowering blossom accents nestled into the cascading emerald ivy
 		if s == 0 or s == seg_count - 1 or (s + seed_index) % 3 == 0:
-			var blossom: MeshInstance3D = MeshInstance3D.new()
-			blossom.mesh = _mesh_blossom_cluster if s < seg_count - 1 else _mesh_blossom_small
-			var mat_idx: int = (seed_index + s) % blossom_mats.size()
-			blossom.material_override = blossom_mats[mat_idx]
-			blossom.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 			var side_nudge: float = 0.15 if s % 2 == 0 else -0.15
-			blossom.position = local_pos + outward_dir * 0.16 + tangent * side_nudge
-			var b_scale: float = lerpf(1.04, 0.58, frac)
-			blossom.scale = Vector3(b_scale, b_scale * 0.92, b_scale)
-			strand.add_child(blossom)
+			var b_scale: float = lerpf(1.06, 0.60, frac)
+			var b_basis: Basis = Basis.IDENTITY.scaled(Vector3(b_scale, b_scale * 0.92, b_scale))
+			_vine_blossom_xforms.append(Transform3D(b_basis, world_pos + outward_dir * 0.16 + tangent * side_nudge))
+			_vine_blossom_colors.append(blossom_cols[(seed_index + s) % blossom_cols.size()])
+
+
+# ---------------------------------------------------------------------------
+# Procedural Botanical & Lake ArrayMesh Builders (Lightweight, 60 FPS)
+# ---------------------------------------------------------------------------
+
+func _oval_lobe_factor(angle_rad: float) -> float:
+	return 1.0 + 0.042 * sin(angle_rad * 3.0) + 0.024 * cos(angle_rad * 5.0)
+
+
+func _create_oval_water_mesh(rx: float, rz: float, radial_segs: int, ring_segs: int) -> ArrayMesh:
+	var st: SurfaceTool = SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+
+	for r_idx: int in range(ring_segs):
+		var r0: float = float(r_idx) / float(ring_segs)
+		var r1: float = float(r_idx + 1) / float(ring_segs)
+		for a_idx: int in range(radial_segs):
+			var a0: float = (TAU / float(radial_segs)) * float(a_idx)
+			var a1: float = (TAU / float(radial_segs)) * float(a_idx + 1)
+
+			var l0: float = _oval_lobe_factor(a0)
+			var l1: float = _oval_lobe_factor(a1)
+
+			var p00: Vector3 = Vector3(cos(a0) * rx * r0 * l0, 0.0, sin(a0) * rz * r0 * l0)
+			var p10: Vector3 = Vector3(cos(a0) * rx * r1 * l0, 0.0, sin(a0) * rz * r1 * l0)
+			var p11: Vector3 = Vector3(cos(a1) * rx * r1 * l1, 0.0, sin(a1) * rz * r1 * l1)
+			var p01: Vector3 = Vector3(cos(a1) * rx * r0 * l1, 0.0, sin(a1) * rz * r0 * l1)
+
+			var uv00: Vector2 = Vector2(0.5 + 0.5 * r0 * cos(a0), 0.5 + 0.5 * r0 * sin(a0))
+			var uv10: Vector2 = Vector2(0.5 + 0.5 * r1 * cos(a0), 0.5 + 0.5 * r1 * sin(a0))
+			var uv11: Vector2 = Vector2(0.5 + 0.5 * r1 * cos(a1), 0.5 + 0.5 * r1 * sin(a1))
+			var uv01: Vector2 = Vector2(0.5 + 0.5 * r0 * cos(a1), 0.5 + 0.5 * r0 * sin(a1))
+
+			st.set_normal(Vector3.UP)
+			if r_idx > 0:
+				st.set_uv(uv00)
+				st.add_vertex(p00)
+				st.set_uv(uv10)
+				st.add_vertex(p10)
+				st.set_uv(uv11)
+				st.add_vertex(p11)
+
+			st.set_uv(uv00)
+			st.add_vertex(p00)
+			st.set_uv(uv11)
+			st.add_vertex(p11)
+			st.set_uv(uv01)
+			st.add_vertex(p01)
+
+	return st.commit()
+
+
+func _create_oval_curb_mesh(rx: float, rz: float, curb_width: float, curb_height: float, segs: int) -> ArrayMesh:
+	var st: SurfaceTool = SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+
+	for i: int in range(segs):
+		var a0: float = (TAU / float(segs)) * float(i)
+		var a1: float = (TAU / float(segs)) * float(i + 1)
+		var l0: float = _oval_lobe_factor(a0)
+		var l1: float = _oval_lobe_factor(a1)
+
+		var in0: Vector3 = Vector3(cos(a0) * rx * l0, 0.0, sin(a0) * rz * l0)
+		var in1: Vector3 = Vector3(cos(a1) * rx * l1, 0.0, sin(a1) * rz * l1)
+		var out0: Vector3 = Vector3(cos(a0) * (rx * l0 + curb_width), 0.0, sin(a0) * (rz * l0 + curb_width))
+		var out1: Vector3 = Vector3(cos(a1) * (rx * l1 + curb_width), 0.0, sin(a1) * (rz * l1 + curb_width))
+
+		var h_vec: Vector3 = Vector3(0.0, curb_height, 0.0)
+		# Top face
+		_add_quad(st, in0 + h_vec, out0 + h_vec, out1 + h_vec, in1 + h_vec)
+		# Outer wall
+		_add_quad(st, out0, out1, out1 + h_vec, out0 + h_vec)
+		# Inner wall
+		_add_quad(st, in1, in0, in0 + h_vec, in1 + h_vec)
+
+	st.generate_normals()
+	return st.commit()
+
+
+func _create_ring_water_mesh(r_inner: float, r_outer: float, radial_segs: int, ring_segs: int) -> ArrayMesh:
+	var st: SurfaceTool = SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+
+	for r_idx: int in range(ring_segs):
+		var t0: float = float(r_idx) / float(ring_segs)
+		var t1: float = float(r_idx + 1) / float(ring_segs)
+		var rad0: float = lerpf(r_inner, r_outer, t0)
+		var rad1: float = lerpf(r_inner, r_outer, t1)
+
+		for a_idx: int in range(radial_segs):
+			var u0: float = float(a_idx) / float(radial_segs)
+			var u1: float = float(a_idx + 1) / float(radial_segs)
+			var a0: float = u0 * TAU
+			var a1: float = u1 * TAU
+
+			var p00: Vector3 = Vector3(cos(a0) * rad0, 0.0, sin(a0) * rad0)
+			var p10: Vector3 = Vector3(cos(a0) * rad1, 0.0, sin(a0) * rad1)
+			var p11: Vector3 = Vector3(cos(a1) * rad1, 0.0, sin(a1) * rad1)
+			var p01: Vector3 = Vector3(cos(a1) * rad0, 0.0, sin(a1) * rad0)
+
+			st.set_normal(Vector3.UP)
+			st.set_uv(Vector2(u0, t0))
+			st.add_vertex(p00)
+			st.set_uv(Vector2(u0, t1))
+			st.add_vertex(p10)
+			st.set_uv(Vector2(u1, t1))
+			st.add_vertex(p11)
+
+			st.set_uv(Vector2(u0, t0))
+			st.add_vertex(p00)
+			st.set_uv(Vector2(u1, t1))
+			st.add_vertex(p11)
+			st.set_uv(Vector2(u1, t0))
+			st.add_vertex(p01)
+
+	return st.commit()
+
+
+func _create_ring_curb_mesh(radius: float, curb_width: float, curb_height: float, segs: int) -> ArrayMesh:
+	var st: SurfaceTool = SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var r_in: float = radius - curb_width * 0.5
+	var r_out: float = radius + curb_width * 0.5
+	var h_vec: Vector3 = Vector3(0.0, curb_height, 0.0)
+
+	for i: int in range(segs):
+		var a0: float = (TAU / float(segs)) * float(i)
+		var a1: float = (TAU / float(segs)) * float(i + 1)
+		var in0: Vector3 = Vector3(cos(a0) * r_in, 0.0, sin(a0) * r_in)
+		var in1: Vector3 = Vector3(cos(a1) * r_in, 0.0, sin(a1) * r_in)
+		var out0: Vector3 = Vector3(cos(a0) * r_out, 0.0, sin(a0) * r_out)
+		var out1: Vector3 = Vector3(cos(a1) * r_out, 0.0, sin(a1) * r_out)
+
+		_add_quad(st, in0 + h_vec, out0 + h_vec, out1 + h_vec, in1 + h_vec)
+		_add_quad(st, out0, out1, out1 + h_vec, out0 + h_vec)
+		_add_quad(st, in1, in0, in0 + h_vec, in1 + h_vec)
+
+	st.generate_normals()
+	return st.commit()
+
+
+func _add_quad(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, d: Vector3) -> void:
+	st.add_vertex(a)
+	st.add_vertex(b)
+	st.add_vertex(c)
+	st.add_vertex(a)
+	st.add_vertex(c)
+	st.add_vertex(d)
+
+
+func _create_lily_pad_mesh() -> ArrayMesh:
+	var st: SurfaceTool = SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var segs: int = 12
+	var radius: float = 0.44
+	var start_a: float = 0.24
+	var end_a: float = TAU - 0.24
+	var center_pt: Vector3 = Vector3(0.0, 0.0, 0.0)
+
+	for i: int in range(segs):
+		var a0: float = lerpf(start_a, end_a, float(i) / float(segs))
+		var a1: float = lerpf(start_a, end_a, float(i + 1) / float(segs))
+		var p0: Vector3 = Vector3(cos(a0) * radius, 0.025, sin(a0) * radius)
+		var p1: Vector3 = Vector3(cos(a1) * radius, 0.025, sin(a1) * radius)
+
+		st.set_color(Color(0.76, 0.88, 0.78))
+		st.set_normal(Vector3.UP)
+		st.add_vertex(center_pt)
+		st.set_color(Color(1.0, 1.0, 1.0))
+		st.set_normal(Vector3.UP)
+		st.add_vertex(p0)
+		st.set_color(Color(1.0, 1.0, 1.0))
+		st.set_normal(Vector3.UP)
+		st.add_vertex(p1)
+
+	return st.commit()
+
+
+func _create_lotus_flower_mesh() -> ArrayMesh:
+	var st: SurfaceTool = SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+
+	# Outer 6 petals + inner 6 raised petals
+	for tier: int in range(2):
+		var petal_count: int = 6
+		var phase: float = 0.0 if tier == 0 else (PI / float(petal_count))
+		var p_len: float = 0.26 if tier == 0 else 0.18
+		var p_w: float = 0.095 if tier == 0 else 0.072
+		var tip_y: float = 0.11 if tier == 0 else 0.17
+		var mid_y: float = 0.055 if tier == 0 else 0.095
+
+		for k: int in range(petal_count):
+			var a: float = (TAU / float(petal_count)) * float(k) + phase
+			var dir: Vector3 = Vector3(cos(a), 0.0, sin(a))
+			var side: Vector3 = Vector3(-sin(a), 0.0, cos(a))
+
+			var v_base: Vector3 = dir * 0.03 + Vector3(0.0, 0.01, 0.0)
+			var v_l: Vector3 = dir * (p_len * 0.56) + side * p_w + Vector3(0.0, mid_y, 0.0)
+			var v_r: Vector3 = dir * (p_len * 0.56) - side * p_w + Vector3(0.0, mid_y, 0.0)
+			var v_tip: Vector3 = dir * p_len + Vector3(0.0, tip_y, 0.0)
+
+			st.set_color(Color(0.95, 0.92, 0.96))
+			st.add_vertex(v_base)
+			st.set_color(Color(1.0, 1.0, 1.0))
+			st.add_vertex(v_l)
+			st.set_color(Color(1.0, 1.0, 1.0))
+			st.add_vertex(v_tip)
+
+			st.set_color(Color(0.95, 0.92, 0.96))
+			st.add_vertex(v_base)
+			st.set_color(Color(1.0, 1.0, 1.0))
+			st.add_vertex(v_tip)
+			st.set_color(Color(1.0, 1.0, 1.0))
+			st.add_vertex(v_r)
+
+	# Warm golden stamen center crown
+	var core_r: float = 0.055
+	var core_top: Vector3 = Vector3(0.0, 0.12, 0.0)
+	var gold_col: Color = Color(1.0, 0.88, 0.36)
+	for c: int in range(6):
+		var a0: float = (TAU / 6.0) * float(c)
+		var a1: float = (TAU / 6.0) * float(c + 1)
+		st.set_color(gold_col)
+		st.add_vertex(core_top)
+		st.set_color(gold_col)
+		st.add_vertex(Vector3(cos(a0) * core_r, 0.04, sin(a0) * core_r))
+		st.set_color(gold_col)
+		st.add_vertex(Vector3(cos(a1) * core_r, 0.04, sin(a1) * core_r))
+
+	st.generate_normals()
+	return st.commit()
+
+
+func _create_grass_tuft_mesh() -> ArrayMesh:
+	var st: SurfaceTool = SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+
+	# 5 gracefully curved crossed grass/fern blades per tuft
+	var blade_count: int = 5
+	for b: int in range(blade_count):
+		var ang: float = (TAU / float(blade_count)) * float(b) + 0.35
+		var dir: Vector3 = Vector3(cos(ang), 0.0, sin(ang))
+		var side: Vector3 = Vector3(-sin(ang), 0.0, cos(ang))
+		var h: float = 0.42 + float(b % 3) * 0.11
+		var lean: float = 0.16 + float(b % 2) * 0.09
+		var w0: float = 0.075
+		var w1: float = 0.042
+		var base_c: Vector3 = dir * 0.05
+
+		var p0l: Vector3 = base_c - side * w0
+		var p0r: Vector3 = base_c + side * w0
+		var p1l: Vector3 = base_c + dir * (lean * 0.45) - side * w1 + Vector3(0.0, h * 0.55, 0.0)
+		var p1r: Vector3 = base_c + dir * (lean * 0.45) + side * w1 + Vector3(0.0, h * 0.55, 0.0)
+		var tip: Vector3 = base_c + dir * lean + Vector3(0.0, h, 0.0)
+
+		var col_base: Color = Color(0.68, 0.80, 0.70)
+		var col_mid: Color = Color(0.90, 0.96, 0.90)
+		var col_tip: Color = Color(1.0, 1.0, 1.0)
+
+		st.set_color(col_base)
+		st.add_vertex(p0l)
+		st.set_color(col_base)
+		st.add_vertex(p0r)
+		st.set_color(col_mid)
+		st.add_vertex(p1r)
+
+		st.set_color(col_base)
+		st.add_vertex(p0l)
+		st.set_color(col_mid)
+		st.add_vertex(p1r)
+		st.set_color(col_mid)
+		st.add_vertex(p1l)
+
+		st.set_color(col_mid)
+		st.add_vertex(p1l)
+		st.set_color(col_mid)
+		st.add_vertex(p1r)
+		st.set_color(col_tip)
+		st.add_vertex(tip)
+
+	st.generate_normals()
+	return st.commit()
+
+
+func _create_flower_cluster_mesh() -> ArrayMesh:
+	var st: SurfaceTool = SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+
+	# 5 tiny cupped blooms in a natural bouquet cluster
+	var offsets: Array[Vector3] = [
+		Vector3(0.0, 0.34, 0.0),
+		Vector3(0.14, 0.27, 0.09),
+		Vector3(-0.13, 0.28, 0.10),
+		Vector3(0.11, 0.26, -0.13),
+		Vector3(-0.12, 0.29, -0.11),
+	]
+	for idx: int in range(offsets.size()):
+		var c: Vector3 = offsets[idx]
+		var r_pet: float = 0.115 if idx == 0 else 0.095
+		for p: int in range(4):
+			var a0: float = (TAU / 4.0) * float(p) + float(idx) * 0.4
+			var a1: float = a0 + 1.15
+			var pt0: Vector3 = c + Vector3(cos(a0) * r_pet, 0.045, sin(a0) * r_pet)
+			var pt1: Vector3 = c + Vector3(cos(a1) * r_pet, 0.045, sin(a1) * r_pet)
+			st.set_color(Color(0.92, 0.92, 0.92))
+			st.add_vertex(c)
+			st.set_color(Color(1.0, 1.0, 1.0))
+			st.add_vertex(pt0)
+			st.set_color(Color(1.0, 1.0, 1.0))
+			st.add_vertex(pt1)
+
+	st.generate_normals()
+	return st.commit()
+
+
+func _create_butterfly_mesh() -> ArrayMesh:
+	var st: SurfaceTool = SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+
+	# Delicate 4-wing luminous butterfly silhouette (forewings + hindwings, angled gently upward)
+	var body_f: Vector3 = Vector3(0.0, 0.0, 0.08)
+	var body_b: Vector3 = Vector3(0.0, 0.0, -0.09)
+	var body_c: Vector3 = Vector3(0.0, 0.0, 0.0)
+
+	for side_s: float in [-1.0, 1.0]:
+		var fw_tip: Vector3 = Vector3(side_s * 0.26, 0.14, 0.13)
+		var fw_mid: Vector3 = Vector3(side_s * 0.22, 0.11, -0.02)
+		var hw_tip: Vector3 = Vector3(side_s * 0.17, 0.09, -0.16)
+
+		# Forewing
+		st.set_color(Color(0.95, 0.95, 1.0))
+		st.add_vertex(body_f)
+		st.set_color(Color(1.0, 1.0, 1.0))
+		st.add_vertex(fw_tip)
+		st.set_color(Color(1.0, 1.0, 1.0))
+		st.add_vertex(fw_mid)
+
+		st.set_color(Color(0.95, 0.95, 1.0))
+		st.add_vertex(body_f)
+		st.set_color(Color(1.0, 1.0, 1.0))
+		st.add_vertex(fw_mid)
+		st.set_color(Color(0.92, 0.92, 0.98))
+		st.add_vertex(body_c)
+
+		# Hindwing
+		st.set_color(Color(0.92, 0.92, 0.98))
+		st.add_vertex(body_c)
+		st.set_color(Color(1.0, 1.0, 1.0))
+		st.add_vertex(fw_mid)
+		st.set_color(Color(1.0, 1.0, 1.0))
+		st.add_vertex(hw_tip)
+
+		st.set_color(Color(0.92, 0.92, 0.98))
+		st.add_vertex(body_c)
+		st.set_color(Color(1.0, 1.0, 1.0))
+		st.add_vertex(hw_tip)
+		st.set_color(Color(0.90, 0.90, 0.96))
+		st.add_vertex(body_b)
+
+	st.generate_normals()
+	return st.commit()
+
+
+func _create_soft_radial_texture(size_px: int) -> ImageTexture:
+	var img: Image = Image.create(size_px, size_px, false, Image.FORMAT_RGBA8)
+	var half: float = float(size_px - 1) * 0.5
+	for y: int in range(size_px):
+		for x: int in range(size_px):
+			var dx: float = (float(x) - half) / maxf(1.0, half)
+			var dy: float = (float(y) - half) / maxf(1.0, half)
+			var dist: float = sqrt(dx * dx + dy * dy)
+			var alpha_val: float = clampf(1.0 - dist, 0.0, 1.0)
+			alpha_val = alpha_val * alpha_val * (3.0 - 2.0 * alpha_val)
+			img.set_pixel(x, y, Color(1.0, 1.0, 1.0, alpha_val))
+	return ImageTexture.create_from_image(img)
+
+
+func _hash01(n: int) -> float:
+	var s: float = sin(float(n) * 12.9898 + 78.233) * 43758.5453
+	return s - floorf(s)
 
 
 # ---------------------------------------------------------------------------
