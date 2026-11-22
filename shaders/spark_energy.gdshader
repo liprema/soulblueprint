@@ -8,12 +8,12 @@ render_mode blend_mix, depth_draw_opaque, cull_back;
 // that reads cleanly against both twilight stone and bright golden skies without blowout.
 
 uniform vec3 base_albedo : source_color = vec3(0.949, 0.706, 0.220);
-uniform vec3 shadow_tint : source_color = vec3(0.76, 0.34, 0.08);
+uniform vec3 shadow_tint : source_color = vec3(0.58, 0.26, 0.07);
 uniform vec3 emission_color : source_color = vec3(1.0, 0.78, 0.28);
 uniform vec3 rim_color : source_color = vec3(1.0, 0.92, 0.62);
-uniform float emission_strength : hint_range(0.0, 2.5) = 0.30;
+uniform float emission_strength : hint_range(0.0, 2.5) = 0.14;
 uniform float metallic_val : hint_range(0.0, 1.0) = 0.08;
-uniform float roughness_val : hint_range(0.0, 1.0) = 0.42;
+uniform float roughness_val : hint_range(0.0, 1.0) = 0.48;
 
 uniform float flight_speed : hint_range(0.0, 40.0) = 0.0;
 uniform float energy_flare : hint_range(0.0, 2.5) = 0.0;
@@ -142,18 +142,18 @@ void fragment() {
 	// Compose living internal glow + starlight shimmer + crisp warm-ivory silhouette rim
 	float shimmer = 0.95 + 0.05 * sin(TIME * 3.2 - v_local_y * 4.5);
 	vec3 inner_glow = mix(emission_color, amber_sss, 0.32 * (1.0 - core_trans))
-		* (emission_strength + core_trans * 0.14 + thin_trans * 0.08 + energy_flare * 0.34);
-	vec3 starlight_emit = warm_ivory_rim * starlight_mask * (0.20 + energy_flare * 0.18);
+		* (emission_strength + core_trans * 0.06 + thin_trans * 0.04 + energy_flare * 0.18);
+	vec3 starlight_emit = warm_ivory_rim * starlight_mask * (0.09 + energy_flare * 0.10);
 	vec3 rim_emit = warm_ivory_rim * (
-		fresnel_soft * 0.24
-		+ fresnel_crisp * 0.34
-		+ v_ribbon_mask * fresnel_soft * 0.12
-		+ energy_flare * fresnel_soft * 0.18
+		fresnel_soft * 0.11
+		+ fresnel_crisp * 0.18
+		+ v_ribbon_mask * fresnel_soft * 0.06
+		+ energy_flare * fresnel_soft * 0.10
 	);
 
-	// Gentle soft-shoulder compression keeps Spark luminous without ever clipping to flat white
+	// Tight soft-shoulder compression keeps Spark luminous without ever clipping to flat white
 	vec3 raw_emit = (inner_glow + starlight_emit + rim_emit) * shimmer;
-	EMISSION = raw_emit / (vec3(1.0) + raw_emit * 0.20);
+	EMISSION = raw_emit / (vec3(1.0) + raw_emit * 0.65);
 }
 
 void light() {
@@ -171,7 +171,7 @@ void light() {
 	vec3 back_scatter_dir = normalize(LIGHT + NORMAL * 0.42);
 	float backlit = pow(clamp(dot(VIEW, -back_scatter_dir), 0.0, 1.0), 3.2);
 	vec3 sss_tint = mix(shadow_tint, emission_color, 0.58);
-	vec3 sss_contrib = sss_tint * (sss_terminator * 0.34 + backlit * (0.26 + v_ribbon_mask * 0.24));
+	vec3 sss_contrib = sss_tint * (sss_terminator * 0.18 + backlit * (0.14 + v_ribbon_mask * 0.14));
 
 	DIFFUSE_LIGHT += (shaded_albedo + sss_contrib) * ATTENUATION * LIGHT_COLOR / PI;
 
@@ -179,6 +179,6 @@ void light() {
 	vec3 half_vec = normalize(LIGHT + VIEW);
 	float ndoth = clamp(dot(NORMAL, half_vec), 0.0, 1.0);
 	float spec_power = mix(14.0, 48.0, 1.0 - ROUGHNESS);
-	float spec = pow(ndoth, spec_power) * (0.24 + METALLIC * 0.35);
+	float spec = pow(ndoth, spec_power) * (0.14 + METALLIC * 0.20);
 	SPECULAR_LIGHT += spec * rim_color * ATTENUATION * LIGHT_COLOR / PI;
 }

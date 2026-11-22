@@ -32,14 +32,14 @@ signal awakened(lantern: StoneLantern3D)
 const LANTERN_MODEL_PATH: String = "res://assets/models/props/stone_lantern.glb"
 const MARBLE_SHADER: Shader = preload("res://shaders/akasha_marble.gdshader")
 
-const COLOR_AGED_GOLD: Color = Color("#D8A84E")
-const COLOR_AGED_BRASS: Color = Color("#C49642")
+const COLOR_AGED_GOLD: Color = Color("#CFA354")
+const COLOR_AGED_BRASS: Color = Color("#B28742")
 const COLOR_WARM_BRASS_EMISSION: Color = Color("#E09F3E")
 
-const GOLD_EMISSION_DORMANT: float = 0.16
-const GOLD_EMISSION_AWAKENED: float = 0.62
-const BRASS_EMISSION_DORMANT: float = 0.08
-const BRASS_EMISSION_AWAKENED: float = 0.44
+const GOLD_EMISSION_DORMANT: float = 0.08
+const GOLD_EMISSION_AWAKENED: float = 0.36
+const BRASS_EMISSION_DORMANT: float = 0.04
+const BRASS_EMISSION_AWAKENED: float = 0.24
 
 var _is_awakened: bool = false
 var _orb_material: StandardMaterial3D
@@ -115,19 +115,19 @@ func _init_lantern_materials() -> void:
 		Color("#1B283A"), Color("#283A52"), Color("#111A26"), 0.68, 0.10, 0.82, 2.00, 0.24
 	)
 
-	# Brushed aged temple gold & warm temple brass (per-instance so each lantern awakens independently)
+	# Brushed antique satin gold & warm temple brass (per-instance so each lantern awakens independently)
 	_mat_artdeco_gold = StandardMaterial3D.new()
 	_mat_artdeco_gold.albedo_color = COLOR_AGED_GOLD
-	_mat_artdeco_gold.metallic = 0.92
-	_mat_artdeco_gold.roughness = 0.24
+	_mat_artdeco_gold.metallic = 0.80
+	_mat_artdeco_gold.roughness = 0.40
 	_mat_artdeco_gold.emission_enabled = true
 	_mat_artdeco_gold.emission = COLOR_WARM_BRASS_EMISSION
 	_mat_artdeco_gold.emission_energy_multiplier = GOLD_EMISSION_DORMANT
 
 	_mat_artdeco_brass = StandardMaterial3D.new()
 	_mat_artdeco_brass.albedo_color = COLOR_AGED_BRASS
-	_mat_artdeco_brass.metallic = 0.92
-	_mat_artdeco_brass.roughness = 0.24
+	_mat_artdeco_brass.metallic = 0.80
+	_mat_artdeco_brass.roughness = 0.44
 	_mat_artdeco_brass.emission_enabled = true
 	_mat_artdeco_brass.emission = COLOR_WARM_BRASS_EMISSION
 	_mat_artdeco_brass.emission_energy_multiplier = BRASS_EMISSION_DORMANT

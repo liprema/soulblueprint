@@ -156,7 +156,7 @@ const SPARK_MODEL_PATH: String = "res://assets/models/characters/spark.glb"
 const SPARK_ENERGY_SHADER_PATH: String = "res://shaders/spark_energy.gdshader"
 
 var _base_halo_y: float = 1.18
-var _base_light_energy: float = 0.95
+var _base_light_energy: float = 0.52
 var _call_pulse_shader_mat: ShaderMaterial = null
 var _flame_shader_mat: ShaderMaterial = null
 var _cape_shader_mat: ShaderMaterial = null
@@ -289,55 +289,57 @@ func _apply_spark_energy_shader_recursive(node: Node, energy_shader: Shader) -> 
 				smat.shader = energy_shader
 
 				var mat_name: String = src_mat.resource_name if src_mat != null else ""
-				var albedo_col: Color = Color.html("#F2B438")
-				var emit_col: Color = Color.html("#F5BA42")
-				var emit_str: float = 0.28
+				var albedo_col: Color = Color.html("#D9A03A")
+				var emit_col: Color = Color.html("#DDA440")
+				var emit_str: float = 0.14
 				var metallic_v: float = 0.08
-				var roughness_v: float = 0.42
+				var roughness_v: float = 0.48
 
 				if mat_name.contains("CreamCore"):
-					# Inner heart & tail core: bright warm ivory
-					albedo_col = Color.html("#FFF7DC")
-					emit_col = Color.html("#FFF2C2")
-					emit_str = 0.38
+					# Inner heart & tail core: serene pearlescent warm cream
+					albedo_col = Color.html("#F4E6C0")
+					emit_col = Color.html("#F2DC9E")
+					emit_str = 0.18
 					metallic_v = 0.04
-					roughness_v = 0.36
+					roughness_v = 0.44
 				elif mat_name.contains("GoldenAmber"):
-					# Flame head & ribbons: rich warm sunlit gold
-					albedo_col = Color.html("#F2B438")
-					emit_col = Color.html("#F5BA42")
-					emit_str = 0.26
+					# Flame head & ribbons: candlelit warm honey gold
+					albedo_col = Color.html("#D9A03A")
+					emit_col = Color.html("#DDA440")
+					emit_str = 0.12
 					metallic_v = 0.08
-					roughness_v = 0.42
+					roughness_v = 0.48
 				elif mat_name.contains("DeepAmber"):
-					# Diamond marks, collar clasp, underside: high-contrast copper-amber
-					albedo_col = Color.html("#D96B16")
-					emit_col = Color.html("#E87A1E")
-					emit_str = 0.32
+					# Diamond marks, collar clasp, underside: rich sculpted copper-amber
+					albedo_col = Color.html("#B85A18")
+					emit_col = Color.html("#C4641E")
+					emit_str = 0.14
 					metallic_v = 0.16
-					roughness_v = 0.34
+					roughness_v = 0.42
 				elif mat_name.contains("PureGoldTrim"):
-					# Ribbon edges & star halo: luminous pale gold
-					albedo_col = Color.html("#FFE899")
-					emit_col = Color.html("#FFE899")
-					emit_str = 0.55
-					metallic_v = 0.32
-					roughness_v = 0.24
+					# Ribbon edges & star halo: refined satin pale gold
+					albedo_col = Color.html("#EED286")
+					emit_col = Color.html("#E8C978")
+					emit_str = 0.22
+					metallic_v = 0.24
+					roughness_v = 0.36
 				elif src_mat is StandardMaterial3D:
 					var std_mat: StandardMaterial3D = src_mat as StandardMaterial3D
 					albedo_col = std_mat.albedo_color
 					if std_mat.emission_enabled:
 						emit_col = std_mat.emission
-						emit_str = clampf(std_mat.emission_energy_multiplier * 0.22, 0.22, 0.45)
+						emit_str = clampf(std_mat.emission_energy_multiplier * 0.12, 0.10, 0.20)
 					else:
 						emit_col = albedo_col
-						emit_str = 0.24
+						emit_str = 0.12
 					metallic_v = clampf(std_mat.metallic, 0.0, 0.35)
-					roughness_v = clampf(std_mat.roughness, 0.28, 0.55)
+					roughness_v = clampf(std_mat.roughness, 0.36, 0.58)
 
-				smat.set_shader_parameter("base_albedo", Vector3(albedo_col.r, albedo_col.g, albedo_col.b))
-				smat.set_shader_parameter("shadow_tint", Vector3(0.76, 0.34, 0.08))
-				smat.set_shader_parameter("emission_color", Vector3(emit_col.r, emit_col.g, emit_col.b))
+				# Pass Color directly so Godot converts source_color uniforms from sRGB to linear HDR
+				smat.set_shader_parameter("base_albedo", albedo_col)
+				smat.set_shader_parameter("shadow_tint", Color(0.58, 0.26, 0.07, 1.0))
+				smat.set_shader_parameter("emission_color", emit_col)
+				smat.set_shader_parameter("rim_color", Color(0.98, 0.90, 0.64, 1.0))
 				smat.set_shader_parameter("emission_strength", emit_str)
 				smat.set_shader_parameter("metallic_val", metallic_v)
 				smat.set_shader_parameter("roughness_val", roughness_v)
@@ -874,7 +876,7 @@ func _update_visual_rig(delta: float) -> void:
 
 	# Warm OmniLight3D intensity modulation on abilities & speed (kept soft to avoid floor hotspots)
 	if spark_light:
-		var target_energy: float = _base_light_energy + (_energy_flare * 0.85) + (0.25 if is_flying else 0.0)
+		var target_energy: float = _base_light_energy + (_energy_flare * 0.42) + (0.14 if is_flying else 0.0)
 		spark_light.light_energy = lerpf(spark_light.light_energy, target_energy, 1.0 - exp(-10.0 * delta))
 
 

@@ -185,43 +185,43 @@ func _init_materials() -> void:
 		Color("#1B283A"), Color("#283A52"), Color("#111A26"), 0.68, 0.10, 0.78, 1.25
 	)
 
-	# Rich aged brushed gold & warm temple brass (high metallic, crisp specular, restrained amber glow)
-	var aged_gold_color := Color("#D8A84E")
-	var temple_brass_color := Color("#B88A3B")
-	var warm_amber_emission := Color("#E09F3E")
+	# Brushed antique satin gold & warm temple brass (smooth satin sheen, zero sub-pixel shimmer)
+	var aged_gold_color: Color = Color("#CFA354")
+	var temple_brass_color: Color = Color("#B28742")
+	var warm_amber_emission: Color = Color("#D69B42")
 
 	_mat_gold_filigree = StandardMaterial3D.new()
 	_mat_gold_filigree.albedo_color = aged_gold_color
-	_mat_gold_filigree.roughness = 0.24
-	_mat_gold_filigree.metallic = 0.92
+	_mat_gold_filigree.roughness = 0.40
+	_mat_gold_filigree.metallic = 0.80
 	_mat_gold_filigree.emission_enabled = true
 	_mat_gold_filigree.emission = warm_amber_emission
-	_mat_gold_filigree.emission_energy_multiplier = 0.32
+	_mat_gold_filigree.emission_energy_multiplier = 0.14
 
 	_mat_gold_brass = StandardMaterial3D.new()
 	_mat_gold_brass.albedo_color = temple_brass_color
-	_mat_gold_brass.roughness = 0.30
-	_mat_gold_brass.metallic = 0.92
+	_mat_gold_brass.roughness = 0.46
+	_mat_gold_brass.metallic = 0.78
 	_mat_gold_brass.emission_enabled = true
 	_mat_gold_brass.emission = warm_amber_emission
-	_mat_gold_brass.emission_energy_multiplier = 0.22
+	_mat_gold_brass.emission_energy_multiplier = 0.08
 
 	_mat_gold_glow_accent = StandardMaterial3D.new()
 	_mat_gold_glow_accent.albedo_color = Color("#E6BC6A")
-	_mat_gold_glow_accent.roughness = 0.28
-	_mat_gold_glow_accent.metallic = 0.68
+	_mat_gold_glow_accent.roughness = 0.42
+	_mat_gold_glow_accent.metallic = 0.58
 	_mat_gold_glow_accent.emission_enabled = true
 	_mat_gold_glow_accent.emission = warm_amber_emission
-	_mat_gold_glow_accent.emission_energy_multiplier = 0.58
+	_mat_gold_glow_accent.emission_energy_multiplier = 0.32
 
 	_mat_gold_thread = StandardMaterial3D.new()
 	_mat_gold_thread.albedo_color = aged_gold_color
-	_mat_gold_thread.roughness = 0.22
+	_mat_gold_thread.roughness = 0.38
 	_mat_gold_thread.metallic = 0.55
 	_mat_gold_thread.cull_mode = BaseMaterial3D.CULL_DISABLED
 	_mat_gold_thread.emission_enabled = true
 	_mat_gold_thread.emission = warm_amber_emission
-	_mat_gold_thread.emission_energy_multiplier = 1.10
+	_mat_gold_thread.emission_energy_multiplier = 0.65
 
 	_mat_light_core = StandardMaterial3D.new()
 	_mat_light_core.albedo_color = Color("#FFF6D4")
