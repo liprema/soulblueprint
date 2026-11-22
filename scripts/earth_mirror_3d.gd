@@ -33,10 +33,10 @@ const COLOR_DORMANT_LIGHT: Color = Color(0.55, 0.72, 0.96, 1.0)
 const COLOR_READY_LIGHT: Color = Color(0.92, 0.80, 0.48, 1.0)
 const COLOR_AWAKENED_LIGHT: Color = Color(0.68, 0.88, 0.98, 1.0)
 
-const COLOR_INDIGO_STONE: Color = Color("#EBC3CC")
-const COLOR_SATIN_GOLD: Color = Color("#E5BC74")
-const COLOR_BRIGHT_GOLD: Color = Color("#F2CA8A")
-const COLOR_ETHEREAL_CYAN: Color = Color("#74CCE0")
+const COLOR_INDIGO_STONE: Color = Color("#EEF1F6")
+const COLOR_SATIN_GOLD: Color = Color("#DFC07A")
+const COLOR_BRIGHT_GOLD: Color = Color("#F0D294")
+const COLOR_ETHEREAL_CYAN: Color = Color("#4E88D0")
 
 var state: MirrorState = MirrorState.DORMANT
 
@@ -307,13 +307,13 @@ func _init_materials() -> void:
 	_filigree_ring_mat.emission = COLOR_BRIGHT_GOLD
 	_filigree_ring_mat.emission_energy_multiplier = 0.22
 
-	# Vibrant Pastel Turquoise-Aqua Crystal for Mat_MirrorAccent
+	# Celestial Royal-Blue Crystal for Mat_MirrorAccent
 	_finial_accent_mat = StandardMaterial3D.new()
 	_finial_accent_mat.albedo_color = COLOR_ETHEREAL_CYAN
 	_finial_accent_mat.roughness = 0.34
 	_finial_accent_mat.metallic = 0.25
 	_finial_accent_mat.emission_enabled = true
-	_finial_accent_mat.emission = Color("#9BE4F4")
+	_finial_accent_mat.emission = Color("#7AB8F8")
 	_finial_accent_mat.emission_energy_multiplier = 0.35
 
 	_mirror_shader_mat = ShaderMaterial.new()
@@ -335,20 +335,20 @@ func _create_pedestal_stone_material() -> Material:
 			var shader_mat: ShaderMaterial = ShaderMaterial.new()
 			shader_mat.shader = marble_shader
 			shader_mat.set_shader_parameter("stone_base_color", COLOR_INDIGO_STONE)
-			shader_mat.set_shader_parameter("stone_highlight_color", Color("#F8DCE3"))
-			shader_mat.set_shader_parameter("stone_pore_color", Color("#C48E9D"))
-			shader_mat.set_shader_parameter("horizon_tint_color", Color("#D8ECFA"))
-			shader_mat.set_shader_parameter("base_roughness", 0.50)
+			shader_mat.set_shader_parameter("stone_highlight_color", Color("#FFFFFF"))
+			shader_mat.set_shader_parameter("stone_pore_color", Color("#C0CCE0"))
+			shader_mat.set_shader_parameter("horizon_tint_color", Color("#B8D8F8"))
+			shader_mat.set_shader_parameter("base_roughness", 0.56)
 			shader_mat.set_shader_parameter("surface_specular", 0.42)
 			shader_mat.set_shader_parameter("surface_metallic", 0.02)
 			shader_mat.set_shader_parameter("fresnel_lift_strength", 0.12)
-			shader_mat.set_shader_parameter("wetness_strength", 0.48)
+			shader_mat.set_shader_parameter("wetness_strength", 0.25)
 			shader_mat.set_shader_parameter("block_scale", 1.25)
 			return shader_mat
 
 	var fallback: StandardMaterial3D = StandardMaterial3D.new()
 	fallback.albedo_color = COLOR_INDIGO_STONE
-	fallback.roughness = 0.50
+	fallback.roughness = 0.56
 	fallback.metallic = 0.02
 	return fallback
 

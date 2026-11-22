@@ -1,20 +1,20 @@
 shader_type spatial;
-render_mode blend_mix, depth_draw_always, cull_back, unshaded;
+render_mode blend_mix, depth_draw_opaque, cull_back;
 
-// Ethereal Celestial Mentor Shader (Alatea & Mira)
-// Sculpted translucent alabaster, liquid crystal, and iridescent mother-of-pearl
-// silk-organza celestial beings with soft directional sunlight wrap, cool
-// pearl-lavender shadow folds, warm sunlit ivory planes, subtle grazing-angle
-// nacreous sheen, drifting crystal stardust motes, and a soft mist hem fade.
+// Realistic Lit Celestial Mentor Drapery Shader (Alatea & Mira)
+// Sculpted warm beige-ivory woven silk & fine linen drapery receiving real
+// Godot 4.3 Forward+ directional sunlight, crisp 3D shadows, SSAO in every
+// drapery pleat, subtle crevice darkening, and a restrained warm golden-cream
+// Fresnel rim sheen.
 
-uniform vec3 body_color : source_color = vec3(0.173, 0.580, 0.910);
-uniform vec3 rim_color : source_color = vec3(0.494, 0.918, 1.0);
-uniform vec3 rim_highlight_color : source_color = vec3(0.737, 0.933, 1.0);
-uniform float base_opacity : hint_range(0.0, 1.0) = 0.90;
-uniform float fresnel_power : hint_range(0.5, 6.0) = 2.4;
-uniform float emission_strength : hint_range(0.2, 4.0) = 0.72;
-uniform float shimmer_speed : hint_range(0.0, 4.0) = 0.85;
-uniform float stardust_intensity : hint_range(0.0, 2.0) = 0.32;
+uniform vec3 body_color : source_color = vec3(0.894, 0.835, 0.761);
+uniform vec3 rim_color : source_color = vec3(0.973, 0.925, 0.863);
+uniform vec3 rim_highlight_color : source_color = vec3(1.0, 0.961, 0.898);
+uniform float base_opacity : hint_range(0.0, 1.0) = 1.0;
+uniform float fresnel_power : hint_range(0.5, 6.0) = 2.6;
+uniform float emission_strength : hint_range(0.0, 4.0) = 0.16;
+uniform float shimmer_speed : hint_range(0.0, 4.0) = 0.55;
+uniform float stardust_intensity : hint_range(0.0, 2.0) = 0.14;
 uniform float hem_fade_start : hint_range(-100.0, 100.0) = -100.0;
 uniform float hem_fade_end : hint_range(-100.0, 100.0) = -99.0;
 
@@ -33,8 +33,8 @@ float starfield_layer(vec3 p, float scale, float t) {
 	vec3 cell = floor(sp);
 	vec3 f = fract(sp) - 0.5;
 	float rnd = hash31(cell);
-	// Sparse bright celestial motes
-	if (rnd < 0.88) {
+	// Very sparse warm woven gold-thread glints
+	if (rnd < 0.92) {
 		return 0.0;
 	}
 	vec3 jitter = vec3(
@@ -43,8 +43,8 @@ float starfield_layer(vec3 p, float scale, float t) {
 		hash31(cell + 4.1) - 0.5
 	) * 0.55;
 	float d = length(f - jitter);
-	float twinkle = 0.45 + 0.55 * sin(t * (2.2 + rnd * 3.5) + rnd * 62.8318);
-	return smoothstep(0.14, 0.015, d) * twinkle;
+	float twinkle = 0.45 + 0.55 * sin(t * (1.8 + rnd * 2.8) + rnd * 62.8318);
+	return smoothstep(0.12, 0.015, d) * twinkle;
 }
 
 void vertex() {
@@ -59,68 +59,55 @@ void fragment() {
 	vec3 wn = normalize(v_world_normal);
 	float ndotv = clamp(abs(dot(n, v)), 0.0, 1.0);
 
-	// Dual-stage Fresnel: broad silk-organza aura + crisp crystal outer silhouette edge
+	// Grazing-angle silk sheen Fresnel
 	float fresnel_broad = pow(1.0 - ndotv, fresnel_power);
-	float fresnel_sharp = pow(1.0 - ndotv, fresnel_power * 2.15 + 1.4);
+	float fresnel_sharp = pow(1.0 - ndotv, fresnel_power * 2.1 + 1.2);
 
-	// Sculptural directional sunlight wrap against world normal for luminous 3D silk folds
-	vec3 sun_dir = normalize(vec3(0.16, 0.34, 0.92));
-	float sun_ndotl = dot(wn, sun_dir);
-	float sun_wrap = clamp((sun_ndotl + 0.44) / 1.44, 0.0, 1.0);
-	float sun_lit = smoothstep(0.08, 0.92, sun_wrap);
-	float upper_bounce = smoothstep(-0.35, 0.88, wn.y);
+	// Delicate woven-silk / fine-linen micro-texture in local space
+	float weave_u = sin(v_local_pos.x * 160.0 + v_local_pos.z * 160.0);
+	float weave_v = sin(v_local_pos.y * 190.0);
+	float fine_weave = weave_u * weave_v;
+	float micro_sheen = 0.5 + 0.5 * fine_weave;
 
-	// Richly jewel-tinted shadow folds -> luminous saturated celestial silk lit planes (zero grey washout)
-	vec3 shadow_fold = body_color * vec3(0.68, 0.64, 0.92);
-	vec3 lit_fold = (body_color * 1.18 + rim_color * 0.15) * (0.95 + 0.08 * upper_bounce);
-	vec3 sculpted_core = mix(shadow_fold, lit_fold, sun_lit);
+	// Delicate warm-beige fold AO darkening in deep drapery crevices
+	float normal_curv = clamp((length(dFdx(n)) + length(dFdy(n))) * 1.15, 0.0, 1.0);
+	float fold_crevice = smoothstep(0.10, 0.62, normal_curv);
+	vec3 crevice_tint = mix(vec3(1.0), vec3(0.83, 0.77, 0.70), fold_crevice * 0.58);
 
-	// Subtle fold / ridge curvature highlight (catches drapery creases, hair locks, nose & lips)
-	float normal_curv = clamp((length(dFdx(n)) + length(dFdy(n))) * 1.35, 0.0, 1.0);
-	float fold_glow = smoothstep(0.08, 0.54, normal_curv) * (0.24 + 0.76 * fresnel_broad);
+	// Soft silk fiber sheen along grazing edges and subtle woven thread variation
+	float hem_blend = smoothstep(hem_fade_start, hem_fade_end, v_local_pos.y);
+	float opacity_sheen = mix(0.18, 0.11, clamp(base_opacity, 0.0, 1.0));
+	vec3 base_fabric = body_color * crevice_tint * (0.975 + 0.035 * micro_sheen);
+	vec3 silk_albedo = mix(base_fabric, rim_color, clamp(fresnel_broad * opacity_sheen, 0.0, 0.22));
+	// Gentle warm sand-cream hem softening near the floor
+	vec3 hem_soft = mix(body_color * 0.94, rim_color * 0.96, 0.35);
+	silk_albedo = mix(hem_soft, silk_albedo, mix(0.65, 1.0, hem_blend));
 
-	// Gentle vertical celestial shimmer wave
-	float wave = 0.5 + 0.5 * sin(v_world_pos.y * 1.35 - TIME * shimmer_speed * 1.4 + v_world_pos.x * 0.45);
-	sculpted_core *= (0.94 + 0.09 * wave);
+	// Subtle upward sky-bounce warmth on upward-facing drapery planes
+	float upper_plane = smoothstep(-0.25, 0.85, wn.y);
+	silk_albedo *= (0.97 + 0.04 * upper_plane);
 
-	// Subtle jewel-pastel iridescent sheen along glancing angles:
-	// shifts softly between sakura-rose, opalescent orchid-lilac, and celestial sky-aqua
-	float irid_phase = 0.5 + 0.5 * sin((1.0 - ndotv) * 4.8 + wn.y * 2.2 + wn.x * 1.6 - TIME * shimmer_speed * 0.45);
-	vec3 irid_rose = vec3(1.0, 0.70, 0.86);
-	vec3 irid_lilac = vec3(0.84, 0.76, 1.0);
-	vec3 irid_aqua = vec3(0.48, 0.88, 1.0);
-	vec3 pearl_irid = mix(
-		mix(irid_rose, irid_lilac, smoothstep(0.0, 0.55, irid_phase)),
-		irid_aqua,
-		smoothstep(0.45, 1.0, irid_phase)
-	);
-	float irid_mask = clamp(fresnel_broad * 0.82 + fold_glow * 0.32, 0.0, 1.0);
+	// Very subtle, tasteful warm golden-cream Fresnel rim in EMISSION (0.06..0.18 range)
+	float emit_scale = clamp(emission_strength, 0.0, 0.65);
+	float shimmer_wave = 0.92 + 0.08 * sin(v_world_pos.y * 1.25 - TIME * shimmer_speed + v_world_pos.x * 0.35);
 
-	// Internal drifting crystal stardust motes inside the translucent silk core
-	vec3 star_pos = v_world_pos + vec3(0.0, -TIME * shimmer_speed * 0.22, 0.0);
-	float stars_a = starfield_layer(star_pos, 3.2, TIME * shimmer_speed);
-	float stars_b = starfield_layer(star_pos * 1.35 + vec3(7.1, 3.4, 5.2), 5.6, TIME * shimmer_speed * 1.25);
-	float stardust = (stars_a + stars_b * 0.75) * stardust_intensity * (1.0 - fresnel_sharp * 0.45);
+	// Restrained woven gold-dust sparkle along sunlit silk folds
+	vec3 star_pos = v_world_pos + vec3(0.0, -TIME * shimmer_speed * 0.14, 0.0);
+	float stars_a = starfield_layer(star_pos, 3.6, TIME * shimmer_speed);
+	float stars_b = starfield_layer(star_pos * 1.3 + vec3(5.3, 2.7, 4.1), 6.2, TIME * shimmer_speed * 1.15);
+	float stardust = (stars_a + stars_b * 0.6) * stardust_intensity * (0.35 + 0.65 * fresnel_broad);
 
-	// Compose sculpted jewel-pastel silk core -> iridescent sheen -> luminous crystal rim
-	float emit_scale = clamp(emission_strength, 0.2, 2.0);
-	vec3 rim_tint = mix(rim_color, pearl_irid, 0.35);
-	float rim_mix = clamp(fresnel_broad * 0.68 + fold_glow * 0.28, 0.0, 0.86);
-	vec3 col = mix(sculpted_core, rim_tint * (0.64 + emit_scale * 0.44), rim_mix);
-	col += pearl_irid * (irid_mask * (0.07 + emit_scale * 0.06));
-	col += rim_highlight_color * (fresnel_sharp * emit_scale * 0.48);
-	col += mix(rim_color, rim_highlight_color, 0.55) * stardust * (0.42 + 0.38 * emit_scale);
+	vec3 rim_glow_col = mix(rim_color, rim_highlight_color, fresnel_sharp);
+	float rim_factor = fresnel_broad * 0.44 + fresnel_sharp * 0.36;
+	vec3 emission_out = rim_glow_col * (rim_factor * emit_scale * shimmer_wave);
+	emission_out += body_color * (0.05 * emit_scale);
+	emission_out += rim_highlight_color * (stardust * emit_scale * 0.32);
 
-	// Soft-shoulder roll-off keeps luminous celestial silk vibrant without clipping to flat white
-	col = col / (vec3(1.0) + col * 0.16);
-
-	// Soft mist fade at the very bottom hem of the robe (controlled via hem_fade_start/end)
-	float hem_fade = smoothstep(hem_fade_start, hem_fade_end, v_local_pos.y);
-
-	// Translucent liquid-crystal core that becomes crisply solid along the silk-pearl rim
-	float alpha = mix(base_opacity, 0.98, clamp(fresnel_broad * 1.15 + fresnel_sharp * 0.5, 0.0, 1.0));
-	alpha *= hem_fade;
-
-	ALBEDO = col;
-	ALPHA = clamp(alpha, 0.0, 1.0);
+	ALBEDO = silk_albedo;
+	ROUGHNESS = clamp(0.48 + (0.5 - micro_sheen) * 0.06 - fresnel_broad * 0.05, 0.36, 0.58);
+	METALLIC = 0.04;
+	SPECULAR = 0.35;
+	AO = clamp(1.0 - fold_crevice * 0.32, 0.66, 1.0);
+	EMISSION = emission_out;
 }
+

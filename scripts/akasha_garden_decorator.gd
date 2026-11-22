@@ -10,16 +10,22 @@ extends Node3D
 const SAKURA_TREE_PATH: String = "res://assets/models/props/sakura_tree.glb"
 const GARDEN_PLANTER_PATH: String = "res://assets/models/props/garden_planter.glb"
 const CELESTIAL_ORNAMENT_PATH: String = "res://assets/models/props/celestial_ornament.glb"
+const LUSH_BUSH_PATH: String = "res://assets/models/props/lush_bush_hedge.glb"
 
 const ORNAMENT_SWAY_MAX_RAD: float = 0.02617994 # 1.5 degrees in radians
 
 var _sakura_tree_scene: PackedScene = null
 var _garden_planter_scene: PackedScene = null
 var _celestial_ornament_scene: PackedScene = null
+var _lush_bush_scene: PackedScene = null
 
-# Shared lightweight materials for cascading vines & procedural fallbacks
+# Shared lightweight materials for cascading vines, verdant tree variants & procedural fallbacks
 var _mat_leaf_spring: StandardMaterial3D = null
 var _mat_leaf_emerald: StandardMaterial3D = null
+var _mat_leaf_mint: StandardMaterial3D = null
+var _mat_canopy_emerald_deep: StandardMaterial3D = null
+var _mat_canopy_emerald_sunlit: StandardMaterial3D = null
+var _mat_canopy_flower_accent: StandardMaterial3D = null
 var _mat_blossom_pink: StandardMaterial3D = null
 var _mat_blossom_blush: StandardMaterial3D = null
 var _mat_blossom_lilac: StandardMaterial3D = null
@@ -61,8 +67,8 @@ func _process(delta: float) -> void:
 		ornament.rotation = Vector3(base_rot.x + sway_x, base_rot.y, base_rot.z + sway_z)
 
 
-## Populates the entire Prologue world with Sakura trees, blooming planters,
-## celestial ornaments, and cascading flowering ivy garlands.
+## Populates the entire Prologue world with Sakura & verdant palace trees, lush rose-and-emerald
+## bush hedges, blooming planters, celestial ornaments, and thick cascading emerald ivy garlands.
 func populate_garden(architecture: Node3D = null) -> void:
 	if _is_populated:
 		return
@@ -80,6 +86,7 @@ func _load_prop_scenes() -> void:
 	_sakura_tree_scene = _safe_load_scene(SAKURA_TREE_PATH)
 	_garden_planter_scene = _safe_load_scene(GARDEN_PLANTER_PATH)
 	_celestial_ornament_scene = _safe_load_scene(CELESTIAL_ORNAMENT_PATH)
+	_lush_bush_scene = _safe_load_scene(LUSH_BUSH_PATH)
 
 
 func _safe_load_scene(res_path: String) -> PackedScene:
@@ -93,8 +100,18 @@ func _safe_load_scene(res_path: String) -> PackedScene:
 
 func _init_shared_resources() -> void:
 	# Foliage & blossom palette
-	_mat_leaf_spring = _create_botanical_material(Color("#4EAD64"), 0.72, 0.0, Color(0.0, 0.0, 0.0), 0.0)
-	_mat_leaf_emerald = _create_botanical_material(Color("#358C52"), 0.76, 0.0, Color(0.0, 0.0, 0.0), 0.0)
+	_mat_leaf_spring = _create_botanical_material(Color("#449656"), 0.62, 0.0, Color(0.0, 0.0, 0.0), 0.0)
+	_mat_leaf_emerald = _create_botanical_material(Color("#2B6E40"), 0.66, 0.0, Color(0.0, 0.0, 0.0), 0.0)
+	_mat_leaf_mint = _create_botanical_material(Color("#6EC274"), 0.56, 0.0, Color(0.0, 0.0, 0.0), 0.0)
+
+	# Double-sided sunlit emerald canopy materials for lush green palace tree variants
+	_mat_canopy_emerald_deep = _create_botanical_material(Color("#3E9250"), 0.58, 0.0, Color(0.0, 0.0, 0.0), 0.0)
+	_mat_canopy_emerald_deep.cull_mode = BaseMaterial3D.CULL_DISABLED
+	_mat_canopy_emerald_sunlit = _create_botanical_material(Color("#58B064"), 0.54, 0.0, Color(0.0, 0.0, 0.0), 0.0)
+	_mat_canopy_emerald_sunlit.cull_mode = BaseMaterial3D.CULL_DISABLED
+	_mat_canopy_flower_accent = _create_botanical_material(Color("#FFF0F5"), 0.48, 0.0, Color("#FFE6EE"), 0.08)
+	_mat_canopy_flower_accent.cull_mode = BaseMaterial3D.CULL_DISABLED
+
 	_mat_blossom_pink = _create_botanical_material(Color("#F78EB0"), 0.58, 0.0, Color("#F78EB0"), 0.14)
 	_mat_blossom_blush = _create_botanical_material(Color("#FFC8D8"), 0.55, 0.0, Color("#FFD6E4"), 0.18)
 	_mat_blossom_lilac = _create_botanical_material(Color("#C89EEB"), 0.56, 0.0, Color("#D6B6F5"), 0.16)
@@ -108,20 +125,20 @@ func _init_shared_resources() -> void:
 
 	# Shared lightweight meshes for vine garlands
 	_mesh_vine_stem = BoxMesh.new()
-	_mesh_vine_stem.size = Vector3(0.08, 0.42, 0.08)
+	_mesh_vine_stem.size = Vector3(0.08, 0.44, 0.08)
 
 	_mesh_leaf_cluster = BoxMesh.new()
-	_mesh_leaf_cluster.size = Vector3(0.32, 0.24, 0.28)
+	_mesh_leaf_cluster.size = Vector3(0.36, 0.26, 0.32)
 
 	_mesh_blossom_cluster = SphereMesh.new()
-	_mesh_blossom_cluster.radius = 0.18
-	_mesh_blossom_cluster.height = 0.32
+	_mesh_blossom_cluster.radius = 0.16
+	_mesh_blossom_cluster.height = 0.28
 	_mesh_blossom_cluster.radial_segments = 8
 	_mesh_blossom_cluster.rings = 5
 
 	_mesh_blossom_small = SphereMesh.new()
-	_mesh_blossom_small.radius = 0.12
-	_mesh_blossom_small.height = 0.22
+	_mesh_blossom_small.radius = 0.11
+	_mesh_blossom_small.height = 0.20
 	_mesh_blossom_small.radial_segments = 7
 	_mesh_blossom_small.rings = 4
 
@@ -153,9 +170,41 @@ func _decorate_starting_plaza() -> void:
 	root.name = "PlazaGarden"
 	add_child(root)
 
-	# 2 graceful Sakura trees framing the rear plaza corners, rotated inward slightly
+	# 4 trees framing the plaza: 2 pink Sakura at rear corners + 2 lush verdant green trees forward
 	_place_sakura_tree(root, "PlazaSakura_L", Vector3(-6.1, 0.0, 44.2), deg_to_rad(-34.0), 0.95)
 	_place_sakura_tree(root, "PlazaSakura_R", Vector3(6.1, 0.0, 44.2), deg_to_rad(34.0), 0.95)
+
+	var plaza_green_l: Node3D = _place_verdant_tree(
+		root, "PlazaVerdantTree_L", Vector3(-6.4, 0.0, 29.0), deg_to_rad(-118.0), 0.78
+	)
+	plaza_green_l.rotation.z = deg_to_rad(8.5)
+	var plaza_green_r: Node3D = _place_verdant_tree(
+		root, "PlazaVerdantTree_R", Vector3(6.4, 0.0, 29.0), deg_to_rad(118.0), 0.78
+	)
+	plaza_green_r.rotation.z = deg_to_rad(-8.5)
+
+	# 10 lush rose-and-emerald bush hedges lining BOTH balustrades (z = 25..44, x = +-6.35)
+	# Tucked neatly between lanterns (z = 27, 41) and planters (z = 31, 38), center walkway 100% clear
+	var plaza_bush_z: Array[float] = [25.4, 33.3, 35.7, 39.6, 42.6]
+	var plaza_bush_scales: Array[float] = [0.88, 0.92, 0.90, 0.86, 0.94]
+	for i: int in range(plaza_bush_z.size()):
+		var z_val: float = plaza_bush_z[i]
+		var sc: float = plaza_bush_scales[i]
+		var yaw_jitter: float = deg_to_rad(5.0 if i % 2 == 0 else -5.0)
+		_place_lush_bush(
+			root,
+			"PlazaBush_L_%02d" % i,
+			Vector3(-6.35, 0.0, z_val),
+			deg_to_rad(90.0) + yaw_jitter,
+			sc
+		)
+		_place_lush_bush(
+			root,
+			"PlazaBush_R_%02d" % i,
+			Vector3(6.35, 0.0, z_val),
+			deg_to_rad(-90.0) - yaw_jitter,
+			sc
+		)
 
 	# 4 carved blooming marble planters along the balustrades (clear of lanterns at z = 41 and z = 27)
 	_place_garden_planter(root, "PlazaPlanter_NW", Vector3(-6.1, 0.0, 38.0), deg_to_rad(90.0), 1.0)
@@ -167,28 +216,46 @@ func _decorate_starting_plaza() -> void:
 	_place_celestial_ornament(root, "PlazaOrnament_L", Vector3(-4.8, 0.0, 23.2), deg_to_rad(68.0), 1.0, 0.0)
 	_place_celestial_ornament(root, "PlazaOrnament_R", Vector3(4.8, 0.0, 23.2), deg_to_rad(-68.0), 1.0, 1.8)
 
-	# Cascading emerald ivy & sakura-blossom vine garlands along both plaza sides (x = +-8.05, z = 26..44)
+	# Double-density cascading emerald ivy & flowering garlands along both plaza sides AND the prow
 	var vine_root: Node3D = Node3D.new()
 	vine_root.name = "PlazaHangingVines"
 	root.add_child(vine_root)
 
-	var z_slots: int = 9
+	var z_slots: int = 18
 	for side_idx: int in range(2):
 		var side_sign: float = -1.0 if side_idx == 0 else 1.0
 		var edge_x: float = side_sign * 8.05
 		var outward_dir: Vector3 = Vector3(side_sign, 0.0, 0.0)
 		for i: int in range(z_slots):
 			var t: float = float(i) / float(z_slots - 1)
-			var z_pos: float = lerpf(26.0, 44.0, t)
+			var z_pos: float = lerpf(24.5, 45.0, t)
 			var seed_val: float = float(side_idx * 17 + i * 7 + 3)
-			var drop_len: float = 1.65 + fmod(seed_val * 0.6180339, 1.0) * 2.15 # 1.65m .. 3.80m
+			var drop_len: float = 1.85 + fmod(seed_val * 0.6180339, 1.0) * 2.55 # 1.85m .. 4.40m
 			_build_vine_garland(
 				vine_root,
 				Vector3(edge_x, -0.1, z_pos),
 				outward_dir,
 				drop_len,
-				side_idx * 20 + i
+				side_idx * 40 + i
 			)
+
+	# Cascading ivy & blossom garlands draping off both flanks of the forward ceremonial prow
+	var prow_anchors: Array[Vector3] = [
+		Vector3(-7.4, -0.1, 24.0),
+		Vector3(-6.3, -0.1, 23.6),
+		Vector3(-5.2, -0.1, 23.2),
+		Vector3(-4.0, -0.1, 22.9),
+		Vector3(4.0, -0.1, 22.9),
+		Vector3(5.2, -0.1, 23.2),
+		Vector3(6.3, -0.1, 23.6),
+		Vector3(7.4, -0.1, 24.0),
+	]
+	for p_idx: int in range(prow_anchors.size()):
+		var anchor_pt: Vector3 = prow_anchors[p_idx]
+		var side_x: float = -0.35 if anchor_pt.x < 0.0 else 0.35
+		var prow_out: Vector3 = Vector3(side_x, 0.0, -1.0).normalized()
+		var prow_drop: float = 1.9 + fmod(float(p_idx * 13 + 5) * 0.6180339, 1.0) * 2.15
+		_build_vine_garland(vine_root, anchor_pt, prow_out, prow_drop, 80 + p_idx)
 
 
 # ---------------------------------------------------------------------------
@@ -201,8 +268,11 @@ func _decorate_floating_islands(architecture: Node3D) -> void:
 	add_child(root)
 
 	var island_positions: Array[Vector3] = _resolve_island_positions(architecture)
-	var tree_angles_deg: Array[float] = [45.0, 225.0]
-	var planter_angles_deg: Array[float] = [135.0, 315.0]
+	var sakura_angles_deg: Array[float] = [45.0, 225.0]
+	var planter_angles_deg: Array[float] = [135.0, 328.0]
+	# 6 outer-perimeter bush angles keeping all 4 cardinal approaches (0, 90, 180, 270) & center clear
+	var bush_angles_deg: Array[float] = [26.0, 66.0, 114.0, 156.0, 204.0, 246.0]
+	var bush_radii: Array[float] = [6.5, 6.4, 6.6, 6.4, 6.5, 6.6]
 
 	for idx: int in range(island_positions.size()):
 		var center: Vector3 = island_positions[idx]
@@ -210,13 +280,13 @@ func _decorate_floating_islands(architecture: Node3D) -> void:
 		island_node.name = "IslandGarden_%02d" % idx
 		root.add_child(island_node)
 
-		# 2 lush Sakura trees tucked beside diagonal colonnade bays (r = 5.5m, 45° and 225°)
-		for t_idx: int in range(tree_angles_deg.size()):
-			var angle_rad: float = deg_to_rad(tree_angles_deg[t_idx])
+		# 3 trees per island: 2 pink Sakura (45°, 225°) + 1 lush green palace tree (304°) at r = 5.4..5.9m
+		for t_idx: int in range(sakura_angles_deg.size()):
+			var angle_rad: float = deg_to_rad(sakura_angles_deg[t_idx])
 			var offset: Vector3 = Vector3(cos(angle_rad) * 5.5, 0.0, sin(angle_rad) * 5.5)
 			var tree_pos: Vector3 = center + offset
 			var face_inward_yaw: float = atan2(-offset.x, -offset.z) + deg_to_rad(14.0 if t_idx == 0 else -14.0)
-			var scale_factor: float = 0.85 + fmod(float(idx * 3 + t_idx * 5 + 1) * 0.37, 1.0) * 0.20 # 0.85 .. 1.05
+			var scale_factor: float = 0.85 + fmod(float(idx * 3 + t_idx * 5 + 1) * 0.37, 1.0) * 0.20
 			_place_sakura_tree(
 				island_node,
 				"Island_%02d_Sakura_%d" % [idx, t_idx],
@@ -225,10 +295,37 @@ func _decorate_floating_islands(architecture: Node3D) -> void:
 				scale_factor
 			)
 
-		# 2 blooming garden planters at angles 135° and 315° (r = 5.6m)
+		var green_angle: float = deg_to_rad(304.0)
+		var green_offset: Vector3 = Vector3(cos(green_angle) * 5.75, 0.0, sin(green_angle) * 5.75)
+		var green_yaw: float = atan2(-green_offset.x, -green_offset.z) + deg_to_rad(-16.0)
+		var green_scale: float = 0.88 + fmod(float(idx * 7 + 2) * 0.41, 1.0) * 0.18
+		_place_verdant_tree(
+			island_node,
+			"Island_%02d_VerdantTree" % idx,
+			center + green_offset,
+			green_yaw,
+			green_scale
+		)
+
+		# 6 lush rose-and-emerald bushes ringing the outer perimeter (r = 6.2..6.8m)
+		for b_idx: int in range(bush_angles_deg.size()):
+			var b_angle: float = deg_to_rad(bush_angles_deg[b_idx])
+			var b_rad: float = bush_radii[b_idx]
+			var b_offset: Vector3 = Vector3(cos(b_angle) * b_rad, 0.0, sin(b_angle) * b_rad)
+			var b_yaw: float = atan2(-b_offset.x, -b_offset.z)
+			var b_scale: float = 0.82 + fmod(float(idx * 5 + b_idx * 3 + 1) * 0.29, 1.0) * 0.18
+			_place_lush_bush(
+				island_node,
+				"Island_%02d_Bush_%d" % [idx, b_idx],
+				center + b_offset,
+				b_yaw,
+				b_scale
+			)
+
+		# 2 blooming garden planters at diagonal bays (r = 5.5m)
 		for p_idx: int in range(planter_angles_deg.size()):
 			var angle_rad: float = deg_to_rad(planter_angles_deg[p_idx])
-			var offset: Vector3 = Vector3(cos(angle_rad) * 5.6, 0.0, sin(angle_rad) * 5.6)
+			var offset: Vector3 = Vector3(cos(angle_rad) * 5.5, 0.0, sin(angle_rad) * 5.5)
 			var planter_pos: Vector3 = center + offset
 			var face_inward_yaw: float = atan2(-offset.x, -offset.z)
 			_place_garden_planter(
@@ -239,8 +336,8 @@ func _decorate_floating_islands(architecture: Node3D) -> void:
 				0.96
 			)
 
-		# 1 celestial silk-and-crystal ornament at angle 135° (r = 6.3m, rotated toward center)
-		var orn_angle: float = deg_to_rad(135.0)
+		# 1 celestial silk-and-crystal ornament at angle 128° (r = 6.3m, rotated toward center)
+		var orn_angle: float = deg_to_rad(128.0)
 		var orn_offset: Vector3 = Vector3(cos(orn_angle) * 6.3, 0.0, sin(orn_angle) * 6.3)
 		var orn_pos: Vector3 = center + orn_offset
 		var orn_yaw: float = atan2(-orn_offset.x, -orn_offset.z)
@@ -253,25 +350,25 @@ func _decorate_floating_islands(architecture: Node3D) -> void:
 			float(idx) * 1.35 + 0.7
 		)
 
-		# 6 cascading emerald & flowering wisteria/sakura vine clusters around the island rim (r = 8.2m)
+		# 10 dense cascading emerald ivy curtains draping down y = -0.2..-8.0m around the island rim
 		var vine_group: Node3D = Node3D.new()
 		vine_group.name = "Island_%02d_HangingVines" % idx
 		island_node.add_child(vine_group)
 
 		var phase_deg: float = float(idx) * 18.0
-		for v_idx: int in range(6):
-			var v_angle: float = deg_to_rad(float(v_idx) * 60.0 + phase_deg)
+		for v_idx: int in range(10):
+			var v_angle: float = deg_to_rad(float(v_idx) * 36.0 + phase_deg)
 			var out_dir: Vector3 = Vector3(cos(v_angle), 0.0, sin(v_angle))
 			var anchor: Vector3 = center + Vector3(out_dir.x * 8.2, -0.2, out_dir.z * 8.2)
 			var drop_seed: float = float(idx * 11 + v_idx * 5 + 2)
-			var main_drop: float = 3.2 + fmod(drop_seed * 0.6180339, 1.0) * 3.1 # up to ~6.3m (y = -0.2..-6.5m)
-			_build_vine_garland(vine_group, anchor, out_dir, main_drop, idx * 31 + v_idx * 3)
+			var main_drop: float = 4.0 + fmod(drop_seed * 0.6180339, 1.0) * 3.8 # y = -0.2 .. -8.0m
+			_build_vine_garland(vine_group, anchor, out_dir, main_drop, idx * 41 + v_idx * 3)
 
-			# Secondary shorter side tendril for rich organic draping
+			# Secondary side tendril for thick overflowing emerald curtain
 			var tangent: Vector3 = Vector3(-out_dir.z, 0.0, out_dir.x)
-			var side_anchor: Vector3 = anchor + tangent * 0.65
-			var side_drop: float = clampf(main_drop * 0.62, 1.6, 4.4)
-			_build_vine_garland(vine_group, side_anchor, out_dir, side_drop, idx * 31 + v_idx * 3 + 1)
+			var side_anchor: Vector3 = anchor + tangent * 0.62
+			var side_drop: float = clampf(main_drop * 0.68, 2.2, 5.4)
+			_build_vine_garland(vine_group, side_anchor, out_dir, side_drop, idx * 41 + v_idx * 3 + 1)
 
 
 func _resolve_island_positions(architecture: Node3D) -> Array[Vector3]:
@@ -300,7 +397,7 @@ func _get_default_island_positions() -> Array[Vector3]:
 
 
 # ---------------------------------------------------------------------------
-# 3. Colossal Cathedral Podium, Staircase & Sanctuary (z = -280)
+# 3. Fairytale Castle Grand Staircase, Lower Terrace & Courtyard (z = -280)
 # ---------------------------------------------------------------------------
 
 func _decorate_cathedral_sanctuary() -> void:
@@ -308,21 +405,48 @@ func _decorate_cathedral_sanctuary() -> void:
 	root.name = "CathedralSanctuaryGarden"
 	add_child(root)
 
-	# 6 majestic Sakura trees (scale 1.15..1.35) framing the lower podium & staircase flanks
+	# 12 majestic Castle Trees (6 pink Sakura + 6 lush verdant emerald palace trees, scale 1.15..1.44)
+	# Enveloping lower castle terraces (x = +-20..+-38, y = 4.0) and upper courtyard flanks (x = +-24..+-32, y = 8.0)
 	_place_sakura_tree(root, "CathedralSakura_LowerL", Vector3(-22.0, 4.0, -252.0), deg_to_rad(28.0), 1.20)
 	_place_sakura_tree(root, "CathedralSakura_LowerR", Vector3(22.0, 4.0, -252.0), deg_to_rad(-28.0), 1.22)
-	_place_sakura_tree(root, "CathedralSakura_OuterL", Vector3(-31.0, 4.0, -264.0), deg_to_rad(52.0), 1.32)
-	_place_sakura_tree(root, "CathedralSakura_OuterR", Vector3(31.0, 4.0, -264.0), deg_to_rad(-52.0), 1.35)
+	_place_verdant_tree(root, "CathedralVerdant_MidL", Vector3(-27.5, 4.0, -250.5), deg_to_rad(42.0), 1.28)
+	_place_verdant_tree(root, "CathedralVerdant_MidR", Vector3(27.5, 4.0, -250.5), deg_to_rad(-42.0), 1.30)
+	_place_sakura_tree(root, "CathedralSakura_OuterL", Vector3(-31.5, 4.0, -264.0), deg_to_rad(52.0), 1.34)
+	_place_sakura_tree(root, "CathedralSakura_OuterR", Vector3(31.5, 4.0, -264.0), deg_to_rad(-52.0), 1.36)
+	_place_verdant_tree(root, "CathedralVerdant_FarL", Vector3(-36.5, 4.0, -256.5), deg_to_rad(64.0), 1.42)
+	_place_verdant_tree(root, "CathedralVerdant_FarR", Vector3(36.5, 4.0, -256.5), deg_to_rad(-64.0), 1.44)
+
 	_place_sakura_tree(root, "CathedralSakura_UpperL", Vector3(-25.0, 8.0, -262.0), deg_to_rad(38.0), 1.15)
 	_place_sakura_tree(root, "CathedralSakura_UpperR", Vector3(25.0, 8.0, -262.0), deg_to_rad(-38.0), 1.18)
+	_place_verdant_tree(root, "CathedralVerdant_UpperL", Vector3(-30.5, 8.0, -271.0), deg_to_rad(56.0), 1.26)
+	_place_verdant_tree(root, "CathedralVerdant_UpperR", Vector3(30.5, 8.0, -271.0), deg_to_rad(-56.0), 1.30)
 
-	# 6 blooming garden planters (scale 1.15) lining the grand staircase cheek walls & upper dais approach
+	# 12 lush rose-and-emerald hedges:
+	# - 6 hugging BOTH sides of the grand staircase cheek walls (x = +-16.8, stepping y = 0 -> 4 -> 8)
+	_place_lush_bush(root, "CathedralHedge_StairBaseL", Vector3(-16.8, 0.0, -242.5), deg_to_rad(90.0), 1.10)
+	_place_lush_bush(root, "CathedralHedge_StairBaseR", Vector3(16.8, 0.0, -242.5), deg_to_rad(-90.0), 1.10)
+	_place_lush_bush(root, "CathedralHedge_StairMidL", Vector3(-16.8, 4.0, -248.8), deg_to_rad(90.0), 1.12)
+	_place_lush_bush(root, "CathedralHedge_StairMidR", Vector3(16.8, 4.0, -248.8), deg_to_rad(-90.0), 1.12)
+	_place_lush_bush(root, "CathedralHedge_StairTopL", Vector3(-16.8, 8.0, -255.0), deg_to_rad(90.0), 1.12)
+	_place_lush_bush(root, "CathedralHedge_StairTopR", Vector3(16.8, 8.0, -255.0), deg_to_rad(-90.0), 1.12)
+	# - 4 lining front edges of lower terrace (y = 4.0)
+	_place_lush_bush(root, "CathedralHedge_LowerFrontInL", Vector3(-21.5, 4.0, -247.6), deg_to_rad(4.0), 1.18)
+	_place_lush_bush(root, "CathedralHedge_LowerFrontInR", Vector3(21.5, 4.0, -247.6), deg_to_rad(-4.0), 1.18)
+	_place_lush_bush(root, "CathedralHedge_LowerFrontOutL", Vector3(-28.5, 4.0, -247.6), deg_to_rad(-6.0), 1.22)
+	_place_lush_bush(root, "CathedralHedge_LowerFrontOutR", Vector3(28.5, 4.0, -247.6), deg_to_rad(6.0), 1.22)
+	# - 2 lining front edges of upper courtyard (y = 8.0)
+	_place_lush_bush(root, "CathedralHedge_UpperFrontL", Vector3(-21.0, 8.0, -254.6), deg_to_rad(5.0), 1.15)
+	_place_lush_bush(root, "CathedralHedge_UpperFrontR", Vector3(21.0, 8.0, -254.6), deg_to_rad(-5.0), 1.15)
+
+	# 8 blooming marble planters (scale 1.15) lining staircase cheek walls & upper courtyard approach
 	_place_garden_planter(root, "CathedralPlanter_BaseL", Vector3(-15.5, 0.0, -242.0), deg_to_rad(90.0), 1.15)
 	_place_garden_planter(root, "CathedralPlanter_BaseR", Vector3(15.5, 0.0, -242.0), deg_to_rad(-90.0), 1.15)
 	_place_garden_planter(root, "CathedralPlanter_MidL", Vector3(-15.5, 4.0, -248.5), deg_to_rad(90.0), 1.15)
 	_place_garden_planter(root, "CathedralPlanter_MidR", Vector3(15.5, 4.0, -248.5), deg_to_rad(-90.0), 1.15)
 	_place_garden_planter(root, "CathedralPlanter_TopL", Vector3(-15.5, 8.0, -255.0), deg_to_rad(90.0), 1.15)
 	_place_garden_planter(root, "CathedralPlanter_TopR", Vector3(15.5, 8.0, -255.0), deg_to_rad(-90.0), 1.15)
+	_place_garden_planter(root, "CathedralPlanter_CourtL", Vector3(-17.5, 8.0, -261.5), deg_to_rad(82.0), 1.15)
+	_place_garden_planter(root, "CathedralPlanter_CourtR", Vector3(17.5, 8.0, -261.5), deg_to_rad(-82.0), 1.15)
 
 	# 4 celestial silk-and-crystal ornaments (scale 1.15) framing the Sanctuary Mentors & Earth Mirror
 	_place_celestial_ornament(root, "SanctuaryOrnament_MentorL", Vector3(-13.5, 8.0, -266.0), deg_to_rad(78.0), 1.15, 0.5)
@@ -330,17 +454,19 @@ func _decorate_cathedral_sanctuary() -> void:
 	_place_celestial_ornament(root, "SanctuaryOrnament_MirrorL", Vector3(-12.5, 8.0, -276.0), deg_to_rad(104.0), 1.15, 3.6)
 	_place_celestial_ornament(root, "SanctuaryOrnament_MirrorR", Vector3(12.5, 8.0, -276.0), deg_to_rad(-104.0), 1.15, 5.1)
 
-	# Lush cascading flowering ivy garlands along the front edges of the lower podium (y = 4.0, z = -247)
-	# and upper dais (y = 8.0, z = -254), framing the central staircase cleanly
+	# Dense cascading green ivy walls along the castle terrace parapets
 	var vine_root: Node3D = Node3D.new()
 	vine_root.name = "CathedralHangingVines"
 	root.add_child(vine_root)
 
 	var forward_dir: Vector3 = Vector3(0.0, 0.0, 1.0)
-	var lower_x_coords: Array[float] = [-33.0, -29.5, -26.0, -22.5, -19.0, -16.8, 16.8, 19.0, 22.5, 26.0, 29.5, 33.0]
+	var lower_x_coords: Array[float] = [
+		-37.0, -35.0, -33.0, -31.0, -29.0, -27.0, -25.0, -23.0, -21.0, -19.0, -17.0,
+		17.0, 19.0, 21.0, 23.0, 25.0, 27.0, 29.0, 31.0, 33.0, 35.0, 37.0,
+	]
 	for i: int in range(lower_x_coords.size()):
 		var x_val: float = lower_x_coords[i]
-		var drop_len: float = 2.0 + fmod(float(i * 7 + 5) * 0.6180339, 1.0) * 1.75 # 2.0m .. 3.75m
+		var drop_len: float = 2.4 + fmod(float(i * 7 + 5) * 0.6180339, 1.0) * 1.95 # 2.4m .. 4.35m
 		_build_vine_garland(
 			vine_root,
 			Vector3(x_val, 3.9, -247.0),
@@ -349,10 +475,13 @@ func _decorate_cathedral_sanctuary() -> void:
 			100 + i
 		)
 
-	var upper_x_coords: Array[float] = [-26.0, -23.0, -20.0, -17.2, 17.2, 20.0, 23.0, 26.0]
+	var upper_x_coords: Array[float] = [
+		-30.5, -28.5, -26.5, -24.5, -22.5, -20.5, -18.5, -16.8,
+		16.8, 18.5, 20.5, 22.5, 24.5, 26.5, 28.5, 30.5,
+	]
 	for i: int in range(upper_x_coords.size()):
 		var x_val: float = upper_x_coords[i]
-		var drop_len: float = 1.85 + fmod(float(i * 11 + 3) * 0.6180339, 1.0) * 1.65 # 1.85m .. 3.50m
+		var drop_len: float = 2.2 + fmod(float(i * 11 + 3) * 0.6180339, 1.0) * 1.85 # 2.2m .. 4.05m
 		_build_vine_garland(
 			vine_root,
 			Vector3(x_val, 7.9, -254.0),
@@ -360,6 +489,21 @@ func _decorate_cathedral_sanctuary() -> void:
 			drop_len,
 			150 + i
 		)
+
+	# Outer lower terrace side parapet ivy curtains (x = +-37.8, z = -250..-266)
+	var side_z_coords: Array[float] = [-250.0, -254.0, -258.0, -262.0, -266.0]
+	for side_idx: int in range(2):
+		var s_sign: float = -1.0 if side_idx == 0 else 1.0
+		var s_dir: Vector3 = Vector3(s_sign, 0.0, 0.0)
+		for j: int in range(side_z_coords.size()):
+			var drop_len: float = 2.6 + fmod(float(side_idx * 9 + j * 5 + 1) * 0.6180339, 1.0) * 1.9
+			_build_vine_garland(
+				vine_root,
+				Vector3(s_sign * 37.8, 3.9, side_z_coords[j]),
+				s_dir,
+				drop_len,
+				200 + side_idx * 10 + j
+			)
 
 
 # ---------------------------------------------------------------------------
@@ -375,7 +519,73 @@ func _place_sakura_tree(parent: Node3D, node_name: String, pos: Vector3, yaw_rad
 		else:
 			inst.queue_free()
 	if prop == null:
-		prop = _create_fallback_sakura_tree()
+		prop = _create_fallback_sakura_tree(false)
+
+	prop.name = node_name
+	prop.position = pos
+	prop.rotation = Vector3(0.0, yaw_rad, 0.0)
+	prop.scale = Vector3(scale_factor, scale_factor, scale_factor)
+	parent.add_child(prop)
+	return prop
+
+
+## Spawns a lush emerald-green palace garden tree by overriding sakura blossom surfaces
+## with rich sunlit emerald & spring green foliage plus small cream-pink flower accents.
+func _place_verdant_tree(parent: Node3D, node_name: String, pos: Vector3, yaw_rad: float, scale_factor: float) -> Node3D:
+	var prop: Node3D = null
+	var is_glb: bool = false
+	if _sakura_tree_scene != null:
+		var inst: Node = _sakura_tree_scene.instantiate()
+		if inst is Node3D:
+			prop = inst as Node3D
+			is_glb = true
+		else:
+			inst.queue_free()
+	if prop == null:
+		prop = _create_fallback_sakura_tree(true)
+
+	prop.name = node_name
+	prop.position = pos
+	prop.rotation = Vector3(0.0, yaw_rad, 0.0)
+	prop.scale = Vector3(scale_factor, scale_factor, scale_factor)
+	parent.add_child(prop)
+
+	if is_glb:
+		_apply_verdant_tree_materials(prop)
+	return prop
+
+
+func _apply_verdant_tree_materials(node: Node) -> void:
+	if node is MeshInstance3D:
+		var mesh_inst: MeshInstance3D = node as MeshInstance3D
+		var mesh_res: Mesh = mesh_inst.mesh
+		if mesh_res != null:
+			var surf_count: int = mesh_res.get_surface_count()
+			for surf_idx: int in range(surf_count):
+				var base_mat: Material = mesh_res.surface_get_material(surf_idx)
+				if base_mat == null:
+					continue
+				var mat_name: String = base_mat.resource_name
+				if mat_name == "Mat_SakuraBlossomDeep":
+					mesh_inst.set_surface_override_material(surf_idx, _mat_canopy_emerald_deep)
+				elif mat_name == "Mat_SakuraBlossomSoft":
+					mesh_inst.set_surface_override_material(surf_idx, _mat_canopy_emerald_sunlit)
+				elif mat_name == "Mat_SakuraBlossomCream":
+					mesh_inst.set_surface_override_material(surf_idx, _mat_canopy_flower_accent)
+	for child: Node in node.get_children():
+		_apply_verdant_tree_materials(child)
+
+
+func _place_lush_bush(parent: Node3D, node_name: String, pos: Vector3, yaw_rad: float, scale_factor: float) -> Node3D:
+	var prop: Node3D = null
+	if _lush_bush_scene != null:
+		var inst: Node = _lush_bush_scene.instantiate()
+		if inst is Node3D:
+			prop = inst as Node3D
+		else:
+			inst.queue_free()
+	if prop == null:
+		prop = _create_fallback_lush_bush()
 
 	prop.name = node_name
 	prop.position = pos
@@ -453,6 +663,11 @@ func _build_vine_garland(
 	var tangent: Vector3 = Vector3(-outward_dir.z, 0.0, outward_dir.x)
 	var seg_step: float = 0.44
 	var seg_count: int = maxi(3, int(roundf(drop_length / seg_step)))
+	var leaf_mats: Array[StandardMaterial3D] = [
+		_mat_leaf_emerald,
+		_mat_leaf_spring,
+		_mat_leaf_mint,
+	]
 	var blossom_mats: Array[StandardMaterial3D] = [
 		_mat_blossom_pink,
 		_mat_blossom_blush,
@@ -475,27 +690,27 @@ func _build_vine_garland(
 		stem.rotation = Vector3(0.0, float(seed_index + s) * 0.5, sway_wave * 0.6)
 		strand.add_child(stem)
 
-		# Tapered foliage leaf cluster
-		var taper: float = lerpf(1.18, 0.52, frac)
+		# Lush tapered 3-tone emerald/spring/mint ivy foliage cluster
+		var taper: float = lerpf(1.26, 0.56, frac)
 		var leaf: MeshInstance3D = MeshInstance3D.new()
 		leaf.mesh = _mesh_leaf_cluster
-		leaf.material_override = _mat_leaf_spring if (s + seed_index) % 2 == 0 else _mat_leaf_emerald
+		leaf.material_override = leaf_mats[(s + seed_index) % leaf_mats.size()]
 		leaf.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		leaf.position = local_pos + outward_dir * 0.08
 		leaf.rotation = Vector3(0.25 * float((s % 3) - 1), float(seed_index + s) * 0.85, 0.22 * sway_wave)
-		leaf.scale = Vector3(taper, taper * 0.88, taper)
+		leaf.scale = Vector3(taper, taper * 0.90, taper)
 		strand.add_child(leaf)
 
-		# Flowering sakura / wisteria blossom puffs
-		if s == 0 or s == seg_count - 1 or (s + seed_index) % 2 == 0:
+		# Flowering sakura / rose blossom accents nestled into the cascading emerald ivy
+		if s == 0 or s == seg_count - 1 or (s + seed_index) % 3 == 0:
 			var blossom: MeshInstance3D = MeshInstance3D.new()
 			blossom.mesh = _mesh_blossom_cluster if s < seg_count - 1 else _mesh_blossom_small
 			var mat_idx: int = (seed_index + s) % blossom_mats.size()
 			blossom.material_override = blossom_mats[mat_idx]
 			blossom.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-			var side_nudge: float = 0.14 if s % 2 == 0 else -0.14
+			var side_nudge: float = 0.15 if s % 2 == 0 else -0.15
 			blossom.position = local_pos + outward_dir * 0.16 + tangent * side_nudge
-			var b_scale: float = lerpf(1.10, 0.62, frac)
+			var b_scale: float = lerpf(1.04, 0.58, frac)
 			blossom.scale = Vector3(b_scale, b_scale * 0.92, b_scale)
 			strand.add_child(blossom)
 
@@ -504,7 +719,7 @@ func _build_vine_garland(
 # Graceful Procedural Fallbacks (used only if a .glb is not yet imported)
 # ---------------------------------------------------------------------------
 
-func _create_fallback_sakura_tree() -> Node3D:
+func _create_fallback_sakura_tree(verdant_green: bool = false) -> Node3D:
 	var tree: Node3D = Node3D.new()
 
 	var trunk_mesh: CylinderMesh = CylinderMesh.new()
@@ -529,11 +744,11 @@ func _create_fallback_sakura_tree() -> Node3D:
 	]
 	var canopy_radii: Array[float] = [1.55, 1.25, 1.30, 1.15, 1.10]
 	var canopy_mats: Array[StandardMaterial3D] = [
-		_mat_blossom_pink,
-		_mat_blossom_blush,
-		_mat_blossom_pink,
-		_mat_blossom_blush,
-		_mat_blossom_lilac,
+		_mat_canopy_emerald_deep if verdant_green else _mat_blossom_pink,
+		_mat_canopy_emerald_sunlit if verdant_green else _mat_blossom_blush,
+		_mat_canopy_emerald_deep if verdant_green else _mat_blossom_pink,
+		_mat_leaf_mint if verdant_green else _mat_blossom_blush,
+		_mat_canopy_emerald_sunlit if verdant_green else _mat_blossom_lilac,
 	]
 
 	for i: int in range(canopy_offsets.size()):
@@ -550,6 +765,44 @@ func _create_fallback_sakura_tree() -> Node3D:
 		tree.add_child(puff)
 
 	return tree
+
+
+func _create_fallback_lush_bush() -> Node3D:
+	var bush: Node3D = Node3D.new()
+	var leaf_mats: Array[StandardMaterial3D] = [
+		_mat_leaf_emerald,
+		_mat_leaf_spring,
+		_mat_leaf_mint,
+	]
+	var cluster_offsets: Array[Vector3] = [
+		Vector3(-0.72, 0.48, 0.0),
+		Vector3(0.0, 0.62, 0.0),
+		Vector3(0.72, 0.48, 0.0),
+		Vector3(-0.36, 0.72, 0.24),
+		Vector3(0.36, 0.72, -0.24),
+	]
+	for i: int in range(cluster_offsets.size()):
+		var clump: MeshInstance3D = MeshInstance3D.new()
+		clump.mesh = _mesh_leaf_cluster
+		clump.material_override = leaf_mats[i % leaf_mats.size()]
+		clump.position = cluster_offsets[i]
+		clump.scale = Vector3(2.4, 2.2, 2.2)
+		clump.rotation = Vector3(0.15 * float(i - 2), float(i) * 0.7, 0.1 * float(i - 2))
+		bush.add_child(clump)
+
+	var rose_offsets: Array[Vector3] = [
+		Vector3(-0.62, 0.86, 0.26),
+		Vector3(0.0, 1.05, 0.18),
+		Vector3(0.62, 0.84, -0.22),
+	]
+	for j: int in range(rose_offsets.size()):
+		var rose: MeshInstance3D = MeshInstance3D.new()
+		rose.mesh = _mesh_blossom_small
+		rose.material_override = _mat_blossom_pink if j % 2 == 0 else _mat_blossom_blush
+		rose.position = rose_offsets[j]
+		bush.add_child(rose)
+
+	return bush
 
 
 func _create_fallback_garden_planter() -> Node3D:

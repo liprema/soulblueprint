@@ -160,7 +160,7 @@ func _create_velvet_stone_material(
 	mat.set_shader_parameter("stone_base_color", base_col)
 	mat.set_shader_parameter("stone_highlight_color", highlight_col)
 	mat.set_shader_parameter("stone_pore_color", pore_col)
-	mat.set_shader_parameter("horizon_tint_color", Color("#D8ECFA"))
+	mat.set_shader_parameter("horizon_tint_color", Color("#B8D8F8"))
 	mat.set_shader_parameter("base_roughness", roughness_val)
 	mat.set_shader_parameter("surface_specular", 0.42)
 	mat.set_shader_parameter("surface_metallic", 0.02)
@@ -171,24 +171,24 @@ func _create_velvet_stone_material(
 
 
 func _init_materials() -> void:
-	# Tender Blush-Rose Marble, Warm Peach-Pearl Floors, Dusty-Lavender Plinths & Pastel Turquoise-Aqua Crystal
+	# Crisp Fairytale White & Celestial Sky-Blue Castle Palette
 	_mat_dark_obsidian = _create_velvet_stone_material(
-		Color("#B69EC0"), Color("#CCB8D6"), Color("#8A7296"), 0.58, 0.10, 0.34, 0.90
+		Color("#7E96B8"), Color("#9BB2D2"), Color("#5A7090"), 0.60, 0.10, 0.25, 0.90
 	)
 	_mat_indigo_stone = _create_velvet_stone_material(
-		Color("#E8BCC6"), Color("#F7D7DF"), Color("#BF8897"), 0.54, 0.12, 0.42, 1.00
+		Color("#EEF1F6"), Color("#FFFFFF"), Color("#C0CCE0"), 0.56, 0.12, 0.25, 1.00
 	)
 	_mat_polished_marble = _create_velvet_stone_material(
-		Color("#F2DCD4"), Color("#FCEEE8"), Color("#CEACA0"), 0.34, 0.14, 0.92, 1.05
+		Color("#EBE9E4"), Color("#FAF8F4"), Color("#B4C4D8"), 0.48, 0.10, 0.30, 1.05
 	)
 	_mat_cobalt_trim = _create_velvet_stone_material(
-		Color("#74CCE0"), Color("#A4E4F2"), Color("#4B9CB3"), 0.38, 0.16, 0.75, 1.25
+		Color("#4880C8"), Color("#74ACEC"), Color("#2E5896"), 0.42, 0.16, 0.45, 1.25
 	)
 
-	# Satin rose-champagne gold & warm temple brass (smooth satin sheen, zero sub-pixel shimmer)
-	var aged_gold_color: Color = Color("#E5BC74")
-	var temple_brass_color: Color = Color("#CF9E60")
-	var warm_amber_emission: Color = Color("#F2CA8A")
+	# Satin Champagne Gold & Temple Brass (calm satin sheen, zero sub-pixel shimmer)
+	var aged_gold_color: Color = Color("#DFC07A")
+	var temple_brass_color: Color = Color("#C6A462")
+	var warm_amber_emission: Color = Color("#F0D294")
 
 	_mat_gold_filigree = StandardMaterial3D.new()
 	_mat_gold_filigree.albedo_color = aged_gold_color
@@ -200,7 +200,7 @@ func _init_materials() -> void:
 
 	_mat_gold_brass = StandardMaterial3D.new()
 	_mat_gold_brass.albedo_color = temple_brass_color
-	_mat_gold_brass.roughness = 0.45
+	_mat_gold_brass.roughness = 0.44
 	_mat_gold_brass.metallic = 0.78
 	_mat_gold_brass.emission_enabled = true
 	_mat_gold_brass.emission = warm_amber_emission
