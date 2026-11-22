@@ -29,6 +29,7 @@ var _dust_motes: GPUParticles3D = null
 var _sakura_petals: GPUParticles3D = null
 var _garden_decorator: AkashaGardenDecorator = null
 var _castle_interactables: CastleInteractables3D = null
+var _infinite_vista: AkashaInfiniteVista = null
 
 var _is_in_gameplay: bool = false
 var _is_transitioning: bool = false
@@ -42,6 +43,8 @@ func _ready() -> void:
 	_spawn_lanterns()
 	_setup_garden_decorator()
 	_setup_castle_interactables()
+	_setup_infinite_vista()
+	_ensure_vista_camera_clip_planes()
 	_setup_atmospheric_dust_motes()
 	_setup_sakura_petals()
 	_connect_signals()
@@ -90,6 +93,26 @@ func _setup_castle_interactables() -> void:
 	_castle_interactables = CastleInteractables3D.new()
 	_castle_interactables.name = "CastleInteractables3D"
 	add_child(_castle_interactables)
+
+
+func _setup_infinite_vista() -> void:
+	if _infinite_vista != null and is_instance_valid(_infinite_vista):
+		_infinite_vista.queue_free()
+
+	_infinite_vista = AkashaInfiniteVista.new()
+	_infinite_vista.name = "AkashaInfiniteVista"
+	add_child(_infinite_vista)
+
+
+func _ensure_vista_camera_clip_planes() -> void:
+	if player != null:
+		var player_cam: Camera3D = player.get_node_or_null("CameraRig/SpringArm3D/Camera3D") as Camera3D
+		if player_cam != null:
+			player_cam.far = maxf(player_cam.far, 1400.0)
+	if title_camera_rig != null:
+		var title_cam: Camera3D = title_camera_rig.get_node_or_null("TitleCamera") as Camera3D
+		if title_cam != null:
+			title_cam.far = maxf(title_cam.far, 1400.0)
 
 
 func _setup_atmospheric_dust_motes() -> void:

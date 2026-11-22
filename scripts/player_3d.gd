@@ -98,6 +98,14 @@ signal flight_mode_changed(is_flying: bool)
 @export var trail_max_points: int = 56
 @export var trail_min_sample_dist: float = 0.09
 
+# --- Playable World Bounds (Gentle Celestial Wind-Cushion) ---
+@export_group("Playable World Bounds")
+@export var playable_x_limit: float = 82.0
+@export var playable_z_min: float = -352.0
+@export var playable_z_max: float = 78.0
+@export var playable_y_max: float = 88.0
+@export var boundary_soft_margin: float = 14.0
+
 # --- Runtime State ---
 var is_flying: bool = false
 var wing_energy: float = 5.0
@@ -203,7 +211,7 @@ func _ready() -> void:
 		_base_halo_y = star_halo.position.y
 
 	if spark_light:
-		spark_light.light_color = Color("#E874B8")
+		spark_light.light_color = Color("#8CE6FF")
 		spark_light.light_energy = _base_light_energy
 		spark_light.omni_range = 7.5
 
@@ -249,7 +257,7 @@ func _load_spark_model() -> void:
 	_spark_model_instance.name = "SparkModel"
 	# VisualPivot sits at y = 0.9 while spark.glb has its base at y = 0.0
 	_spark_model_instance.position = Vector3(0.0, -0.9, 0.0)
-	_spark_model_instance.scale = Vector3(1.18, 1.18, 1.18)
+	_spark_model_instance.scale = Vector3(1.15, 1.15, 1.15)
 	visual_pivot.add_child(_spark_model_instance)
 
 	_spark_halo_node = _spark_model_instance.find_child("SparkStarHalo", true, false) as Node3D
@@ -294,114 +302,151 @@ func _apply_spark_energy_shader_recursive(node: Node, energy_shader: Shader) -> 
 		var mesh_res: Mesh = mesh_inst.mesh
 		if mesh_res != null:
 			var node_name: String = mesh_inst.name
-			var is_halo: bool = node_name == "SparkStarHalo"
-			var is_wing_ribbon: bool = node_name.begins_with("SparkWingRibbon")
-			var is_droplet: bool = node_name == "SparkDroplets"
 			var surface_count: int = mesh_res.get_surface_count()
 
-			if is_wing_ribbon or is_halo:
+			if node_name == "SparkHeartCore":
 				mesh_inst.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+				var heart_mat: StandardMaterial3D = StandardMaterial3D.new()
+				heart_mat.albedo_color = Color.html("#FFE09E")
+				heart_mat.roughness = 0.14
+				heart_mat.emission_enabled = true
+				heart_mat.emission = Color.html("#FFE09E")
+				heart_mat.emission_energy_multiplier = 1.1
+				for i: int in range(surface_count):
+					mesh_inst.set_surface_override_material(i, heart_mat)
+			elif node_name == "SparkEyeSclera":
+				mesh_inst.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+				var sclera_mat: StandardMaterial3D = StandardMaterial3D.new()
+				sclera_mat.albedo_color = Color.html("#F4FCFF")
+				sclera_mat.roughness = 0.08
+				sclera_mat.emission_enabled = true
+				sclera_mat.emission = Color.html("#E6F7FF")
+				sclera_mat.emission_energy_multiplier = 0.16
+				for i: int in range(surface_count):
+					mesh_inst.set_surface_override_material(i, sclera_mat)
+			elif node_name == "SparkEyeIris":
+				mesh_inst.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+				var iris_mat: StandardMaterial3D = StandardMaterial3D.new()
+				iris_mat.albedo_color = Color.html("#2E8CE8")
+				iris_mat.roughness = 0.04
+				iris_mat.clearcoat_enabled = true
+				iris_mat.clearcoat = 1.0
+				iris_mat.clearcoat_roughness = 0.04
+				iris_mat.emission_enabled = true
+				iris_mat.emission = Color.html("#38B8FF")
+				iris_mat.emission_energy_multiplier = 0.35
+				for i: int in range(surface_count):
+					mesh_inst.set_surface_override_material(i, iris_mat)
+			elif node_name == "SparkEyeHighlight":
+				mesh_inst.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+				var hl_mat: StandardMaterial3D = StandardMaterial3D.new()
+				hl_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+				hl_mat.albedo_color = Color.WHITE
+				hl_mat.emission_enabled = true
+				hl_mat.emission = Color.WHITE
+				hl_mat.emission_energy_multiplier = 1.2
+				for i: int in range(surface_count):
+					mesh_inst.set_surface_override_material(i, hl_mat)
+			elif node_name == "SparkEyeRim":
+				mesh_inst.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+				var rim_mat: StandardMaterial3D = StandardMaterial3D.new()
+				rim_mat.albedo_color = Color.html("#284688")
+				rim_mat.roughness = 0.3
+				for i: int in range(surface_count):
+					mesh_inst.set_surface_override_material(i, rim_mat)
+			elif node_name == "SparkCheeks":
+				mesh_inst.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+				var cheek_mat: StandardMaterial3D = StandardMaterial3D.new()
+				cheek_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+				cheek_mat.albedo_color = Color(1.0, 0.659, 0.659, 0.78)
+				cheek_mat.roughness = 0.35
+				cheek_mat.emission_enabled = true
+				cheek_mat.emission = Color.html("#FF9E9E")
+				cheek_mat.emission_energy_multiplier = 0.45
+				for i: int in range(surface_count):
+					mesh_inst.set_surface_override_material(i, cheek_mat)
+			else:
+				var is_mini_wing: bool = node_name.begins_with("SparkMiniWing") or node_name.begins_with("SparkWingRibbon")
+				var is_droplet: bool = node_name == "SparkFlameDrops" or node_name == "SparkDroplets"
 
-			for i: int in range(surface_count):
-				var src_mat: Material = mesh_inst.get_active_material(i)
-				if src_mat == null:
-					src_mat = mesh_res.surface_get_material(i)
+				if is_mini_wing or is_droplet:
+					mesh_inst.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
-				var smat: ShaderMaterial = ShaderMaterial.new()
-				smat.shader = energy_shader
+				for i: int in range(surface_count):
+					var smat: ShaderMaterial = ShaderMaterial.new()
+					smat.shader = energy_shader
 
-				var mat_name: String = src_mat.resource_name if src_mat != null else ""
+					# Default: SparkBody (translucent aqua-cyan & orchid-lavender spirit with warm golden belly glow)
+					var albedo_col: Color = Color.html("#6CE4FF")
+					var shadow_col: Color = Color.html("#3B78E0")
+					var emit_col: Color = Color.html("#B88CFF")
+					var rim_col: Color = Color.html("#8AE8FF")
+					var irid_col: Color = Color.html("#B88CFF")
+					var belly_col: Color = Color.html("#FFE09E")
+					var emit_str: float = 0.28
+					var belly_str: float = 0.85
+					var metallic_v: float = 0.08
+					var roughness_v: float = 0.12
+					var clearcoat_v: float = 0.94
+					var alpha_v: float = 0.88
+					var irid_str: float = 1.05
+					var wing_flag: float = 0.0
+					var droplet_flag: float = 0.0
+					var sway_v: float = 1.0
 
-				# Default: SparkCrystalBody (rich jewel orchid-rose & royal amethyst crystal)
-				var albedo_col: Color = Color.html("#D9468F")
-				var shadow_col: Color = Color.html("#2A1052")
-				var emit_col: Color = Color.html("#9B44E8")
-				var rim_col: Color = Color.html("#5CE1FF")
-				var irid_col: Color = Color.html("#9B44E8")
-				var emit_str: float = 0.24
-				var metallic_v: float = 0.16
-				var roughness_v: float = 0.10
-				var clearcoat_v: float = 0.96
-				var alpha_v: float = 0.96
-				var irid_str: float = 1.10
-				var wing_flag: float = 0.0
-				var droplet_flag: float = 0.0
-				var sway_v: float = 1.0
+					if is_mini_wing:
+						# Iridescent pearl-aqua-pink floating mini angel wings with gentle flutter
+						albedo_col = Color.html("#B8F0FF")
+						shadow_col = Color.html("#5C86E8")
+						emit_col = Color.html("#E8B8FF")
+						rim_col = Color.html("#A8F2FF")
+						irid_col = Color.html("#FFC8E8")
+						emit_str = 0.34
+						belly_str = 0.0
+						metallic_v = 0.08
+						roughness_v = 0.14
+						clearcoat_v = 0.92
+						alpha_v = 0.86
+						irid_str = 1.30
+						wing_flag = 1.0
+						sway_v = 1.0
+					elif is_droplet:
+						# Floating luminous aqua-lavender flame droplets hovering around crown & tail
+						albedo_col = Color.html("#8AEBFF")
+						shadow_col = Color.html("#4A84E8")
+						emit_col = Color.html("#C4A0FF")
+						rim_col = Color.html("#B8F6FF")
+						irid_col = Color.html("#B88CFF")
+						emit_str = 0.36
+						belly_str = 0.0
+						metallic_v = 0.10
+						roughness_v = 0.10
+						clearcoat_v = 0.96
+						alpha_v = 0.88
+						irid_str = 1.15
+						droplet_flag = 1.0
+						sway_v = 1.0
 
-				if is_wing_ribbon or mat_name.contains("WingRibbon"):
-					# Vibrant magenta-orchid to glowing sky-turquoise gossamer wing-ribbons
-					albedo_col = Color.html("#E052A0")
-					shadow_col = Color.html("#321466")
-					emit_col = Color.html("#4ED8FF")
-					rim_col = Color.html("#7CEEFF")
-					irid_col = Color.html("#4ED8FF")
-					emit_str = 0.28
-					metallic_v = 0.12
-					roughness_v = 0.13
-					clearcoat_v = 0.90
-					alpha_v = 0.82
-					irid_str = 1.35
-					wing_flag = 1.0
-					sway_v = 1.0
-				elif is_droplet or mat_name.contains("Droplets"):
-					# Bright sparkling jewel-cyan & rose-pearl orbiting light-droplets
-					albedo_col = Color.html("#4ED8FF")
-					shadow_col = Color.html("#3A1B78")
-					emit_col = Color.html("#6CE8FF")
-					rim_col = Color.html("#FFB8E2")
-					irid_col = Color.html("#E052A0")
-					emit_str = 0.34
-					metallic_v = 0.22
-					roughness_v = 0.08
-					clearcoat_v = 1.0
-					alpha_v = 0.94
-					irid_str = 1.25
-					droplet_flag = 1.0
-					sway_v = 1.0
-				elif is_halo or mat_name.contains("StarHalo"):
-					# Bright sparkling jewel-cyan & rose-pearl celestial star-halo
-					albedo_col = Color.html("#5CE1FF")
-					shadow_col = Color.html("#4A1E8A")
-					emit_col = Color.html("#F078C8")
-					rim_col = Color.html("#8CF2FF")
-					irid_col = Color.html("#9B44E8")
-					emit_str = 0.36
-					metallic_v = 0.26
-					roughness_v = 0.08
-					clearcoat_v = 1.0
-					alpha_v = 0.96
-					irid_str = 1.20
-					sway_v = 0.0
-				elif mat_name.contains("CrystalBody"):
-					# Explicit match for SparkCrystalBodyMat (uses jewel orchid-rose crystal defaults above)
-					pass
-				elif src_mat is StandardMaterial3D:
-					var std_mat: StandardMaterial3D = src_mat as StandardMaterial3D
-					albedo_col = std_mat.albedo_color
-					if std_mat.emission_enabled:
-						emit_col = std_mat.emission
-						emit_str = clampf(std_mat.emission_energy_multiplier * 0.18, 0.14, 0.28)
-					metallic_v = clampf(std_mat.metallic, 0.10, 0.28)
-					roughness_v = clampf(std_mat.roughness, 0.08, 0.18)
+					# Pass Color directly so Godot converts source_color uniforms from sRGB to linear HDR
+					smat.set_shader_parameter("base_albedo", albedo_col)
+					smat.set_shader_parameter("shadow_tint", shadow_col)
+					smat.set_shader_parameter("emission_color", emit_col)
+					smat.set_shader_parameter("rim_color", rim_col)
+					smat.set_shader_parameter("iridescence_tint", irid_col)
+					smat.set_shader_parameter("belly_glow_color", belly_col)
+					smat.set_shader_parameter("emission_strength", emit_str)
+					smat.set_shader_parameter("belly_glow_strength", belly_str)
+					smat.set_shader_parameter("metallic_val", metallic_v)
+					smat.set_shader_parameter("roughness_val", roughness_v)
+					smat.set_shader_parameter("clearcoat_val", clearcoat_v)
+					smat.set_shader_parameter("alpha_base", alpha_v)
+					smat.set_shader_parameter("iridescence_strength", irid_str)
+					smat.set_shader_parameter("is_wing_ribbon", wing_flag)
+					smat.set_shader_parameter("is_droplet", droplet_flag)
+					smat.set_shader_parameter("sway_scale", sway_v)
 
-				# Pass Color directly so Godot converts source_color uniforms from sRGB to linear HDR
-				smat.set_shader_parameter("base_albedo", albedo_col)
-				smat.set_shader_parameter("shadow_tint", shadow_col)
-				smat.set_shader_parameter("emission_color", emit_col)
-				smat.set_shader_parameter("rim_color", rim_col)
-				smat.set_shader_parameter("iridescence_tint", irid_col)
-				smat.set_shader_parameter("emission_strength", emit_str)
-				smat.set_shader_parameter("metallic_val", metallic_v)
-				smat.set_shader_parameter("roughness_val", roughness_v)
-				smat.set_shader_parameter("clearcoat_val", clearcoat_v)
-				smat.set_shader_parameter("alpha_base", alpha_v)
-				smat.set_shader_parameter("iridescence_strength", irid_str)
-				smat.set_shader_parameter("is_wing_ribbon", wing_flag)
-				smat.set_shader_parameter("is_droplet", droplet_flag)
-				smat.set_shader_parameter("sway_scale", sway_v)
-
-				mesh_inst.set_surface_override_material(i, smat)
-				_spark_energy_materials.append(smat)
+					mesh_inst.set_surface_override_material(i, smat)
+					_spark_energy_materials.append(smat)
 
 	for child: Node in node.get_children():
 		_apply_spark_energy_shader_recursive(child, energy_shader)
@@ -477,6 +522,7 @@ func _physics_process(delta: float) -> void:
 		_physics_ground(delta, steer_x, move_z)
 
 	move_and_slide()
+	_apply_playable_boundary_cushion(delta)
 
 	# Gentle Cloud-Sea Updraft Safety Cushion: catch Spark before falling into the void
 	if global_position.y < -16.0:
@@ -490,6 +536,62 @@ func _physics_process(delta: float) -> void:
 	# Auto-exit flight upon touching solid temple stone / island surface
 	if is_flying and _flight_entry_grace <= 0.0 and is_on_floor():
 		_exit_flight()
+
+
+func _apply_playable_boundary_cushion(delta: float) -> void:
+	var margin: float = maxf(boundary_soft_margin, 1.0)
+	var wind_accel: float = 42.0
+	var pos: Vector3 = global_position
+	var wind_push: Vector3 = Vector3.ZERO
+
+	# Horizontal X soft sky-breeze cushion
+	var x_soft: float = playable_x_limit - margin
+	if pos.x > x_soft:
+		var depth_x: float = clampf((pos.x - x_soft) / margin, 0.0, 1.5)
+		wind_push.x -= depth_x * depth_x * wind_accel
+	elif pos.x < -x_soft:
+		var depth_nx: float = clampf((-x_soft - pos.x) / margin, 0.0, 1.5)
+		wind_push.x += depth_nx * depth_nx * wind_accel
+
+	# Forward/Backward Z soft sky-breeze cushion
+	var z_min_soft: float = playable_z_min + margin
+	var z_max_soft: float = playable_z_max - margin
+	if pos.z < z_min_soft:
+		var depth_nz: float = clampf((z_min_soft - pos.z) / margin, 0.0, 1.5)
+		wind_push.z += depth_nz * depth_nz * wind_accel
+	elif pos.z > z_max_soft:
+		var depth_z: float = clampf((pos.z - z_max_soft) / margin, 0.0, 1.5)
+		wind_push.z -= depth_z * depth_z * wind_accel
+
+	# Upper sky ceiling soft breeze cushion
+	var y_max_soft: float = playable_y_max - margin
+	if pos.y > y_max_soft:
+		var depth_y: float = clampf((pos.y - y_max_soft) / margin, 0.0, 1.5)
+		wind_push.y -= depth_y * depth_y * wind_accel
+
+	if wind_push.length_squared() > 0.0001:
+		velocity += wind_push * delta
+		_boost_velocity += wind_push * (0.25 * delta)
+
+	# Soft outer hard-clamp so Spark can never reach distant infinite vista islands
+	var clamped_x: float = clampf(pos.x, -playable_x_limit, playable_x_limit)
+	var clamped_z: float = clampf(pos.z, playable_z_min, playable_z_max)
+	var clamped_y: float = minf(pos.y, playable_y_max)
+
+	if clamped_x != pos.x:
+		pos.x = clamped_x
+		if (clamped_x > 0.0 and velocity.x > 0.0) or (clamped_x < 0.0 and velocity.x < 0.0):
+			velocity.x = 0.0
+	if clamped_z != pos.z:
+		pos.z = clamped_z
+		if (clamped_z >= playable_z_max and velocity.z > 0.0) or (clamped_z <= playable_z_min and velocity.z < 0.0):
+			velocity.z = 0.0
+	if clamped_y != pos.y:
+		pos.y = clamped_y
+		if velocity.y > 0.0:
+			velocity.y = 0.0
+
+	global_position = pos
 
 
 func _process(delta: float) -> void:
