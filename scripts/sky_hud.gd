@@ -4,6 +4,9 @@ extends CanvasLayer
 ## Ultra-minimalist Sky: Children of the Light HUD & Art Deco Mentor Dialogue
 ## for SoulBlueprint (Godot 4.3).
 
+signal dialogue_advance_requested
+signal dialogue_choice_selected(choice_index: int)
+
 const COLOR_GOLD := Color(0.964706, 0.827451, 0.419608, 1.0) # #F6D36B
 const COLOR_IVORY := Color(1.0, 0.964706, 0.8, 1.0) # #FFF6CC
 const COLOR_INDIGO := Color(0.027451, 0.078431, 0.180392, 0.86) # #07142E
@@ -14,17 +17,26 @@ const PIP_COUNT := 5
 @export var default_title: String = "Обитель Хроник Акаши"
 @export var typewriter_chars_per_sec: float = 42.0
 
+@onready var _root_control: Control = $RootControl
 @onready var _wing_emblem: Control = $RootControl/WingEmblem
 @onready var _chapter_container: Control = $RootControl/ChapterTitleContainer
 @onready var _chapter_subtitle: Label = $RootControl/ChapterTitleContainer/VBox/SubtitleLabel
 @onready var _chapter_divider: Control = $RootControl/ChapterTitleContainer/VBox/DividerControl
 @onready var _chapter_title: Label = $RootControl/ChapterTitleContainer/VBox/TitleLabel
 @onready var _dialogue_panel: PanelContainer = $RootControl/DialoguePanel
+@onready var _dialogue_vbox: VBoxContainer = $RootControl/DialoguePanel/Margin/VBox
 @onready var _dialogue_overlay: Control = $RootControl/DialoguePanel/ArtDecoOverlay
 @onready var _speaker_label: Label = $RootControl/DialoguePanel/Margin/VBox/SpeakerLabel
 @onready var _dialogue_divider: Control = $RootControl/DialoguePanel/Margin/VBox/DialogueDivider
 @onready var _dialogue_text: Label = $RootControl/DialoguePanel/Margin/VBox/DialogueText
 @onready var _flight_hint: Label = $RootControl/FlightHint
+
+var _choices_container: VBoxContainer
+var _continue_label: Label
+var _interaction_panel: PanelContainer
+var _interaction_label: Label
+var _lantern_panel: PanelContainer
+var _lantern_label: Label
 
 var _time: float = 0.0
 var _current_energy: float = 5.0
@@ -34,10 +46,19 @@ var _displayed_pips: float = 5.0
 var _recharge_flash: float = 0.0
 var _flight_hint_dismissed: bool = false
 
+var _dialogue_active: bool = false
+var _is_typewriting: bool = false
+var _dialogue_accent: Color = COLOR_GOLD
+var _current_choices: Array = []
+var _interaction_visible: bool = false
+
 var _chapter_tween: Tween
 var _dialogue_tween: Tween
 var _typewriter_tween: Tween
+var _choices_tween: Tween
 var _hint_tween: Tween
+var _interaction_tween: Tween
+var _lantern_tween: Tween
 
 
 func _ready() -> void:
@@ -45,10 +66,15 @@ func _ready() -> void:
 	_chapter_divider.draw.connect(_draw_chapter_divider)
 	_dialogue_overlay.draw.connect(_draw_dialogue_overlay)
 	_dialogue_divider.draw.connect(_draw_dialogue_divider)
+	_dialogue_panel.gui_input.connect(_on_dialogue_panel_gui_input)
+	_dialogue_panel.resized.connect(_on_dialogue_panel_resized)
+
+	_build_extended_ui()
 
 	# Dialogue panel starts hidden by default
 	_dialogue_panel.visible = false
 	_dialogue_panel.modulate.a = 0.0
+	_dialogue_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 	# Chapter title starts transparent before fading in
 	_chapter_container.visible = false
@@ -56,7 +82,7 @@ func _ready() -> void:
 
 	# Subtle flight hint starts gently visible
 	_flight_hint.modulate.a = 0.0
-	var hint_in := create_tween()
+	var hint_in: Tween = create_tween()
 	hint_in.tween_interval(1.2)
 	hint_in.tween_property(_flight_hint, "modulate:a", 1.0, 1.0).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 
@@ -76,13 +102,41 @@ func _process(delta: float) -> void:
 		_recharge_flash = maxf(0.0, _recharge_flash - delta * 2.2)
 	_wing_emblem.queue_redraw()
 
+	if _continue_label != null and _continue_label.visible:
+		_continue_label.modulate.a = lerpf(0.52, 0.96, 0.5 + 0.5 * sin(_time * 3.2))
+
 
 func _unhandled_input(event: InputEvent) -> void:
-	if _flight_hint_dismissed:
-		return
-	if event is InputEventKey and event.pressed and not event.echo:
-		if event.keycode == KEY_SPACE or event.physical_keycode == KEY_SPACE:
-			hide_flight_hint()
+	if event is InputEventKey:
+		var key_event: InputEventKey = event as InputEventKey
+		if key_event.pressed and not key_event.echo:
+			var code: Key = key_event.keycode
+			var phys: Key = key_event.physical_keycode
+
+			if _dialogue_active and _root_control.visible:
+				if code == KEY_SPACE or phys == KEY_SPACE or code == KEY_ENTER or phys == KEY_ENTER or code == KEY_KP_ENTER or phys == KEY_KP_ENTER:
+					_handle_dialogue_continue_input()
+					get_viewport().set_input_as_handled()
+					return
+
+				if not _current_choices.is_empty():
+					var choice_idx: int = -1
+					if code == KEY_1 or phys == KEY_1 or code == KEY_KP_1:
+						choice_idx = 0
+					elif code == KEY_2 or phys == KEY_2 or code == KEY_KP_2:
+						choice_idx = 1
+					elif code == KEY_3 or phys == KEY_3 or code == KEY_KP_3:
+						choice_idx = 2
+
+					if choice_idx >= 0 and choice_idx < _current_choices.size():
+						if _is_typewriting:
+							_complete_typewriter()
+						_on_choice_button_pressed(choice_idx)
+						get_viewport().set_input_as_handled()
+						return
+
+			if not _flight_hint_dismissed and (code == KEY_SPACE or phys == KEY_SPACE):
+				hide_flight_hint()
 
 
 ## Updates the top-center winged star emblem and 5 golden diamond pips.
@@ -126,17 +180,43 @@ func show_chapter_title(subtitle: String, title: String, hold_duration: float = 
 
 
 ## Shows the Art Deco mentor dialogue panel at bottom-center with smooth typewriter reveal.
+## Preserved for backward compatibility with single-line dialogue callers.
 func show_dialogue(speaker: String, line: String) -> void:
+	show_dialogue_step(speaker, line, COLOR_GOLD, [])
+
+
+## Shows a multi-step mentor dialogue line with speaker accent color and optional Spark response choices.
+func show_dialogue_step(speaker: String, line: String, accent_color: Color, choices: Array) -> void:
 	if _dialogue_tween and _dialogue_tween.is_valid():
 		_dialogue_tween.kill()
 	if _typewriter_tween and _typewriter_tween.is_valid():
 		_typewriter_tween.kill()
+	if _choices_tween and _choices_tween.is_valid():
+		_choices_tween.kill()
+
+	_dialogue_active = true
+	_dialogue_accent = accent_color
+	_current_choices = choices.duplicate()
 
 	_speaker_label.text = speaker
+	_speaker_label.add_theme_color_override("font_color", _dialogue_accent)
 	_dialogue_text.text = line
 	_dialogue_text.visible_characters = 0
 
+	_rebuild_choice_buttons(_current_choices)
+	_choices_container.visible = false
+	_choices_container.modulate.a = 0.0
+	_continue_label.visible = false
+
+	# Reset panel frame to compact baseline so it expands cleanly upward if choices appear
+	_dialogue_panel.offset_left = -310.0
+	_dialogue_panel.offset_right = 310.0
+	_dialogue_panel.offset_top = -148.0
+	_dialogue_panel.offset_bottom = -28.0
+	_dialogue_panel.size = Vector2(620.0, 120.0)
+
 	_dialogue_panel.visible = true
+	_dialogue_panel.mouse_filter = Control.MOUSE_FILTER_STOP
 	_dialogue_overlay.queue_redraw()
 	_dialogue_divider.queue_redraw()
 
@@ -146,10 +226,15 @@ func show_dialogue(speaker: String, line: String) -> void:
 
 	var char_count: int = line.length()
 	if char_count > 0:
+		_is_typewriting = true
 		var reveal_duration: float = clampf(float(char_count) / maxf(typewriter_chars_per_sec, 1.0), 0.35, 6.0)
 		_typewriter_tween = create_tween()
 		_typewriter_tween.tween_property(_dialogue_text, "visible_characters", char_count, reveal_duration) \
 			.set_trans(Tween.TRANS_LINEAR)
+		_typewriter_tween.tween_callback(_on_typewriter_finished)
+	else:
+		_is_typewriting = false
+		_on_typewriter_finished()
 
 
 ## Smoothly fades out and hides the mentor dialogue panel.
@@ -158,6 +243,13 @@ func hide_dialogue() -> void:
 		_dialogue_tween.kill()
 	if _typewriter_tween and _typewriter_tween.is_valid():
 		_typewriter_tween.kill()
+	if _choices_tween and _choices_tween.is_valid():
+		_choices_tween.kill()
+
+	_dialogue_active = false
+	_is_typewriting = false
+	_current_choices.clear()
+	_dialogue_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 	if not _dialogue_panel.visible:
 		return
@@ -165,7 +257,72 @@ func hide_dialogue() -> void:
 	_dialogue_tween = create_tween()
 	_dialogue_tween.tween_property(_dialogue_panel, "modulate:a", 0.0, 0.4) \
 		.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
-	_dialogue_tween.tween_callback(func() -> void: _dialogue_panel.visible = false)
+	_dialogue_tween.tween_callback(func() -> void:
+		_dialogue_panel.visible = false
+		_choices_container.visible = false
+		_continue_label.visible = false
+	)
+
+
+## Displays a centered contextual interaction prompt gently above the bottom edge.
+func show_interaction_prompt(text: String) -> void:
+	if _interaction_panel == null or _interaction_label == null:
+		return
+	if _interaction_visible and _interaction_label.text == text:
+		return
+
+	_interaction_visible = true
+	_interaction_label.text = text
+	_interaction_panel.visible = true
+
+	if _interaction_tween and _interaction_tween.is_valid():
+		_interaction_tween.kill()
+
+	_interaction_tween = create_tween()
+	_interaction_tween.tween_property(_interaction_panel, "modulate:a", 1.0, 0.28) \
+		.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+
+
+## Smoothly fades out and hides the contextual interaction prompt.
+func hide_interaction_prompt() -> void:
+	if _interaction_panel == null:
+		return
+	if not _interaction_visible and not _interaction_panel.visible:
+		return
+
+	_interaction_visible = false
+	if _interaction_tween and _interaction_tween.is_valid():
+		_interaction_tween.kill()
+
+	_interaction_tween = create_tween()
+	_interaction_tween.tween_property(_interaction_panel, "modulate:a", 0.0, 0.25) \
+		.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+	_interaction_tween.tween_callback(func() -> void: _interaction_panel.visible = false)
+
+
+## Shows the minimalist top-right lantern progress badge, then settles to subtle 0.35 opacity.
+func show_lantern_progress(awakened: int, total: int) -> void:
+	if _lantern_panel == null or _lantern_label == null:
+		return
+
+	_lantern_label.text = "✦ %d / %d" % [awakened, total]
+	_lantern_panel.visible = true
+
+	if _lantern_tween and _lantern_tween.is_valid():
+		_lantern_tween.kill()
+
+	_lantern_tween = create_tween()
+	_lantern_tween.tween_property(_lantern_panel, "modulate:a", 1.0, 0.3) \
+		.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	_lantern_tween.tween_interval(3.5)
+	_lantern_tween.tween_property(_lantern_panel, "modulate:a", 0.35, 0.9) \
+		.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+
+
+## Cleanly toggles visibility of the entire HUD root (for Main Menu / cutscenes).
+func set_hud_visible(visible_state: bool) -> void:
+	if _root_control != null:
+		_root_control.visible = visible_state
 
 
 ## Explicitly dismisses the bottom-left flight hint once the player begins flying.
@@ -181,6 +338,242 @@ func hide_flight_hint() -> void:
 	_hint_tween.tween_property(_flight_hint, "modulate:a", 0.0, 0.85) \
 		.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
 	_hint_tween.tween_callback(func() -> void: _flight_hint.visible = false)
+
+
+# ---------------------------------------------------------------------------
+# Extended Programmatic UI Construction & Dialogue Interaction Helpers
+# ---------------------------------------------------------------------------
+
+func _build_extended_ui() -> void:
+	# Choice button container inside DialoguePanel VBox
+	_choices_container = VBoxContainer.new()
+	_choices_container.name = "ChoicesContainer"
+	_choices_container.visible = false
+	_choices_container.mouse_filter = Control.MOUSE_FILTER_PASS
+	_choices_container.add_theme_constant_override("separation", 8)
+	_dialogue_vbox.add_child(_choices_container)
+
+	# Continue prompt label at bottom-right of DialoguePanel VBox
+	_continue_label = Label.new()
+	_continue_label.name = "ContinuePrompt"
+	_continue_label.visible = false
+	_continue_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_continue_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_continue_label.text = "✦  [Space / Клик] Продолжить"
+	_continue_label.add_theme_font_size_override("font_size", 12)
+	_continue_label.add_theme_color_override("font_color", Color(COLOR_GOLD.r, COLOR_GOLD.g, COLOR_GOLD.b, 0.85))
+	_dialogue_vbox.add_child(_continue_label)
+
+	# Contextual interaction prompt centered above bottom edge
+	_interaction_panel = PanelContainer.new()
+	_interaction_panel.name = "InteractionPromptPanel"
+	_interaction_panel.visible = false
+	_interaction_panel.modulate.a = 0.0
+	_interaction_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_interaction_panel.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	_interaction_panel.offset_left = -230.0
+	_interaction_panel.offset_right = 230.0
+	_interaction_panel.offset_top = -104.0
+	_interaction_panel.offset_bottom = -64.0
+	_interaction_panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_interaction_panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
+
+	var prompt_style: StyleBoxFlat = StyleBoxFlat.new()
+	prompt_style.bg_color = Color(COLOR_INDIGO.r, COLOR_INDIGO.g, COLOR_INDIGO.b, 0.78)
+	prompt_style.border_width_left = 1
+	prompt_style.border_width_top = 1
+	prompt_style.border_width_right = 1
+	prompt_style.border_width_bottom = 1
+	prompt_style.border_color = Color(COLOR_GOLD.r, COLOR_GOLD.g, COLOR_GOLD.b, 0.55)
+	prompt_style.corner_radius_top_left = 3
+	prompt_style.corner_radius_top_right = 3
+	prompt_style.corner_radius_bottom_right = 3
+	prompt_style.corner_radius_bottom_left = 3
+	prompt_style.content_margin_left = 18.0
+	prompt_style.content_margin_right = 18.0
+	prompt_style.content_margin_top = 8.0
+	prompt_style.content_margin_bottom = 8.0
+	_interaction_panel.add_theme_stylebox_override("panel", prompt_style)
+
+	_interaction_label = Label.new()
+	_interaction_label.name = "InteractionPromptLabel"
+	_interaction_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_interaction_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_interaction_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_interaction_label.add_theme_font_size_override("font_size", 14)
+	_interaction_label.add_theme_color_override("font_color", COLOR_IVORY)
+	_interaction_panel.add_child(_interaction_label)
+	_root_control.add_child(_interaction_panel)
+
+	# Minimalist top-right lantern progress badge
+	_lantern_panel = PanelContainer.new()
+	_lantern_panel.name = "LanternProgressBadge"
+	_lantern_panel.visible = false
+	_lantern_panel.modulate.a = 0.0
+	_lantern_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_lantern_panel.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	_lantern_panel.offset_left = -126.0
+	_lantern_panel.offset_right = -22.0
+	_lantern_panel.offset_top = 20.0
+	_lantern_panel.offset_bottom = 52.0
+	_lantern_panel.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	_lantern_panel.grow_vertical = Control.GROW_DIRECTION_END
+
+	var lantern_style: StyleBoxFlat = StyleBoxFlat.new()
+	lantern_style.bg_color = Color(COLOR_INDIGO.r, COLOR_INDIGO.g, COLOR_INDIGO.b, 0.68)
+	lantern_style.border_width_left = 1
+	lantern_style.border_width_top = 1
+	lantern_style.border_width_right = 1
+	lantern_style.border_width_bottom = 1
+	lantern_style.border_color = Color(COLOR_GOLD.r, COLOR_GOLD.g, COLOR_GOLD.b, 0.48)
+	lantern_style.corner_radius_top_left = 3
+	lantern_style.corner_radius_top_right = 3
+	lantern_style.corner_radius_bottom_right = 3
+	lantern_style.corner_radius_bottom_left = 3
+	lantern_style.content_margin_left = 12.0
+	lantern_style.content_margin_right = 12.0
+	lantern_style.content_margin_top = 5.0
+	lantern_style.content_margin_bottom = 5.0
+	_lantern_panel.add_theme_stylebox_override("panel", lantern_style)
+
+	_lantern_label = Label.new()
+	_lantern_label.name = "LanternProgressLabel"
+	_lantern_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_lantern_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_lantern_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_lantern_label.add_theme_font_size_override("font_size", 14)
+	_lantern_label.add_theme_color_override("font_color", COLOR_GOLD)
+	_lantern_panel.add_child(_lantern_label)
+	_root_control.add_child(_lantern_panel)
+
+
+func _rebuild_choice_buttons(choices: Array) -> void:
+	for child: Node in _choices_container.get_children():
+		child.queue_free()
+
+	if choices.is_empty():
+		return
+
+	var normal_style: StyleBoxFlat = _make_choice_style(
+		Color(0.043137, 0.109804, 0.239216, 0.80),
+		Color(COLOR_GOLD.r, COLOR_GOLD.g, COLOR_GOLD.b, 0.45)
+	)
+	var hover_style: StyleBoxFlat = _make_choice_style(
+		Color(0.137255, 0.207843, 0.341176, 0.94),
+		COLOR_GOLD
+	)
+	var pressed_style: StyleBoxFlat = _make_choice_style(
+		Color(0.196078, 0.262745, 0.376471, 0.96),
+		COLOR_IVORY
+	)
+
+	for i in range(choices.size()):
+		var choice_var: Variant = choices[i]
+		var choice_text: String = ""
+		if choice_var is Dictionary:
+			var choice_dict: Dictionary = choice_var as Dictionary
+			choice_text = str(choice_dict.get("text", ""))
+		else:
+			choice_text = str(choice_var)
+
+		var btn: Button = Button.new()
+		btn.text = "[%d]  %s" % [i + 1, choice_text]
+		btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		btn.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		btn.custom_minimum_size = Vector2(0.0, 36.0)
+		btn.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+		btn.add_theme_font_size_override("font_size", 14)
+		btn.add_theme_color_override("font_color", COLOR_IVORY)
+		btn.add_theme_color_override("font_hover_color", COLOR_GOLD)
+		btn.add_theme_color_override("font_focus_color", COLOR_GOLD)
+		btn.add_theme_color_override("font_pressed_color", COLOR_IVORY)
+		btn.add_theme_stylebox_override("normal", normal_style)
+		btn.add_theme_stylebox_override("hover", hover_style)
+		btn.add_theme_stylebox_override("focus", hover_style)
+		btn.add_theme_stylebox_override("pressed", pressed_style)
+		btn.pressed.connect(_on_choice_button_pressed.bind(i))
+		_choices_container.add_child(btn)
+
+
+func _make_choice_style(bg_col: Color, border_col: Color) -> StyleBoxFlat:
+	var style: StyleBoxFlat = StyleBoxFlat.new()
+	style.bg_color = bg_col
+	style.border_width_left = 1
+	style.border_width_top = 1
+	style.border_width_right = 1
+	style.border_width_bottom = 1
+	style.border_color = border_col
+	style.corner_radius_top_left = 2
+	style.corner_radius_top_right = 2
+	style.corner_radius_bottom_right = 2
+	style.corner_radius_bottom_left = 2
+	style.content_margin_left = 14.0
+	style.content_margin_right = 14.0
+	style.content_margin_top = 8.0
+	style.content_margin_bottom = 8.0
+	return style
+
+
+func _complete_typewriter() -> void:
+	if _typewriter_tween and _typewriter_tween.is_valid():
+		_typewriter_tween.kill()
+	_dialogue_text.visible_characters = -1
+	_is_typewriting = false
+	_on_typewriter_finished()
+
+
+func _on_typewriter_finished() -> void:
+	_is_typewriting = false
+	if not _dialogue_active:
+		return
+
+	if _current_choices.is_empty():
+		_choices_container.visible = false
+		_continue_label.visible = true
+	else:
+		_continue_label.visible = false
+		_choices_container.visible = true
+		_choices_container.modulate.a = 0.0
+		if _choices_tween and _choices_tween.is_valid():
+			_choices_tween.kill()
+		_choices_tween = create_tween()
+		_choices_tween.tween_property(_choices_container, "modulate:a", 1.0, 0.25) \
+			.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+		_dialogue_overlay.queue_redraw()
+
+
+func _handle_dialogue_continue_input() -> void:
+	if not _dialogue_active:
+		return
+	if _is_typewriting:
+		_complete_typewriter()
+		return
+	if _current_choices.is_empty():
+		dialogue_advance_requested.emit()
+
+
+func _on_dialogue_panel_gui_input(event: InputEvent) -> void:
+	if not _dialogue_active:
+		return
+	if event is InputEventMouseButton:
+		var mb: InputEventMouseButton = event as InputEventMouseButton
+		if mb.pressed and mb.button_index == MOUSE_BUTTON_LEFT:
+			_handle_dialogue_continue_input()
+
+
+func _on_dialogue_panel_resized() -> void:
+	if _dialogue_overlay != null:
+		_dialogue_overlay.queue_redraw()
+	if _dialogue_divider != null:
+		_dialogue_divider.queue_redraw()
+
+
+func _on_choice_button_pressed(choice_index: int) -> void:
+	if not _dialogue_active:
+		return
+	if choice_index < 0 or choice_index >= _current_choices.size():
+		return
+	dialogue_choice_selected.emit(choice_index)
 
 
 # ---------------------------------------------------------------------------
@@ -321,10 +714,10 @@ func _draw_chapter_divider() -> void:
 func _draw_dialogue_divider() -> void:
 	var size: Vector2 = _dialogue_divider.size
 	var cy: float = size.y * 0.5
-	var col := Color(COLOR_GOLD.r, COLOR_GOLD.g, COLOR_GOLD.b, 0.38)
+	var col: Color = Color(_dialogue_accent.r, _dialogue_accent.g, _dialogue_accent.b, 0.42)
 	_dialogue_divider.draw_line(Vector2(0.0, cy), Vector2(size.x * 0.45, cy), col, 1.0, true)
-	var tip := _make_diamond(Vector2(size.x * 0.45 + 4.0, cy), 2.5, 2.5)
-	_dialogue_divider.draw_colored_polygon(tip, Color(COLOR_GOLD.r, COLOR_GOLD.g, COLOR_GOLD.b, 0.7))
+	var tip: PackedVector2Array = _make_diamond(Vector2(size.x * 0.45 + 4.0, cy), 2.5, 2.5)
+	_dialogue_divider.draw_colored_polygon(tip, Color(_dialogue_accent.r, _dialogue_accent.g, _dialogue_accent.b, 0.78))
 
 
 func _draw_dialogue_overlay() -> void:

@@ -1,4 +1,4 @@
-[gd_scene load_steps=11 format=3]
+[gd_scene load_steps=15 format=3]
 
 [ext_resource type="Script" path="res://scripts/world_3d.gd" id="1_world_script"]
 [ext_resource type="Environment" path="res://resources/world_env_akasha.tres" id="2_world_env"]
@@ -9,7 +9,11 @@
 [ext_resource type="PackedScene" path="res://scenes/vfx/soul_call_3d.tscn" id="7_soul_call"]
 [ext_resource type="PackedScene" path="res://scenes/ui/sky_hud.tscn" id="8_sky_hud"]
 [ext_resource type="PackedScene" path="res://scenes/audio/akasha_audio_manager.tscn" id="9_audio"]
-[ext_resource type="PackedScene" path="res://scenes/intro_video.tscn" id="10_intro_video"]
+[ext_resource type="Script" path="res://scripts/title_camera_rig.gd" id="10_title_cam"]
+[ext_resource type="PackedScene" path="res://scenes/ui/main_menu.tscn" id="11_main_menu"]
+[ext_resource type="Script" path="res://scripts/dialogue_manager.gd" id="12_dialogue_mgr"]
+[ext_resource type="PackedScene" path="res://scenes/interactables/sanctuary_mentors_3d.tscn" id="13_mentors"]
+[ext_resource type="PackedScene" path="res://scenes/interactables/earth_mirror_3d.tscn" id="14_earth_mirror"]
 
 [node name="World3D" type="Node3D"]
 script = ExtResource("1_world_script")
@@ -31,13 +35,26 @@ shadow_blur = 2.0
 
 [node name="LightBirdsFlock" parent="." instance=ExtResource("5_birds")]
 
+[node name="SanctuaryMentors3D" parent="." instance=ExtResource("13_mentors")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 8, -267)
+
+[node name="EarthMirror3D" parent="." instance=ExtResource("14_earth_mirror")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 8, -278)
+
+[node name="TitleCameraRig" type="Node3D" parent="."]
+script = ExtResource("10_title_cam")
+
 [node name="Player3D" parent="." instance=ExtResource("6_player")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.3, 36)
 
 [node name="SoulCall3D" parent="." instance=ExtResource("7_soul_call")]
 
 [node name="SkyHUD" parent="." instance=ExtResource("8_sky_hud")]
+auto_show_prologue = false
+
+[node name="MainMenu" parent="." instance=ExtResource("11_main_menu")]
+
+[node name="DialogueManager" type="Node" parent="."]
+script = ExtResource("12_dialogue_mgr")
 
 [node name="AkashaAudioManager" parent="." instance=ExtResource("9_audio")]
-
-[node name="IntroVideo" parent="." instance=ExtResource("10_intro_video")]

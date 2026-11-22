@@ -6,7 +6,7 @@ extends Node
 
 const SAMPLE_RATE: float = 22050.0
 const INV_SAMPLE_RATE: float = 1.0 / SAMPLE_RATE
-const MAX_VOICES: int = 16
+const MAX_VOICES: int = 24
 
 ## D-Major celestial pentatonic scale: D5, E5, F#5, A5, D6
 const PENTATONIC_FREQS: Array[float] = [587.33, 659.25, 739.99, 880.00, 1174.66]
@@ -177,6 +177,217 @@ func play_lantern_chime(index: int = 0) -> void:
 		"pan": pan,
 		"lp": 0.0,
 	})
+
+
+## Distinct gentle harmonic chords for each Mentor speaker.
+func play_mentor_chord(mentor_id: String) -> void:
+	if not enabled:
+		return
+
+	var key: String = mentor_id.strip_edges().to_lower()
+	match key:
+		"alatea":
+			# Ethereal high cyan-gold F#5 + A5 + C#6 shimmer
+			var freqs: Array[float] = [739.99, 880.00, 1108.73]
+			var pans: Array[float] = [-0.26, 0.0, 0.26]
+			for i in range(freqs.size()):
+				_add_voice({
+					"type": VOICE_PAD,
+					"freq": freqs[i],
+					"freq_end": freqs[i],
+					"phase": 0.0,
+					"phase2": 0.0,
+					"phase3": 0.0,
+					"age": 0.0,
+					"delay": float(i) * 0.065,
+					"attack": 0.09,
+					"decay": 1.35,
+					"duration": 3.2,
+					"amp": 0.16,
+					"pan": pans[i],
+					"lp": 0.0,
+				})
+			# Delicate upper celestial shimmer bell on C#6
+			_add_voice({
+				"type": VOICE_CHIME,
+				"freq": 1108.73,
+				"freq_end": 1108.73,
+				"phase": 0.0,
+				"phase2": 0.0,
+				"phase3": 0.0,
+				"age": 0.0,
+				"delay": 0.14,
+				"attack": 0.015,
+				"decay": 0.95,
+				"duration": 2.4,
+				"amp": 0.14,
+				"pan": 0.12,
+				"lp": 0.0,
+			})
+		"mira":
+			# Warm maternal D4 + F#4 + A4 + C#5 pad
+			var freqs: Array[float] = [293.66, 369.99, 440.00, 554.37]
+			var pans: Array[float] = [-0.24, -0.08, 0.08, 0.24]
+			for i in range(freqs.size()):
+				_add_voice({
+					"type": VOICE_PAD,
+					"freq": freqs[i],
+					"freq_end": freqs[i],
+					"phase": 0.0,
+					"phase2": 0.0,
+					"phase3": 0.0,
+					"age": 0.0,
+					"delay": float(i) * 0.055,
+					"attack": 0.14,
+					"decay": 1.55,
+					"duration": 3.6,
+					"amp": 0.17,
+					"pan": pans[i],
+					"lp": 0.0,
+				})
+		"kronos":
+			# Deep resonant D3 + A3 + D4 pad
+			var freqs: Array[float] = [146.83, 220.00, 293.66]
+			var pans: Array[float] = [-0.18, 0.0, 0.18]
+			for i in range(freqs.size()):
+				_add_voice({
+					"type": VOICE_PAD,
+					"freq": freqs[i],
+					"freq_end": freqs[i],
+					"phase": 0.0,
+					"phase2": 0.0,
+					"phase3": 0.0,
+					"age": 0.0,
+					"delay": float(i) * 0.07,
+					"attack": 0.16,
+					"decay": 1.7,
+					"duration": 3.9,
+					"amp": 0.21,
+					"pan": pans[i],
+					"lp": 0.0,
+				})
+		"orion":
+			# Crystalline E5 + A5 + D6 shimmer
+			var freqs: Array[float] = [659.25, 880.00, 1174.66]
+			var pans: Array[float] = [-0.25, 0.0, 0.25]
+			for i in range(freqs.size()):
+				_add_voice({
+					"type": VOICE_CHIME,
+					"freq": freqs[i],
+					"freq_end": freqs[i],
+					"phase": 0.0,
+					"phase2": 0.0,
+					"phase3": 0.0,
+					"age": 0.0,
+					"delay": float(i) * 0.055,
+					"attack": 0.012,
+					"decay": 1.1,
+					"duration": 2.9,
+					"amp": 0.18,
+					"pan": pans[i],
+					"lp": 0.0,
+				})
+		_:
+			# Gentle celestial fallback D5 + A5
+			var freqs: Array[float] = [587.33, 880.00]
+			var pans: Array[float] = [-0.15, 0.15]
+			for i in range(freqs.size()):
+				_add_voice({
+					"type": VOICE_PAD,
+					"freq": freqs[i],
+					"freq_end": freqs[i],
+					"phase": 0.0,
+					"phase2": 0.0,
+					"phase3": 0.0,
+					"age": 0.0,
+					"delay": float(i) * 0.05,
+					"attack": 0.08,
+					"decay": 1.1,
+					"duration": 2.6,
+					"amp": 0.16,
+					"pan": pans[i],
+					"lp": 0.0,
+				})
+
+
+## Soft ascending 2-note chime (A5 -> D6) for Spark dialogue choices.
+func play_choice_chime() -> void:
+	if not enabled:
+		return
+	var notes: Array[float] = [880.00, 1174.66]
+	var pans: Array[float] = [-0.14, 0.14]
+	for i in range(notes.size()):
+		_add_voice({
+			"type": VOICE_CHIME,
+			"freq": notes[i],
+			"freq_end": notes[i],
+			"phase": 0.0,
+			"phase2": 0.0,
+			"phase3": 0.0,
+			"age": 0.0,
+			"delay": float(i) * 0.075,
+			"attack": 0.008,
+			"decay": 0.78,
+			"duration": 2.2,
+			"amp": 0.24,
+			"pan": pans[i],
+			"lp": 0.0,
+		})
+
+
+## Radiant multi-voice golden chord bloom (D4 + A4 + D5 + F#5 + A5 + D6).
+func play_mirror_awakening() -> void:
+	if not enabled:
+		return
+	var freqs: Array[float] = [293.66, 440.00, 587.33, 739.99, 880.00, 1174.66]
+	var pans: Array[float] = [0.0, -0.22, 0.22, -0.32, 0.32, 0.0]
+	var amps: Array[float] = [0.20, 0.18, 0.18, 0.17, 0.16, 0.14]
+	for i in range(freqs.size()):
+		_add_voice({
+			"type": VOICE_PAD,
+			"freq": freqs[i],
+			"freq_end": freqs[i],
+			"phase": 0.0,
+			"phase2": 0.0,
+			"phase3": 0.0,
+			"age": 0.0,
+			"delay": float(i) * 0.065,
+			"attack": 0.12,
+			"decay": 2.1,
+			"duration": 4.8,
+			"amp": amps[i],
+			"pan": pans[i],
+			"lp": 0.0,
+		})
+	# Shimmering crystalline top bell on D6
+	_add_voice({
+		"type": VOICE_CHIME,
+		"freq": 1174.66,
+		"freq_end": 1174.66,
+		"phase": 0.0,
+		"phase2": 0.0,
+		"phase3": 0.0,
+		"age": 0.0,
+		"delay": 0.38,
+		"attack": 0.015,
+		"decay": 1.4,
+		"duration": 3.5,
+		"amp": 0.20,
+		"pan": 0.0,
+		"lp": 0.0,
+	})
+
+
+## Enables or mutes procedural celestial audio output.
+func set_muted(muted: bool) -> void:
+	enabled = not muted
+	if muted:
+		_voices.clear()
+		_delay_l.fill(0.0)
+		_delay_r.fill(0.0)
+		_delay_energy = 0.0
+		if _player != null and _player.playing:
+			_player.stop()
 
 
 func _add_voice(voice: Dictionary) -> void:
