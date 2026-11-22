@@ -460,7 +460,7 @@ func _build_viaduct_arch_bay(
 			bay, "Voussoir_%d" % s,
 			Vector3(width - 1.5, 1.6, seg_len),
 			Vector3(0.0, local_y, local_z),
-			_mat_mid_indigo
+			_mat_polished_marble
 		)
 		stone.rotation.x = angle - PI * 0.5
 
