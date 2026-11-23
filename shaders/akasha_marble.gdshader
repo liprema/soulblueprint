@@ -1,16 +1,18 @@
 shader_type spatial;
 
-// High-Performance Fairytale Marble & Carved Stone Shader
-// Optimized for 60 FPS on macOS Apple Silicon Metal: dominant-axis projection with
-// 100% pure, unperturbed geometry normals (zero dFdx/dFdy artifacts or floor lighting flicker),
-// preserving carved ashlar block seams, subtle marble veining, soft pore/crest shading,
-// horizon Fresnel lift, and calm satin roughness.
+// Aristocratic Baroque Carrara / Calacatta Palace Marble Shader
+// Optimized for 60 FPS on macOS Apple Silicon Metal:
+// - 100% unperturbed geometry normals (ZERO dFdx/dFdy bump, zero floor lighting flicker)
+// - Large-scale organic domain-warped cloudy mineral washes
+// - Ultra-delicate, softly feathered Calacatta marble veins (low contrast, wispy, never stripes)
+// - Subtle wide palace slab bevels on floors ONLY (0.0 brick strips on vertical walls)
+// - Soft warm pearlescent Baroque satin sheen with cool sky-tint shadows
 
 group_uniforms stone_colors;
-uniform vec3 stone_base_color : source_color = vec3(0.102, 0.125, 0.173);      // #1A202C Noble Twilight Basalt
-uniform vec3 stone_highlight_color : source_color = vec3(0.153, 0.188, 0.259); // #273042 Worn Slate Bevel / Crest
-uniform vec3 stone_pore_color : source_color = vec3(0.063, 0.078, 0.114);      // #10141D Deep Pores & Mortar
-uniform vec3 horizon_tint_color : source_color = vec3(0.28, 0.34, 0.44);       // Subtle Cool Atmospheric Patina Tint
+uniform vec3 stone_base_color : source_color = vec3(0.922, 0.914, 0.894);      // Warm Ivory Carrara Marble
+uniform vec3 stone_highlight_color : source_color = vec3(0.980, 0.973, 0.957); // Sunlit Pearlescent Highlight
+uniform vec3 stone_pore_color : source_color = vec3(0.706, 0.769, 0.847);      // Soft Cool Mineral Vein / Shadow
+uniform vec3 horizon_tint_color : source_color = vec3(0.722, 0.847, 0.973);    // Celestial Sky-Tint Shadow Lift
 
 group_uniforms grain_settings;
 uniform float broad_wash_scale : hint_range(0.02, 2.0) = 0.14;
@@ -19,7 +21,7 @@ uniform float pore_strength : hint_range(0.0, 1.0) = 0.42;
 uniform float crest_lift_strength : hint_range(0.0, 1.0) = 0.46;
 
 group_uniforms surface_properties;
-uniform float base_roughness : hint_range(0.10, 0.95) = 0.74;
+uniform float base_roughness : hint_range(0.10, 0.95) = 0.56;
 uniform float surface_specular : hint_range(0.0, 1.0) = 0.42;
 uniform float surface_metallic : hint_range(0.0, 0.15) = 0.02;
 uniform float fresnel_lift_strength : hint_range(0.0, 0.35) = 0.10;
@@ -27,7 +29,7 @@ uniform float fresnel_lift_strength : hint_range(0.0, 0.35) = 0.10;
 group_uniforms stray_lookdev;
 uniform float block_scale : hint_range(0.25, 4.0) = 1.0;
 uniform float seam_strength : hint_range(0.0, 1.0) = 0.78;
-uniform float wetness_strength : hint_range(0.0, 1.0) = 0.85;
+uniform float wetness_strength : hint_range(0.0, 1.0) = 0.30;
 
 varying vec3 v_world_pos;
 
@@ -53,34 +55,35 @@ float noise2d(vec2 p) {
 // Fast 2-octave FBM
 float fbm2_fast(vec2 p) {
 	float v = 0.65 * noise2d(p);
-	v += 0.35 * noise2d(p * 2.13 + vec2(7.4, -4.3));
+	v += 0.35 * noise2d(p * 2.07 + vec2(7.4, -4.3));
 	return v;
 }
 
-// Carved ashlar stone blocks / temple paving slabs in 2D world projection.
-// Returns vec3(bevel_height [0..1], mortar_mask [0..1], per_block_hash [0..1]).
-vec3 ashlar_blocks_2d(vec2 uv, vec2 tile_size, float edge_softness) {
-	float wob = noise2d(uv * 2.5 + vec2(3.1, -5.4)) - 0.5;
-	vec2 p = (uv + vec2(wob, -wob) * 0.018) / tile_size;
+// Soft 3-octave FBM for organic cloudy Carrara marble washes
+float fbm3_soft(vec2 p) {
+	float v = 0.54 * noise2d(p);
+	v += 0.30 * noise2d(p * 2.03 + vec2(11.3, -6.7));
+	v += 0.16 * noise2d(p * 4.11 + vec2(-5.2, 9.8));
+	return v;
+}
 
-	float row = floor(p.y);
-	float row_offset = mod(row, 2.0) * 0.5 + (hash21(vec2(row, 17.3)) - 0.5) * 0.14;
-	p.x += row_offset;
-
+// Subtle wide palace marble paving slabs (used on horizontal floors ONLY).
+// Returns vec3(bevel_height [0..1], hairline_grout [0..1], per_slab_hash [0..1]).
+vec3 palace_floor_slabs(vec2 uv, vec2 slab_size, float edge_softness) {
+	vec2 p = uv / max(slab_size, vec2(0.25));
 	vec2 cell = floor(p);
 	vec2 f = fract(p);
 	float cell_id = hash21(cell + vec2(13.7, 29.1));
 
-	vec2 dist_edge = min(f, 1.0 - f) * tile_size;
+	vec2 dist_edge = min(f, 1.0 - f) * slab_size;
 	float d_seam = min(dist_edge.x, dist_edge.y);
 
-	float mortar_half = 0.016;
-	float bevel_width = max(0.055, edge_softness);
-	float mortar_mask = 1.0 - smoothstep(mortar_half * 0.45, mortar_half + edge_softness * 0.55, d_seam);
-	float bevel_height = smoothstep(mortar_half * 0.6, mortar_half + bevel_width, d_seam);
+	float grout_half = 0.012;
+	float bevel_width = max(0.065, edge_softness * 1.4);
+	float grout_mask = 1.0 - smoothstep(grout_half * 0.4, grout_half + edge_softness * 0.65, d_seam);
+	float bevel_height = smoothstep(grout_half * 0.5, grout_half + bevel_width, d_seam);
 
-	float block_tilt = (cell_id - 0.5) * 0.10;
-	return vec3(clamp(bevel_height + block_tilt, 0.0, 1.0), mortar_mask, cell_id);
+	return vec3(clamp(bevel_height, 0.0, 1.0), grout_mask, cell_id);
 }
 
 void vertex() {
@@ -88,100 +91,111 @@ void vertex() {
 }
 
 void fragment() {
-	vec3 wn = normalize((INV_VIEW_MATRIX * vec4(NORMAL, 0.0)).xyz);
+	vec3 world_n_raw = (INV_VIEW_MATRIX * vec4(NORMAL, 0.0)).xyz;
+	float wn_len = length(world_n_raw);
+	vec3 wn = wn_len > 0.0001 ? (world_n_raw / wn_len) : vec3(0.0, 1.0, 0.0);
 	vec3 awn = abs(wn);
 
-	// Select dominant world-space projection axis (1 tap instead of 3 — 3x faster!)
+	// Dominant-axis world-space projection with subtle 3D offset so adjacent faces flow organically
 	vec2 proj_uv;
-	vec2 tile_size;
-	float inv_bs = 1.0 / max(block_scale, 0.1);
 	if (awn.y >= awn.x && awn.y >= awn.z) {
-		proj_uv = v_world_pos.xz;
-		tile_size = vec2(1.55, 1.15) * inv_bs;
+		proj_uv = v_world_pos.xz + vec2(v_world_pos.y * 0.17, -v_world_pos.y * 0.13);
 	} else if (awn.x >= awn.z) {
-		proj_uv = vec2(v_world_pos.z, v_world_pos.y);
-		tile_size = vec2(1.45, 0.58) * inv_bs;
+		proj_uv = vec2(v_world_pos.z, v_world_pos.y) + vec2(v_world_pos.x * 0.21, v_world_pos.x * 0.11);
 	} else {
-		proj_uv = vec2(v_world_pos.x, v_world_pos.y);
-		tile_size = vec2(1.45, 0.58) * inv_bs;
+		proj_uv = vec2(v_world_pos.x, v_world_pos.y) + vec2(v_world_pos.z * 0.19, -v_world_pos.z * 0.13);
 	}
 
 	float cam_dist = length(VERTEX);
-	float detail_fade = 1.0 - smoothstep(14.0, 62.0, cam_dist);
-	float seam_aa = mix(0.016, 0.068, smoothstep(8.0, 52.0, cam_dist));
+	float detail_fade = 1.0 - smoothstep(14.0, 64.0, cam_dist);
+	float seam_aa = mix(0.014, 0.065, smoothstep(8.0, 52.0, cam_dist));
 
-	// Broad tonal wash + fast 2-scale mineral grain & hairline fracture
-	float broad_wash = fbm2_fast(proj_uv * broad_wash_scale);
-	float g_med = noise2d(proj_uv * (fine_grain_scale * 0.78));
-	float g_fine = noise2d(proj_uv * (fine_grain_scale * 2.45) + vec2(13.7, -8.2));
-	float grain = mix(g_med, g_med * 0.60 + g_fine * 0.40, detail_fade);
+	// 1. Large-scale organic domain-warped Carrara cloudy mineral washes
+	float wash_freq = broad_wash_scale * 0.85;
+	vec2 warp_offset = vec2(
+		fbm2_fast(proj_uv * (wash_freq * 0.72) + vec2(2.3, -4.1)),
+		fbm2_fast(proj_uv * (wash_freq * 0.72) + vec2(-5.7, 3.8))
+	) - 0.5;
+	vec2 warped_uv = proj_uv * wash_freq + warp_offset * 1.65;
 
-	float ridge_n = noise2d(proj_uv * (fine_grain_scale * 0.28) + vec2(broad_wash * 0.75, -broad_wash * 0.55));
-	float vein_mask = smoothstep(0.85, 0.985, 1.0 - abs(ridge_n * 2.0 - 1.0));
+	float cloud_wash = fbm3_soft(warped_uv);
+	float mineral_bloom = fbm2_fast(warped_uv * 1.9 + vec2(7.1, -3.4));
+	float soft_cloud = mix(cloud_wash, mineral_bloom, 0.35);
 
-	// Carved ashlar stone blocks & paving slabs (purely via smooth albedo/roughness/AO — NORMAL stays untouched)
-	vec3 blk = ashlar_blocks_2d(proj_uv, tile_size, seam_aa);
-	float block_bevel = blk.x;
-	float mortar_mask = blk.y * seam_strength;
-	float block_tone = blk.z - 0.5;
+	// 2. Ultra-delicate, softly feathered Calacatta veins (sparse, meandering, low contrast)
+	vec2 vein_uv = warped_uv * 0.82 + vec2(mineral_bloom * 0.55, -cloud_wash * 0.48);
+	float vein_field = fbm2_fast(vein_uv + vec2(4.2, 8.6));
+	// Sparse regional presence so veins drift in and fade out into serene ivory marble
+	float vein_region = smoothstep(0.42, 0.74, fbm2_fast(proj_uv * (wash_freq * 0.45) + vec2(-9.1, 3.3)));
+	float vein_dist = abs(vein_field - 0.5);
+	// Softly feathered wispy core + gentle mineral halo (never sharp zebra stripes)
+	float vein_core = (1.0 - smoothstep(0.0, 0.042, vein_dist)) * 0.55;
+	float vein_halo = (1.0 - smoothstep(0.0, 0.145, vein_dist)) * 0.45;
+	float primary_vein = (vein_core + vein_halo) * vein_region;
 
-	float surface_h = grain * 0.72 - vein_mask * 0.42;
-	float subtle_grain = surface_h - 0.34;
+	// Subtle gossamer secondary wisp that fades cleanly with distance
+	float wisp_field = noise2d(vein_uv * 2.35 + vec2(-6.4, 5.1));
+	float secondary_wisp = (1.0 - smoothstep(0.0, 0.065, abs(wisp_field - 0.5))) * vein_region * 0.32 * detail_fade;
+	float marble_vein = clamp((primary_vein * 0.65 + secondary_wisp) * (0.55 + pore_strength * 0.45), 0.0, 1.0);
 
-	// Subtle, smooth satin moisture variation on upward-facing stonework (zero glossy puddle spikes)
-	float up_mask = smoothstep(0.45, 0.86, wn.y);
-	float wet_field = fbm2_fast(v_world_pos.xz * 0.14 + vec2(3.1, -7.4));
-	float damp_mask = smoothstep(0.32, 0.78, wet_field) * up_mask * wetness_strength * 0.55;
+	// Ultra-fine crystalline alabaster micro-grain (fades with distance)
+	float crystal_grain = (noise2d(proj_uv * (fine_grain_scale * 1.35) + vec2(13.7, -8.2)) - 0.5) * detail_fade;
 
-	// Subtle vertical rain-dampness streaks on walls and pillars
-	float wall_damp_n = noise2d(vec2((v_world_pos.x + v_world_pos.z) * 0.48, v_world_pos.y * 0.14));
-	float wall_damp = smoothstep(0.56, 0.84, wall_damp_n) * (1.0 - up_mask) * 0.28 * wetness_strength;
-	float total_wet = clamp(max(damp_mask, wall_damp), 0.0, 1.0);
+	// 3. Subtle wide palace slab bevels on HORIZONTAL FLOORS ONLY (0.0 strips on vertical walls)
+	float floor_mask = smoothstep(0.68, 0.92, wn.y);
+	float inv_bs = 1.0 / max(block_scale, 0.15);
+	vec2 floor_slab_size = vec2(2.65, 2.65) * inv_bs;
+	vec3 slab = palace_floor_slabs(v_world_pos.xz, floor_slab_size, seam_aa);
+	float floor_grout = slab.y * floor_mask * seam_strength * 0.24;
+	float floor_bevel = mix(1.0, slab.x, floor_mask * seam_strength * 0.35);
+	float floor_slab_tone = (slab.z - 0.5) * floor_mask * seam_strength * 0.04;
 
-	// Crevice & cavity darkening
-	float pore_mask = smoothstep(0.54, 0.16, broad_wash + subtle_grain * 0.38) * pore_strength;
-	float underside_ao = smoothstep(0.15, -0.78, wn.y) * 0.28;
-	float cavity_mask = clamp(pore_mask + vein_mask * 0.45 + mortar_mask * 0.72 + underside_ao, 0.0, 0.92);
+	// 4. Soft warm pearlescent Baroque tonal composition
+	float up_crest = smoothstep(-0.15, 0.88, wn.y);
+	float underside_ao = smoothstep(0.18, -0.78, wn.y) * 0.24;
 
-	// Worn stone bevel / crest lift
-	float edge_wear = smoothstep(0.35, 0.92, block_bevel) * (1.0 - mortar_mask);
-	float up_crest = smoothstep(-0.12, 0.85, wn.y);
-	float crest_mask = clamp((broad_wash * 0.55 + up_crest * 0.45 + edge_wear * 0.24 - 0.34) * crest_lift_strength, 0.0, 1.0);
+	// Gentle mineral cloud shading between base and pore color
+	float cloud_depth = smoothstep(0.62, 0.20, soft_cloud) * pore_strength * 0.32;
+	float vein_blend = marble_vein * 0.22;
+	float cavity_mask = clamp(cloud_depth + vein_blend + floor_grout * 0.85 + underside_ao, 0.0, 0.78);
 
-	// Subtle cool atmospheric dust patina on dry high flats
-	float patina_mask = smoothstep(0.42, 0.94, wn.y) * mix(0.40, 1.0, broad_wash) * 0.14 * (1.0 - total_wet);
-	vec3 patina_tint = mix(stone_highlight_color, horizon_tint_color * 0.42, 0.30);
+	vec3 marble_col = mix(stone_base_color, stone_pore_color, cavity_mask);
 
-	// Compose tactile marble / carved stone albedo
-	vec3 stone_col = mix(stone_base_color, stone_pore_color, cavity_mask);
-	stone_col = mix(stone_col, stone_highlight_color, crest_mask * (1.0 - vein_mask * 0.65) * (1.0 - mortar_mask * 0.8));
-	stone_col = mix(stone_col, patina_tint, patina_mask);
-	stone_col *= (1.0 + block_tone * 0.14 * seam_strength + subtle_grain * 0.09);
+	// Sunlit warm pearlescent highlight on luminous clouds & upward crests
+	float pearl_crest = clamp((soft_cloud * 0.58 + up_crest * 0.42 - 0.32) * crest_lift_strength * floor_bevel, 0.0, 1.0);
+	vec3 warm_pearl_highlight = mix(stone_highlight_color, stone_highlight_color * vec3(1.02, 1.00, 0.96), 0.45);
+	marble_col = mix(marble_col, warm_pearl_highlight, pearl_crest * (1.0 - vein_blend * 0.7) * (1.0 - floor_grout));
 
-	// Smooth horizon Fresnel lift using pure untouched geometry NORMAL
-	float fresnel = pow(1.0 - clamp(dot(normalize(NORMAL), normalize(VIEW)), 0.0, 1.0), 3.0);
-	vec3 horizon_lift_col = mix(stone_highlight_color, horizon_tint_color, 0.55);
-	stone_col = mix(stone_col, horizon_lift_col, fresnel * fresnel_lift_strength * (1.0 - mortar_mask * 0.6));
+	// Cool celestial sky-tint in subtle shadow undersides and calm atmospheric flats
+	float sky_shadow_tint = clamp(underside_ao * 0.65 + (1.0 - up_crest) * 0.08, 0.0, 0.32);
+	vec3 cool_shadow_col = mix(stone_pore_color, horizon_tint_color, 0.42);
+	marble_col = mix(marble_col, cool_shadow_col, sky_shadow_tint * 0.35);
 
-	// Soft moisture tint so marble stays clean, warm, and luminous without dark blotches
-	float wet_darken = mix(1.0, 0.95, total_wet);
-	stone_col *= wet_darken;
+	// Delicate alabaster crystal & wide floor-slab variation (zero checkerboard bricks)
+	marble_col *= (1.0 + floor_slab_tone + crystal_grain * 0.032);
 
-	// Calm, smooth satin marble roughness (0.46..0.84) with zero mirror-puddle shimmer
-	float dry_rough_var = -subtle_grain * 0.06 + vein_mask * 0.07 + mortar_mask * 0.14 + pore_mask * 0.05 - crest_mask * 0.04;
-	float dry_rough = clamp(base_roughness + dry_rough_var, 0.54, 0.84);
-	float satin_rough = mix(0.54, 0.48, clamp(broad_wash, 0.0, 1.0));
-	float final_rough = mix(dry_rough, satin_rough, total_wet * 0.65);
+	// 5. Smooth pearlescent Fresnel sheen using pure untouched geometry NORMAL (NaN-safe)
+	float n_len = length(NORMAL);
+	vec3 n_view = n_len > 0.0001 ? (NORMAL / n_len) : vec3(0.0, 0.0, 1.0);
+	float v_len = length(VIEW);
+	vec3 v_view = v_len > 0.0001 ? (VIEW / v_len) : vec3(0.0, 0.0, 1.0);
+	float ndotv = clamp(dot(n_view, v_view), 0.0, 1.0);
+	float fresnel = pow(max(1.0 - ndotv, 0.0001), 3.0);
 
-	float dry_spec = clamp(surface_specular * (1.0 - cavity_mask * 0.30), 0.26, 0.40);
-	float satin_spec = clamp(dry_spec + 0.04, 0.26, 0.42);
-	float final_spec = mix(dry_spec, satin_spec, total_wet * 0.5);
+	vec3 pearl_rim_col = mix(warm_pearl_highlight, horizon_tint_color, 0.32);
+	marble_col = mix(marble_col, pearl_rim_col, fresnel * fresnel_lift_strength * (1.0 - floor_grout * 0.5));
 
-	ALBEDO = stone_col;
-	ROUGHNESS = clamp(final_rough, 0.46, 0.84);
+	// 6. Calm satin Baroque polish (zero plastic glare, zero vertical rain streaks)
+	float satin_sheen_var = -soft_cloud * 0.05 + marble_vein * 0.04 + floor_grout * 0.14 - crystal_grain * 0.02;
+	float polished_bias = wetness_strength * 0.10 * mix(0.65, 1.0, soft_cloud);
+	float final_rough = clamp(base_roughness + satin_sheen_var - polished_bias, 0.36, 0.80);
+	float final_spec = clamp(surface_specular * (1.0 - floor_grout * 0.35 - vein_blend * 0.18), 0.24, 0.44);
+
+	ALBEDO = marble_col;
+	ROUGHNESS = final_rough;
 	SPECULAR = final_spec;
 	METALLIC = surface_metallic;
-	AO = clamp(1.0 - cavity_mask * 0.38, 0.62, 1.0);
-	AO_LIGHT_AFFECT = 0.25;
+	AO = clamp(1.0 - (floor_grout * 0.45 + underside_ao * 0.55 + vein_blend * 0.15), 0.68, 1.0);
+	AO_LIGHT_AFFECT = 0.22;
 	EMISSION = vec3(0.0);
 }

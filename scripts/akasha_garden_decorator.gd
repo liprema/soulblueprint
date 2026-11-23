@@ -172,7 +172,7 @@ func populate_garden(architecture: Node3D = null) -> void:
 	_decorate_cathedral_sanctuary()
 	_build_reflecting_lakes_and_ponds(island_positions)
 	_build_waterfall_mist_plumes()
-	_populate_meadow_grass_and_flowerbeds(island_positions)
+	_populate_meadow_grass_and_flowerbeds(architecture)
 	_flush_multimesh_batches()
 	_build_fluttering_butterflies(island_positions)
 
@@ -1253,12 +1253,66 @@ func _build_waterfall_mist_plumes() -> void:
 
 
 # ---------------------------------------------------------------------------
-# 6. GPU-Instanced Lush Grass (1,800+) & 4-Color Flowerbeds (1,400+)
+# 6. GPU-Instanced Velvety Meadow Grass & Daisies (STRICTLY on CastleIslandGrass!)
+#    Zero grass on solid stone (Plaza, Viaducts, 5 Floating Islands, Marble Apron,
+#    Grand Staircase, or Baroque Palace interior marble floors).
 # ---------------------------------------------------------------------------
 
-func _populate_meadow_grass_and_flowerbeds(island_positions: Array[Vector3]) -> void:
+func _find_castle_island_grass_mesh(node: Node) -> MeshInstance3D:
+	if node == null:
+		return null
+	if node is MeshInstance3D:
+		var mi: MeshInstance3D = node as MeshInstance3D
+		if mi.name.contains("CastleIslandGrass"):
+			return mi
+		if mi.mesh != null:
+			var sc: int = mi.mesh.get_surface_count()
+			for s: int in range(sc):
+				var mat: Material = mi.mesh.surface_get_material(s)
+				if mat != null and mat.resource_name.contains("CastleIslandGrass"):
+					return mi
+	for child: Node in node.get_children():
+		var found: MeshInstance3D = _find_castle_island_grass_mesh(child)
+		if found != null:
+			return found
+	return null
+
+
+func _is_excluded_from_castle_meadow(wx: float, wy: float, wz: float) -> bool:
+	# 1. Castle marble arrival apron (|x| <= 14.8, z in [-241..-222])
+	if absf(wx) <= 14.8 and wz >= -241.0 and wz <= -222.0:
+		return true
+	# 2. South Grand Staircase & cheek walls (|x| <= 15.4, z in [-260..-240])
+	if absf(wx) <= 15.4 and wz >= -260.0 and wz <= -240.0:
+		return true
+	# 3. Baroque Palace, Rotunda & Panoramic Side Galleries marble footprint
+	if absf(wx) <= 37.8 and wz >= -298.8 and wz <= -256.2:
+		return true
+	# 4. Elevated interior palace marble floors & North Cloud Terrace balcony (Y >= 6.6)
+	if wy >= 6.6:
+		return true
+	if absf(wx) <= 18.2 and wz <= -298.0 and wz >= -316.0 and wy >= 5.2:
+		return true
+	# 5. Four Reflecting Lakes & Lotus Pools
+	if _is_inside_any_castle_lake(wx, wz, 0.78):
+		return true
+	return false
+
+
+func _basis_aligned_to_normal(up_dir: Vector3, yaw: float) -> Basis:
+	var n: Vector3 = up_dir.normalized()
+	var fwd_ref: Vector3 = Vector3(sin(yaw), 0.0, cos(yaw))
+	var right: Vector3 = n.cross(fwd_ref)
+	if right.length_squared() < 0.0001:
+		right = n.cross(Vector3.RIGHT)
+	right = right.normalized()
+	var fwd: Vector3 = right.cross(n).normalized()
+	return Basis(right, n, fwd)
+
+
+func _populate_meadow_grass_and_flowerbeds(architecture: Node3D = null) -> void:
 	# Subtle sunlit daylight variations so baked deep-emerald-to-lime-gold grass blades shimmer
-	# organically across rolling slopes while tiny white/periwinkle daisies stay pure & luminous!
+	# organically across rolling hills while tiny white/periwinkle daisies stay pure & luminous!
 	var grass_palette: Array[Color] = [
 		Color(0.94, 1.00, 0.92), # Lush sunlit emerald-meadow
 		Color(1.00, 1.02, 0.95), # Pure sunlit daylight patch
@@ -1281,45 +1335,132 @@ func _populate_meadow_grass_and_flowerbeds(island_positions: Array[Vector3]) -> 
 		Color("#FFE074"), # Sunlit golden buttercup
 	]
 
-	# A. Castle Island Lower Garden Meadows (y = 4.0) — dense velvety sunlit grass carpet + flowerbeds
 	var seed_id: int = 1000
-	for i: int in range(1520):
-		seed_id += 1
-		var side_sign: float = -1.0 if (i % 2 == 0) else 1.0
-		var gx: float = side_sign * lerpf(15.0, 52.0, _hash01(seed_id * 17 + 3))
-		var gz: float = lerpf(-247.2, -301.8, _hash01(seed_id * 29 + 7))
+	var grass_mi: MeshInstance3D = _find_castle_island_grass_mesh(architecture)
+	var sampled_from_mesh: bool = false
 
-		# Skip Rotunda & Panoramic Galleries elevated footprint (x = -37..+37, z = -256.5..-298.5)
-		if absf(gx) < 37.6 and gz < -256.2 and gz > -298.8:
-			continue
-		# Skip inside the 4 Reflecting Lakes & Pools
-		if _is_inside_any_castle_lake(gx, gz, 0.72):
-			continue
+	# A. Primary Path: Sample dense velvety sunlit grass carpet directly onto CastleIslandGrass rolling hills
+	if grass_mi != null and grass_mi.mesh != null:
+		var faces: PackedVector3Array = grass_mi.mesh.get_faces()
+		var tri_count: int = int(floorf(float(faces.size()) / 3.0))
+		var xform: Transform3D = grass_mi.global_transform
+		var tri_v0: Array[Vector3] = []
+		var tri_v1: Array[Vector3] = []
+		var tri_v2: Array[Vector3] = []
+		var tri_norms: Array[Vector3] = []
+		var cum_areas: Array[float] = []
+		var total_area: float = 0.0
 
-		var yaw: float = meadow_wind_yaw + (_hash01(seed_id * 13) - 0.5) * 1.05
-		var sc: float = 1.02 + _hash01(seed_id * 37) * 0.52
-		var sy: float = sc * (0.82 + _hash01(seed_id * 41) * 0.34)
-		var g_basis_a: Basis = Basis(Vector3.UP, yaw).scaled(Vector3(sc, sy, sc))
-		_grass_xforms.append(Transform3D(g_basis_a, Vector3(gx, 4.0, gz)))
-		_grass_colors.append(grass_palette[seed_id % grass_palette.size()])
+		for t_idx: int in range(tri_count):
+			var base_i: int = t_idx * 3
+			var w0: Vector3 = xform * faces[base_i]
+			var w1: Vector3 = xform * faces[base_i + 1]
+			var w2: Vector3 = xform * faces[base_i + 2]
+			var e1: Vector3 = w1 - w0
+			var e2: Vector3 = w2 - w0
+			var cross_v: Vector3 = e1.cross(e2)
+			var area2: float = cross_v.length()
+			if area2 < 0.02:
+				continue
+			var n: Vector3 = cross_v / area2
+			if n.y < 0.0:
+				n = -n
+			# Only upward-facing rolling green meadow hills & garden parterres (skip sheer cliffs)
+			if n.y < 0.58:
+				continue
+			var centroid: Vector3 = (w0 + w1 + w2) / 3.0
+			if centroid.y < -0.45 or centroid.y > 6.55:
+				continue
+			if _is_excluded_from_castle_meadow(centroid.x, centroid.y, centroid.z):
+				continue
 
-		if _hash01(seed_id * 53 + 11) < 0.48:
-			var f_off_x: float = (_hash01(seed_id * 61) - 0.5) * 0.65
-			var f_off_z: float = (_hash01(seed_id * 67) - 0.5) * 0.65
-			var f_sc: float = 0.78 + _hash01(seed_id * 71) * 0.72
-			var f_basis: Basis = Basis(Vector3.UP, yaw + 0.9).scaled(Vector3(f_sc, f_sc, f_sc))
-			# Cluster flower colors gently by spatial zone so beds look intentionally planted
-			var zone_idx: int = int(absf(floorf(gx * 0.18) + floorf(gz * 0.16))) % 4
-			var col_idx: int = zone_idx * 2 + (seed_id % 2)
-			_flower_xforms.append(Transform3D(f_basis, Vector3(gx + f_off_x, 4.02, gz + f_off_z)))
-			_flower_colors.append(flower_palette[col_idx])
+			total_area += area2 * 0.5
+			tri_v0.append(w0)
+			tri_v1.append(w1)
+			tri_v2.append(w2)
+			tri_norms.append(n)
+			cum_areas.append(total_area)
 
-	# B. Dedicated Lush Lakeshore Rings around all 4 Castle Lakes & Pools
+		var valid_tris: int = cum_areas.size()
+		if valid_tris > 0 and total_area > 1.0:
+			sampled_from_mesh = true
+			var target_tufts: int = 2450
+			for i: int in range(target_tufts):
+				seed_id += 1
+				var target_a: float = _hash01(seed_id * 17 + 3) * total_area
+				# Binary search for area-weighted triangle
+				var lo: int = 0
+				var hi: int = valid_tris - 1
+				while lo < hi:
+					var mid: int = int(floorf(float(lo + hi) * 0.5))
+					if cum_areas[mid] < target_a:
+						lo = mid + 1
+					else:
+						hi = mid
+
+				var r1: float = sqrt(_hash01(seed_id * 29 + 7))
+				var r2: float = _hash01(seed_id * 37 + 11)
+				var u_bary: float = 1.0 - r1
+				var v_bary: float = r1 * (1.0 - r2)
+				var w_bary: float = r1 * r2
+				var pt: Vector3 = tri_v0[lo] * u_bary + tri_v1[lo] * v_bary + tri_v2[lo] * w_bary
+
+				if _is_excluded_from_castle_meadow(pt.x, pt.y, pt.z):
+					continue
+
+				var hill_n: Vector3 = tri_norms[lo]
+				var soft_up: Vector3 = Vector3.UP.lerp(hill_n, 0.42).normalized()
+				var yaw: float = meadow_wind_yaw + (_hash01(seed_id * 13) - 0.5) * 0.92
+				var sc: float = 1.05 + _hash01(seed_id * 41) * 0.58
+				var sy: float = sc * (0.84 + _hash01(seed_id * 43) * 0.34)
+				var g_basis_m: Basis = _basis_aligned_to_normal(soft_up, yaw).scaled(Vector3(sc, sy, sc))
+				# Seat root 2cm into green turf so tufts never float on curved slopes
+				_grass_xforms.append(Transform3D(g_basis_m, pt - Vector3(0.0, 0.02, 0.0)))
+				_grass_colors.append(grass_palette[seed_id % grass_palette.size()])
+
+				# Plant colorful formal garden flowerbeds on flatter sunlit terraces (y >= 2.8)
+				if hill_n.y >= 0.80 and pt.y >= 2.8 and _hash01(seed_id * 53 + 11) < 0.26:
+					var f_sc: float = 0.78 + _hash01(seed_id * 71) * 0.68
+					var f_basis: Basis = _basis_aligned_to_normal(soft_up, yaw + 0.9).scaled(Vector3(f_sc, f_sc, f_sc))
+					var zone_idx: int = int(absf(floorf(pt.x * 0.18) + floorf(pt.z * 0.16))) % 4
+					var col_idx: int = zone_idx * 2 + (seed_id % 2)
+					_flower_xforms.append(Transform3D(f_basis, pt + Vector3(0.0, 0.01, 0.0)))
+					_flower_colors.append(flower_palette[col_idx])
+
+	# A2. Fallback Path (if CastleIslandGrass mesh wasn't found): dense Castle Island green meadows only
+	if not sampled_from_mesh:
+		for i: int in range(1850):
+			seed_id += 1
+			var side_sign: float = -1.0 if (i % 2 == 0) else 1.0
+			var gx: float = side_sign * lerpf(15.6, 53.0, _hash01(seed_id * 17 + 3))
+			var gz: float = lerpf(-247.2, -304.0, _hash01(seed_id * 29 + 7))
+
+			if _is_excluded_from_castle_meadow(gx, 4.0, gz):
+				continue
+
+			var yaw: float = meadow_wind_yaw + (_hash01(seed_id * 13) - 0.5) * 0.95
+			var sc: float = 1.04 + _hash01(seed_id * 37) * 0.54
+			var sy: float = sc * (0.84 + _hash01(seed_id * 41) * 0.34)
+			var g_basis_a: Basis = Basis(Vector3.UP, yaw).scaled(Vector3(sc, sy, sc))
+			_grass_xforms.append(Transform3D(g_basis_a, Vector3(gx, 3.96, gz)))
+			_grass_colors.append(grass_palette[seed_id % grass_palette.size()])
+
+			if _hash01(seed_id * 53 + 11) < 0.38:
+				var f_off_x: float = (_hash01(seed_id * 61) - 0.5) * 0.65
+				var f_off_z: float = (_hash01(seed_id * 67) - 0.5) * 0.65
+				var f_sc: float = 0.78 + _hash01(seed_id * 71) * 0.72
+				var f_basis: Basis = Basis(Vector3.UP, yaw + 0.9).scaled(Vector3(f_sc, f_sc, f_sc))
+				var zone_idx: int = int(absf(floorf(gx * 0.18) + floorf(gz * 0.16))) % 4
+				var col_idx: int = zone_idx * 2 + (seed_id % 2)
+				_flower_xforms.append(Transform3D(f_basis, Vector3(gx + f_off_x, 4.00, gz + f_off_z)))
+				_flower_colors.append(flower_palette[col_idx])
+
+	# B. Dedicated Lush Lakeshore Rings around all 4 Castle Lakes & Pools (green turf shoreline only)
 	var lake_specs: Array[Dictionary] = [
-		{"cx": -44.0, "cz": -280.0, "rx": 7.0, "rz": 12.0, "count": 88},
-		{"cx": 44.0, "cz": -280.0, "rx": 7.0, "rz": 12.0, "count": 88},
-		{"cx": -24.0, "cz": -252.0, "rx": 5.5, "rz": 5.0, "count": 64},
-		{"cx": 24.0, "cz": -252.0, "rx": 5.5, "rz": 5.0, "count": 64},
+		{"cx": -44.0, "cz": -280.0, "rx": 7.0, "rz": 12.0, "count": 96},
+		{"cx": 44.0, "cz": -280.0, "rx": 7.0, "rz": 12.0, "count": 96},
+		{"cx": -24.0, "cz": -252.0, "rx": 5.5, "rz": 5.0, "count": 72},
+		{"cx": 24.0, "cz": -252.0, "rx": 5.5, "rz": 5.0, "count": 72},
 	]
 	for l_idx: int in range(lake_specs.size()):
 		var ls: Dictionary = lake_specs[l_idx]
@@ -1332,108 +1473,23 @@ func _populate_meadow_grass_and_flowerbeds(island_positions: Array[Vector3]) -> 
 			seed_id += 1
 			var ang: float = (TAU / float(cnt)) * float(k) + _hash01(seed_id * 11) * 0.08
 			var lobe: float = _oval_lobe_factor(ang)
-			var shore_pad: float = 0.85 + _hash01(seed_id * 19) * 1.45
+			var shore_pad: float = 0.90 + _hash01(seed_id * 19) * 1.45
 			var sx: float = cx + cos(ang) * (rx * lobe + shore_pad)
 			var sz: float = cz + sin(ang) * (rz * lobe + shore_pad)
-			# Keep staircase clear
-			if absf(sx) < 15.2 and sz > -256.5:
-				continue
-			# Keep elevated gallery clear
-			if absf(sx) < 37.5 and sz < -256.2 and sz > -298.8:
+			if _is_excluded_from_castle_meadow(sx, 4.0, sz):
 				continue
 
-			var g_yaw: float = meadow_wind_yaw + (_hash01(seed_id * 17) - 0.5) * 0.95
-			var sc: float = 0.96 + _hash01(seed_id * 23) * 0.48
-			var g_basis: Basis = Basis(Vector3.UP, g_yaw).scaled(Vector3(sc, sc * 0.95, sc))
-			_grass_xforms.append(Transform3D(g_basis, Vector3(sx, 4.0, sz)))
+			var g_yaw: float = meadow_wind_yaw + (_hash01(seed_id * 17) - 0.5) * 0.90
+			var sc: float = 0.98 + _hash01(seed_id * 23) * 0.50
+			var g_basis: Basis = Basis(Vector3.UP, g_yaw).scaled(Vector3(sc, sc * 0.96, sc))
+			_grass_xforms.append(Transform3D(g_basis, Vector3(sx, 3.98, sz)))
 			_grass_colors.append(grass_palette[seed_id % grass_palette.size()])
 
 			var f_sc: float = 0.80 + _hash01(seed_id * 31) * 0.64
 			var f_basis: Basis = Basis(Vector3.UP, ang * 1.4 + 0.5).scaled(Vector3(f_sc, f_sc, f_sc))
 			var shore_col_idx: int = (int(floorf(float(k) / 3.0)) + l_idx * 2) % flower_palette.size()
-			_flower_xforms.append(Transform3D(f_basis, Vector3(sx, 4.03, sz)))
+			_flower_xforms.append(Transform3D(f_basis, Vector3(sx, 4.02, sz)))
 			_flower_colors.append(flower_palette[shore_col_idx])
-
-	# C. Castle Lower Arrival Apron (y = 0.0, flanking front staircase base)
-	for i: int in range(136):
-		seed_id += 1
-		var side_sign: float = -1.0 if (i % 2 == 0) else 1.0
-		var ax: float = side_sign * lerpf(16.0, 41.2, _hash01(seed_id * 17))
-		var az: float = lerpf(-240.3, -247.2, _hash01(seed_id * 23))
-		var sc: float = 0.96 + _hash01(seed_id * 31) * 0.48
-		var a_yaw: float = meadow_wind_yaw + (_hash01(seed_id * 13) - 0.5) * 1.0
-		var g_basis_c: Basis = Basis(Vector3.UP, a_yaw).scaled(Vector3(sc, sc * 0.94, sc))
-		_grass_xforms.append(Transform3D(g_basis_c, Vector3(ax, 0.0, az)))
-		_grass_colors.append(grass_palette[seed_id % grass_palette.size()])
-		if i % 2 == 0:
-			var f_basis: Basis = Basis(Vector3.UP, _hash01(seed_id * 19) * TAU).scaled(Vector3(sc * 0.85, sc * 0.85, sc * 0.85))
-			_flower_xforms.append(Transform3D(f_basis, Vector3(ax, 0.02, az)))
-			_flower_colors.append(flower_palette[seed_id % flower_palette.size()])
-
-	# D. Five Floating Temple Islands (plush velvety meadow hills with tiny daisies, cardinal lanes clear)
-	for idx: int in range(island_positions.size()):
-		var center: Vector3 = island_positions[idx]
-		var rad_mult: float = 1.12 if idx == 2 else 1.0
-		var count_per_island: int = 160
-		for k: int in range(count_per_island):
-			seed_id += 1
-			var ang_deg: float = _hash01(seed_id * 17 + idx) * 360.0
-			# Keep 4 cardinal approach walkways clear (+-12 deg around 0, 90, 180, 270)
-			var mod90: float = fmod(ang_deg, 90.0)
-			if mod90 < 12.0 or mod90 > 78.0:
-				continue
-			var ang: float = deg_to_rad(ang_deg)
-			var r_min: float = 5.55 if idx == 2 else 4.65
-			var r_val: float = lerpf(r_min, 7.72, sqrt(_hash01(seed_id * 29))) * rad_mult
-			var px: float = center.x + cos(ang) * r_val
-			var pz: float = center.z + sin(ang) * r_val
-			var sc: float = 0.92 + _hash01(seed_id * 37) * 0.48
-			var sy: float = sc * (0.84 + _hash01(seed_id * 41) * 0.30)
-			var d_yaw: float = meadow_wind_yaw + (_hash01(seed_id * 19) - 0.5) * 0.95
-			var g_basis_d: Basis = Basis(Vector3.UP, d_yaw).scaled(Vector3(sc, sy, sc))
-			_grass_xforms.append(Transform3D(g_basis_d, Vector3(px, center.y, pz)))
-			_grass_colors.append(grass_palette[seed_id % grass_palette.size()])
-
-			if _hash01(seed_id * 43) < 0.36:
-				var f_sc: float = 0.72 + _hash01(seed_id * 47) * 0.52
-				var f_basis: Basis = Basis(Vector3.UP, ang + 0.7).scaled(Vector3(f_sc, f_sc, f_sc))
-				_flower_xforms.append(Transform3D(f_basis, Vector3(px, center.y + 0.02, pz)))
-				_flower_colors.append(flower_palette[(seed_id + idx * 2) % flower_palette.size()])
-
-	# E. Starting Monolith Plaza Borders (x = +-5.75..+-7.68, z = 24.4..45.0, center walkway 100% clear)
-	for i: int in range(152):
-		seed_id += 1
-		var side_sign: float = -1.0 if (i % 2 == 0) else 1.0
-		var px: float = side_sign * lerpf(5.78, 7.68, _hash01(seed_id * 17))
-		var pz: float = lerpf(24.4, 45.0, _hash01(seed_id * 29))
-		var sc: float = 0.82 + _hash01(seed_id * 31) * 0.42
-		var e_yaw: float = meadow_wind_yaw + (_hash01(seed_id * 13) - 0.5) * 0.95
-		var g_basis_e: Basis = Basis(Vector3.UP, e_yaw).scaled(Vector3(sc, sc * 0.92, sc))
-		_grass_xforms.append(Transform3D(g_basis_e, Vector3(px, 0.0, pz)))
-		_grass_colors.append(grass_palette[seed_id % grass_palette.size()])
-
-		if _hash01(seed_id * 41) < 0.56:
-			var f_sc: float = 0.70 + _hash01(seed_id * 53) * 0.48
-			var f_basis: Basis = Basis(Vector3.UP, _hash01(seed_id * 19) * TAU).scaled(Vector3(f_sc, f_sc, f_sc))
-			_flower_xforms.append(Transform3D(f_basis, Vector3(px, 0.02, pz)))
-			_flower_colors.append(flower_palette[seed_id % flower_palette.size()])
-
-	# F. Twin Viaduct Ledges (x = +-51.2..+-54.0, y = 14.0, z = 10..-232)
-	for i: int in range(200):
-		seed_id += 1
-		var side_sign: float = -1.0 if (i % 2 == 0) else 1.0
-		var vx: float = side_sign * lerpf(51.2, 54.0, _hash01(seed_id * 17))
-		var vz: float = lerpf(10.0, -232.0, _hash01(seed_id * 29))
-		var sc: float = 0.90 + _hash01(seed_id * 37) * 0.48
-		var f_yaw: float = meadow_wind_yaw + (_hash01(seed_id * 13) - 0.5) * 1.0
-		var g_basis_f: Basis = Basis(Vector3.UP, f_yaw).scaled(Vector3(sc, sc * 0.94, sc))
-		_grass_xforms.append(Transform3D(g_basis_f, Vector3(vx, 14.0, vz)))
-		_grass_colors.append(grass_palette[seed_id % grass_palette.size()])
-
-		if _hash01(seed_id * 43) < 0.52:
-			var f_basis: Basis = Basis(Vector3.UP, _hash01(seed_id * 23) * TAU).scaled(Vector3(sc * 0.85, sc * 0.85, sc * 0.85))
-			_flower_xforms.append(Transform3D(f_basis, Vector3(vx, 14.02, vz)))
-			_flower_colors.append(flower_palette[seed_id % flower_palette.size()])
 
 
 func _is_inside_any_castle_lake(x: float, z: float, margin: float) -> bool:
@@ -1831,10 +1887,12 @@ func _enhance_lush_bush_materials(node: Node) -> void:
 
 func _place_garden_planter(parent: Node3D, node_name: String, pos: Vector3, yaw_rad: float, scale_factor: float) -> Node3D:
 	var prop: Node3D = null
+	var is_glb: bool = false
 	if _garden_planter_scene != null:
 		var inst: Node = _garden_planter_scene.instantiate()
 		if inst is Node3D:
 			prop = inst as Node3D
+			is_glb = true
 		else:
 			inst.queue_free()
 	if prop == null:
@@ -1845,7 +1903,60 @@ func _place_garden_planter(parent: Node3D, node_name: String, pos: Vector3, yaw_
 	prop.rotation = Vector3(0.0, yaw_rad, 0.0)
 	prop.scale = Vector3(scale_factor, scale_factor, scale_factor)
 	parent.add_child(prop)
+
+	if is_glb:
+		_enhance_garden_planter_materials(prop)
 	return prop
+
+
+func _enhance_garden_planter_materials(node: Node) -> void:
+	if node is MeshInstance3D:
+		var mesh_inst: MeshInstance3D = node as MeshInstance3D
+		var mesh_res: Mesh = mesh_inst.mesh
+		if mesh_res != null:
+			var surf_count: int = mesh_res.get_surface_count()
+			for surf_idx: int in range(surf_count):
+				var base_mat: Material = mesh_res.surface_get_material(surf_idx)
+				if base_mat == null:
+					continue
+				var mat_name: String = base_mat.resource_name
+				if mat_name == "PlanterLeaves":
+					var leaf_mat: Material = _get_cached_sculpted_bush_shader_mat(
+						"planter_sculpted_leaves",
+						0.72, 1.18,
+						Color(0.88, 0.96, 0.86), Color(1.08, 1.10, 0.86),
+						Color(0.48, 0.72, 0.22),
+						0.62, 0.16, 0.11, Color(0.78, 0.96, 0.48)
+					)
+					mesh_inst.set_surface_override_material(surf_idx, leaf_mat)
+				elif mat_name == "PlanterBlossoms":
+					var blossom_mat: Material = _get_cached_sculpted_bush_shader_mat(
+						"planter_sculpted_blossoms",
+						0.90, 1.14,
+						Color(0.98, 0.96, 0.97), Color(1.04, 1.03, 1.03),
+						Color(0.90, 0.72, 0.78),
+						0.50, 0.22, 0.09, Color(1.0, 0.95, 0.96)
+					)
+					mesh_inst.set_surface_override_material(surf_idx, blossom_mat)
+				elif mat_name == "PlanterMarble":
+					var marble_mat: StandardMaterial3D = _get_cached_bush_material(
+						"planter_baroque_marble", Color(1.0, 1.0, 1.0), 0.28, false, Color(0.0, 0.0, 0.0), false, true
+					)
+					marble_mat.metallic = 0.02
+					mesh_inst.set_surface_override_material(surf_idx, marble_mat)
+				elif mat_name == "PlanterGold":
+					var gold_mat: StandardMaterial3D = _get_cached_bush_material(
+						"planter_baroque_gold", Color("#E6C26E"), 0.26, false, Color(0.0, 0.0, 0.0), false, false
+					)
+					gold_mat.metallic = 0.88
+					mesh_inst.set_surface_override_material(surf_idx, gold_mat)
+				elif mat_name == "PlanterSoil":
+					var soil_mat: StandardMaterial3D = _get_cached_bush_material(
+						"planter_dark_soil", Color("#261911"), 0.94, false, Color(0.0, 0.0, 0.0), false, false
+					)
+					mesh_inst.set_surface_override_material(surf_idx, soil_mat)
+	for child: Node in node.get_children():
+		_enhance_garden_planter_materials(child)
 
 
 func _place_celestial_ornament(
@@ -1878,9 +1989,14 @@ func _place_celestial_ornament(
 	return prop
 
 
-## Classical carved white-marble urn overflowing with lush emerald ferns & blossoms
+## Classical carved white-marble Baroque urn overflowing with leaf-by-leaf botanical foliage & roses
 ## (for the sunlit Rotunda interior beside the 16 marble columns and panoramic terraces).
 func _place_rotunda_potted_urn(parent: Node3D, node_name: String, pos: Vector3, yaw_rad: float, scale_factor: float) -> Node3D:
+	if _garden_planter_scene != null:
+		var sculpted: Node3D = _place_garden_planter(parent, node_name, pos, yaw_rad, scale_factor)
+		sculpted.scale = Vector3(scale_factor * 0.92, scale_factor * 1.12, scale_factor * 0.92)
+		return sculpted
+
 	var urn: Node3D = Node3D.new()
 	urn.name = node_name
 	urn.position = pos

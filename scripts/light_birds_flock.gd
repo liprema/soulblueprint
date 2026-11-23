@@ -4,7 +4,7 @@ class_name LightBirdsFlock
 ## Flock of 48 glowing golden Light-Birds orbiting gracefully along the cloud canyon
 ## (z = -15..-220, y = -4..26) and wheeling in response to the Soul Resonance Call.
 
-@export var bird_count: int = 48
+@export var bird_count: int = 0
 @export var canyon_z_min: float = -220.0
 @export var canyon_z_max: float = -15.0
 @export var canyon_y_min: float = -4.0
@@ -39,81 +39,21 @@ var _elapsed: float = 0.0
 
 func _ready() -> void:
 	add_to_group("light_birds")
-	_rng.seed = 42073
-
-	_setup_multimesh()
-	_init_flock()
-	_update_multimesh_transforms()
-
-
-func _process(delta: float) -> void:
-	if _multimesh == null or bird_count <= 0:
-		return
-
-	_elapsed += delta
-	var boost_factor := 0.0
-	if _call_timer > 0.0:
-		_call_timer = maxf(0.0, _call_timer - delta)
-		boost_factor = ease(_call_timer / maxf(call_boost_duration, 0.01), 0.6)
-
-	var speed_mult := lerpf(1.0, call_speed_multiplier, boost_factor)
-
-	for i in range(bird_count):
-		_orbit_angles[i] += _orbit_speeds[i] * speed_mult * delta
-		var ang := _orbit_angles[i]
-		var center := _orbit_centers[i]
-		var rad := _orbit_radii[i]
-
-		# Graceful figure-8 / elliptical canyon glide path clamped within canyon bounds.
-		var target := Vector3(
-			center.x + cos(ang) * rad.x,
-			clampf(center.y + sin(ang * 1.7 + _flap_phases[i]) * rad.y, canyon_y_min, canyon_y_max),
-			clampf(center.z + sin(ang) * rad.z, canyon_z_min, canyon_z_max)
-		)
-
-		# Nearby birds wheel gracefully in a swirling arc toward the Soul Call wave.
-		var w := _call_weights[i] * boost_factor
-		if w > 0.01:
-			var to_call := _call_origin_local - _positions[i]
-			var dist := to_call.length()
-			if dist > 0.5:
-				var dir_to_call := to_call / dist
-				# Add a tangential swirl around the resonance wave so birds wheel rather than collide.
-				var tangent := Vector3(-dir_to_call.z, 0.22, dir_to_call.x).normalized()
-				var wheel_point := _call_origin_local - dir_to_call * minf(dist, 14.0) + tangent * 10.0
-				wheel_point.y = clampf(wheel_point.y + 4.5, canyon_y_min, canyon_y_max)
-				target = target.lerp(wheel_point, clampf(w * 0.85, 0.0, 0.88))
-
-		var desired_dir := target - _positions[i]
-		var desired_dist := desired_dir.length()
-		var desired_vel := _velocities[i]
-		if desired_dist > 0.001:
-			var target_speed := base_cruise_speed * speed_mult * (0.85 + 0.3 * _bird_scales[i])
-			desired_vel = (desired_dir / desired_dist) * target_speed
-
-		var steer_rate := lerpf(2.2, 4.4, w)
-		_velocities[i] = _velocities[i].lerp(desired_vel, clampf(steer_rate * delta, 0.0, 1.0))
-		_positions[i] += _velocities[i] * delta
-
-		# Keep birds softly within canyon envelope.
-		_positions[i].y = clampf(_positions[i].y, canyon_y_min, canyon_y_max)
-		_positions[i].z = clampf(_positions[i].z, canyon_z_min, canyon_z_max)
-
-	_update_multimesh_transforms(boost_factor)
+	bird_count = 0
+	if birds_multimesh != null:
+		birds_multimesh.visible = false
+		birds_multimesh.multimesh = null
+	set_process(false)
+	return
 
 
-## Briefly boosts flock speed and draws nearby light-birds to wheel toward the resonance wave.
-func on_soul_call(origin: Vector3) -> void:
-	_call_origin_local = to_local(origin)
-	_call_timer = call_boost_duration
+func _process(_delta: float) -> void:
+	return
 
-	for i in range(bird_count):
-		var dist := _positions[i].distance_to(_call_origin_local)
-		if dist <= call_attract_radius:
-			var proximity := 1.0 - (dist / call_attract_radius)
-			_call_weights[i] = clampf(0.35 + proximity * 0.65, 0.0, 1.0)
-		else:
-			_call_weights[i] = 0.0
+
+## No-op kept for clean compatibility with soul_call_3d.gd and scene references.
+func on_soul_call(_origin: Vector3) -> void:
+	pass
 
 
 func _setup_multimesh() -> void:

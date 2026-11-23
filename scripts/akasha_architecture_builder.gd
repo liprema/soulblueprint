@@ -46,11 +46,15 @@ const PLAZA_LANTERN_COORDS := [
 const MARBLE_SHADER: Shader = preload("res://shaders/akasha_marble.gdshader")
 const GOD_RAYS_SHADER: Shader = preload("res://shaders/god_rays.gdshader")
 const MENTOR_SHADER: Shader = preload("res://shaders/ethereal_mentor.gdshader")
+const MEADOW_GROUND_SHADER_PATH := "res://shaders/akasha_meadow_ground.gdshader"
 
 var _mat_indigo_stone: Material
 var _mat_dark_obsidian: Material
 var _mat_polished_marble: Material
 var _mat_cobalt_trim: Material
+var _mat_castle_white_stone: Material
+var _mat_castle_floor_marble: Material
+var _mat_castle_blue_roof: StandardMaterial3D
 var _mat_gold_filigree: StandardMaterial3D
 var _mat_gold_brass: StandardMaterial3D
 var _mat_gold_glow_accent: StandardMaterial3D
@@ -58,7 +62,7 @@ var _mat_gold_thread: StandardMaterial3D
 var _mat_light_core: StandardMaterial3D
 var _mat_glass_skylight: StandardMaterial3D
 var _mat_warm_window: StandardMaterial3D
-var _mat_island_grass: StandardMaterial3D
+var _mat_island_grass: Material
 var _mat_island_rock: Material
 var _mat_waterfall: StandardMaterial3D
 var _mat_island_vine: StandardMaterial3D
@@ -119,7 +123,6 @@ func build_architecture() -> void:
 	_build_indigo_viaduct()
 	_build_floating_temple_islands()
 	_build_colossal_cathedral()
-	_build_golden_threads_of_destiny()
 	_build_ethereal_mentor_silhouettes()
 
 
@@ -161,7 +164,8 @@ func _create_velvet_stone_material(
 	roughness_val: float,
 	fresnel_strength: float,
 	wetness_val: float = 0.85,
-	block_scale_val: float = 1.0
+	block_scale_val: float = 1.0,
+	seam_strength_val: float = 0.12
 ) -> ShaderMaterial:
 	var mat: ShaderMaterial = ShaderMaterial.new()
 	mat.shader = MARBLE_SHADER
@@ -175,23 +179,38 @@ func _create_velvet_stone_material(
 	mat.set_shader_parameter("fresnel_lift_strength", fresnel_strength)
 	mat.set_shader_parameter("wetness_strength", wetness_val)
 	mat.set_shader_parameter("block_scale", block_scale_val)
+	mat.set_shader_parameter("seam_strength", seam_strength_val)
 	return mat
 
 
 func _init_materials() -> void:
-	# Crisp Fairytale White & Celestial Sky-Blue Castle Palette
+	# Crisp Fairytale White & Celestial Sky-Blue Castle Palette (low/zero seam_strength to avoid primitive stripes)
 	_mat_dark_obsidian = _create_velvet_stone_material(
-		Color("#7E96B8"), Color("#9BB2D2"), Color("#5A7090"), 0.60, 0.10, 0.25, 0.90
+		Color("#7E96B8"), Color("#9BB2D2"), Color("#5A7090"), 0.60, 0.10, 0.25, 0.90, 0.10
 	)
 	_mat_indigo_stone = _create_velvet_stone_material(
-		Color("#EEF1F6"), Color("#FFFFFF"), Color("#C0CCE0"), 0.56, 0.12, 0.25, 1.00
+		Color("#F2EEE6"), Color("#FFFDF8"), Color("#CFC8BA"), 0.56, 0.12, 0.20, 0.95, 0.0
 	)
 	_mat_polished_marble = _create_velvet_stone_material(
-		Color("#EBE9E4"), Color("#FAF8F4"), Color("#B4C4D8"), 0.48, 0.10, 0.30, 1.05
+		Color("#EFE9DD"), Color("#FCF9F2"), Color("#C6BBA8"), 0.48, 0.10, 0.28, 0.95, 0.12
 	)
 	_mat_cobalt_trim = _create_velvet_stone_material(
-		Color("#4880C8"), Color("#74ACEC"), Color("#2E5896"), 0.42, 0.16, 0.45, 1.25
+		Color("#3A74BE"), Color("#68A2E8"), Color("#244E8C"), 0.42, 0.16, 0.35, 1.15, 0.0
 	)
+
+	# Warm Creamy Pearl-Ivory Baroque Palace Marble (zero seams on walls, subtle 0.12 seams on floors)
+	_mat_castle_white_stone = _create_velvet_stone_material(
+		Color("#F4EFE5"), Color("#FFFDF7"), Color("#D4CBB9"), 0.54, 0.14, 0.18, 0.90, 0.0
+	)
+	_mat_castle_floor_marble = _create_velvet_stone_material(
+		Color("#EFE8DA"), Color("#FDF9F0"), Color("#C8BCA6"), 0.48, 0.12, 0.24, 0.85, 0.12
+	)
+
+	# Rich Celestial Baroque Royal-Blue Satin Roof Finish (#2E6BB8)
+	_mat_castle_blue_roof = StandardMaterial3D.new()
+	_mat_castle_blue_roof.albedo_color = Color("#2E6BB8")
+	_mat_castle_blue_roof.metallic = 0.14
+	_mat_castle_blue_roof.roughness = 0.32
 
 	# Satin Champagne Gold & Temple Brass (calm satin sheen, zero sub-pixel shimmer)
 	var aged_gold_color: Color = Color("#DFC07A")
@@ -238,17 +257,17 @@ func _init_materials() -> void:
 	_mat_light_core.emission = aged_gold_color
 	_mat_light_core.emission_energy_multiplier = 1.65
 
-	# Translucent sky-blue glass for the Castle Rotunda Skylight Dome (smooth, zero shimmer)
+	# Luminous stained-glass / pearl palace window & skylight dome sheen
 	_mat_glass_skylight = StandardMaterial3D.new()
-	_mat_glass_skylight.albedo_color = Color(0.64, 0.85, 1.0, 0.34)
+	_mat_glass_skylight.albedo_color = Color(0.76, 0.90, 1.0, 0.48)
 	_mat_glass_skylight.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	_mat_glass_skylight.roughness = 0.16
-	_mat_glass_skylight.metallic = 0.06
+	_mat_glass_skylight.roughness = 0.12
+	_mat_glass_skylight.metallic = 0.12
 	_mat_glass_skylight.cull_mode = BaseMaterial3D.CULL_DISABLED
 	_mat_glass_skylight.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_OPAQUE_ONLY
 	_mat_glass_skylight.emission_enabled = true
-	_mat_glass_skylight.emission = Color("#A8D8FF")
-	_mat_glass_skylight.emission_energy_multiplier = 0.22
+	_mat_glass_skylight.emission = Color("#D6EEFF")
+	_mat_glass_skylight.emission_energy_multiplier = 0.42
 
 	# Warm glowing gothic-baroque windows on Castle towers & clerestory
 	_mat_warm_window = StandardMaterial3D.new()
@@ -259,14 +278,24 @@ func _init_materials() -> void:
 	_mat_warm_window.emission = Color("#FFE2A0")
 	_mat_warm_window.emission_energy_multiplier = 1.35
 
-	# Sculpted Floating Paradise Island materials (lush meadow grass, travertine sky-rock, turquoise waterfalls, hanging ivy)
-	_mat_island_grass = StandardMaterial3D.new()
-	_mat_island_grass.albedo_color = Color("#48A054")
-	_mat_island_grass.roughness = 0.82
-	_mat_island_grass.metallic = 0.0
+	# Velvety sunlit meadow ground shader for CastleIslandGrass (with safe matte vertex-colored fallback)
+	var meadow_shader: Shader = null
+	if ResourceLoader.exists(MEADOW_GROUND_SHADER_PATH):
+		meadow_shader = load(MEADOW_GROUND_SHADER_PATH) as Shader
+	if meadow_shader != null:
+		var meadow_mat: ShaderMaterial = ShaderMaterial.new()
+		meadow_mat.shader = meadow_shader
+		_mat_island_grass = meadow_mat
+	else:
+		var grass_fallback: StandardMaterial3D = StandardMaterial3D.new()
+		grass_fallback.albedo_color = Color("#56AA52")
+		grass_fallback.vertex_color_use_as_albedo = true
+		grass_fallback.roughness = 0.88
+		grass_fallback.metallic = 0.0
+		_mat_island_grass = grass_fallback
 
 	_mat_island_rock = _create_velvet_stone_material(
-		Color("#C8C4BC"), Color("#E2DED4"), Color("#8A92A0"), 0.78, 0.12, 0.18, 0.45
+		Color("#C8C4BC"), Color("#E2DED4"), Color("#8A92A0"), 0.78, 0.12, 0.18, 0.45, 0.0
 	)
 
 	_mat_waterfall = StandardMaterial3D.new()
@@ -793,129 +822,113 @@ func _build_floating_temple_islands() -> void:
 # ---------------------------------------------------------------------------
 
 func _add_cathedral_colliders(root: Node3D) -> void:
-	# South arrival meadow apron flush at y = 0.0 in front of the grand front staircase (z = +36..+54)
-	_add_box_collider(root, "CathedralArrivalMeadowCollider", Vector3(34.0, 2.0, 18.0), Vector3(0.0, -1.0, 45.0))
+	# Generous walkable lower meadow island ground collider around Y = 0.0 (R = 54.0 m)
+	_add_cylinder_collider(root, "PalaceMeadowGroundCollider", 54.0, 4.0, Vector3(0.0, -2.0, 0.0))
 
-	# Lush outer lower island meadow terraces (top at y = 3.92, West/East flanks x = +-15..+-53 & North meadow z = -48..-22)
-	_add_box_collider(root, "CathedralLowerTerrace_W", Vector3(38.0, 4.0, 68.0), Vector3(-34.0, 1.92, 0.0))
-	_add_box_collider(root, "CathedralLowerTerrace_E", Vector3(38.0, 4.0, 68.0), Vector3(34.0, 1.92, 0.0))
-	_add_box_collider(root, "CathedralLowerTerrace_N", Vector3(56.0, 4.0, 26.0), Vector3(0.0, 1.92, -35.0))
+	# Central Baroque Ballroom & West/East Wings floor slab (top strictly at Y = 8.0, X[-34.5..+34.5], Z[-16.5..+16.5])
+	_add_box_collider(root, "PalaceMainFloorCollider", Vector3(69.0, 4.0, 33.0), Vector3(0.0, 6.0, 0.0))
 
-	# Main Rotunda & Panoramic Side Galleries floor slab (top strictly at y = 8.0, covering x = -38..+38, z = -22..+24)
-	_add_box_collider(root, "CathedralRotundaFloorCollider", Vector3(76.0, 4.0, 46.0), Vector3(0.0, 6.0, 1.0))
+	# North Cloud Terrace floor slab (top strictly at Y = 8.0, X[-14.5..+14.5], Z[-35.0..-16.0])
+	_add_box_collider(root, "PalaceNorthTerraceFloorCollider", Vector3(29.0, 4.0, 19.0), Vector3(0.0, 6.0, -25.5))
 
-	# North Cloud Horizon Balcony floor slab (top strictly at y = 8.0, covering x = -18..+18, z = -34.8..-18)
-	_add_box_collider(root, "CathedralNorthBalconyCollider", Vector3(36.0, 4.0, 16.8), Vector3(0.0, 6.0, -26.4))
+	# Central Baroque Ballroom Walls (Y = 8.0..24.0 -> height 16.0, center Y = 16.0, thickness 1.8 m)
+	# Verified 100% OPEN archway clearances:
+	# - South Grand Entrance Archway: X[-7.2..+7.2] = 14.4 m open
+	# - North Cloud Terrace Archway:  X[-6.7..+6.7] = 13.4 m open
+	# - West & East Salon Archways:   Z[-6.2..+6.2] = 12.4 m open
+	_add_box_collider(root, "BallroomWall_South_L", Vector3(9.3, 16.0, 1.8), Vector3(-11.85, 16.0, 16.0))
+	_add_box_collider(root, "BallroomWall_South_R", Vector3(9.3, 16.0, 1.8), Vector3(11.85, 16.0, 16.0))
+	_add_box_collider(root, "BallroomWall_North_L", Vector3(9.8, 16.0, 1.8), Vector3(-11.6, 16.0, -16.0))
+	_add_box_collider(root, "BallroomWall_North_R", Vector3(9.8, 16.0, 1.8), Vector3(11.6, 16.0, -16.0))
+	_add_box_collider(root, "BallroomWall_West_N", Vector3(1.8, 16.0, 10.3), Vector3(-16.0, 16.0, -11.35))
+	_add_box_collider(root, "BallroomWall_West_S", Vector3(1.8, 16.0, 10.3), Vector3(-16.0, 16.0, 11.35))
+	_add_box_collider(root, "BallroomWall_East_N", Vector3(1.8, 16.0, 10.3), Vector3(16.0, 16.0, -11.35))
+	_add_box_collider(root, "BallroomWall_East_S", Vector3(1.8, 16.0, 10.3), Vector3(16.0, 16.0, 11.35))
 
-	# Smooth sloped front ceremonial stairs ramp connecting y = 0.0 (z = +38.0) up to y = 8.0 (z = +24.0), width 26.4m
-	var stair_dz: float = 14.0
+	# West Wing Salon outer solid walls (X[-34..-16], Z[-13..+13], Y = 8.0..21.0 -> height 13.0, center Y = 14.5, thickness 1.6 m)
+	_add_box_collider(root, "WestSalonWall_Outer", Vector3(1.6, 13.0, 27.0), Vector3(-34.0, 14.5, 0.0))
+	_add_box_collider(root, "WestSalonWall_North", Vector3(18.5, 13.0, 1.6), Vector3(-25.25, 14.5, -13.0))
+	_add_box_collider(root, "WestSalonWall_South", Vector3(18.5, 13.0, 1.6), Vector3(-25.25, 14.5, 13.0))
+
+	# East Wing Salon outer solid walls (X[+16..+34], Z[-13..+13], Y = 8.0..21.0 -> height 13.0, center Y = 14.5, thickness 1.6 m)
+	_add_box_collider(root, "EastSalonWall_Outer", Vector3(1.6, 13.0, 27.0), Vector3(34.0, 14.5, 0.0))
+	_add_box_collider(root, "EastSalonWall_North", Vector3(18.5, 13.0, 1.6), Vector3(25.25, 14.5, -13.0))
+	_add_box_collider(root, "EastSalonWall_South", Vector3(18.5, 13.0, 1.6), Vector3(25.25, 14.5, 13.0))
+
+	# South Grand Imperial Staircase: smooth walkable ramp from Z=+36.0, Y=0.0 to Z=+16.0, Y=8.0 (width 23.0 m)
+	var stair_dz: float = 20.0
 	var stair_dy: float = 8.0
 	var ramp_angle: float = atan2(stair_dy, stair_dz)
-	var ramp_len: float = sqrt(stair_dz * stair_dz + stair_dy * stair_dy) + 0.9
+	var ramp_len: float = sqrt(stair_dz * stair_dz + stair_dy * stair_dy) + 0.6
 	var ramp_thickness: float = 2.4
 	var ramp_center: Vector3 = Vector3(
 		0.0,
 		4.0 - cos(ramp_angle) * (ramp_thickness * 0.5),
-		31.0 - sin(ramp_angle) * (ramp_thickness * 0.5)
+		26.0 - sin(ramp_angle) * (ramp_thickness * 0.5)
 	)
 	var stairs_ramp: StaticBody3D = _add_box_collider(
-		root, "CathedralFrontStairsRampCollider",
-		Vector3(28.0, ramp_thickness, ramp_len),
+		root, "PalaceImperialStairsRampCollider",
+		Vector3(23.0, ramp_thickness, ramp_len),
 		ramp_center
 	)
 	stairs_ramp.rotation.x = ramp_angle
 
-	# Grand front staircase side balustrades / cheek walls (leaving full 26.4m stair width X[-13.2..+13.2] open)
+	# Sloped side balustrade colliders flanking the Grand Imperial Staircase at X = +-11.8 (H = 2.4 m)
 	for side_sign: float in [-1.0, 1.0]:
 		var s_tag: String = "W" if side_sign < 0.0 else "E"
 		var rail_center: Vector3 = Vector3(
-			side_sign * 14.2,
-			4.0 + cos(ramp_angle) * 1.4,
-			31.0 + sin(ramp_angle) * 1.4
+			side_sign * 11.8,
+			4.0 + cos(ramp_angle) * 1.2,
+			26.0 + sin(ramp_angle) * 1.2
 		)
 		var stair_rail: StaticBody3D = _add_box_collider(
 			root, "StairBalustradeCollider_%s" % s_tag,
-			Vector3(1.8, 3.2, ramp_len + 1.6),
+			Vector3(1.2, 2.4, ramp_len + 0.8),
 			rail_center
 		)
 		stair_rail.rotation.x = ramp_angle
-		# Bottom newel post at foot of stairs
-		_add_box_collider(root, "StairNewelCollider_%s" % s_tag, Vector3(2.8, 4.2, 3.2), Vector3(side_sign * 14.5, 2.1, 38.5))
-		# Front entrance portico piers at top of stairs (leaving X[-13.2..+13.2] = 26.4m open)
-		_add_box_collider(root, "FrontPorticoPierCollider_%s" % s_tag, Vector3(2.2, 18.0, 4.0), Vector3(side_sign * 14.3, 17.0, 25.75))
 
-	# 4 Massive Corner Rotunda Towers (exact GLB coordinates: (+-18.03, +-18.03), radius 4.25m)
-	var corner_towers: Array[Vector2] = [
-		Vector2(-18.03, 18.03), Vector2(18.03, 18.03),
-		Vector2(-18.03, -18.03), Vector2(18.03, -18.03),
-	]
-	for ti: int in range(corner_towers.size()):
-		var tp: Vector2 = corner_towers[ti]
-		_add_cylinder_collider(root, "CastleCornerTowerCollider_%d" % ti, 4.25, 48.0, Vector3(tp.x, 24.0, tp.y))
+	# North Cloud Terrace Balustrades (H = 2.4 m, Y = 8.0..10.4 -> center Y = 9.2)
+	_add_box_collider(root, "NorthTerraceBalustrade_W", Vector3(0.9, 2.4, 9.0), Vector3(-14.0, 9.2, -20.5))
+	_add_box_collider(root, "NorthTerraceBalustrade_E", Vector3(0.9, 2.4, 9.0), Vector3(14.0, 9.2, -20.5))
+	_add_box_collider(root, "NorthTerraceShoulder_W", Vector3(4.2, 2.4, 0.9), Vector3(-12.3, 9.2, -25.0))
+	_add_box_collider(root, "NorthTerraceShoulder_E", Vector3(4.2, 2.4, 0.9), Vector3(12.3, 9.2, -25.0))
 
-	# 2 North Balcony Flanking Turrets (exact GLB coordinates: (+-16.20, -29.50), radius 2.60m)
-	_add_cylinder_collider(root, "CastleNorthTurretCollider_W", 2.60, 42.0, Vector3(-16.20, 21.0, -29.50))
-	_add_cylinder_collider(root, "CastleNorthTurretCollider_E", 2.60, 42.0, Vector3(16.20, 21.0, -29.50))
-
-	# 4 Outer Flanking Towers on West/East wings (solid for flying players as well)
-	_add_cylinder_collider(root, "CastleOuterTowerCollider_WN", 4.5, 48.0, Vector3(-40.5, 24.0, -5.0))
-	_add_cylinder_collider(root, "CastleOuterTowerCollider_EN", 4.5, 48.0, Vector3(40.5, 24.0, -5.0))
-	_add_cylinder_collider(root, "CastleOuterTowerCollider_WS", 3.8, 44.0, Vector3(-39.5, 22.0, 20.0))
-	_add_cylinder_collider(root, "CastleOuterTowerCollider_ES", 3.8, 44.0, Vector3(39.5, 22.0, 20.0))
-
-	# Inner Rotunda Colonnade Columns & North Archway Piers
-	# Verified open clearances:
-	# - Front Entrance Archway: X[-11.2..+11.2] = 22.4m wide open
-	# - North Balcony Archway:  X[-11.2..+11.2] = 22.4m wide open
-	# - West & East Galleries:  Z[-8.7..+8.7]   = 17.4m wide open
-	var rotunda_cols: Array[Vector2] = [
-		Vector2(-19.75, -9.75), Vector2(-19.75, 9.75),
-		Vector2(19.75, -9.75), Vector2(19.75, 9.75),
-		Vector2(-12.25, 18.25), Vector2(12.25, 18.25),
-		Vector2(-12.25, -18.25), Vector2(12.25, -18.25),
-		Vector2(-12.25, -21.50), Vector2(12.25, -21.50),
-	]
-	for rci: int in range(rotunda_cols.size()):
-		var rc: Vector2 = rotunda_cols[rci]
-		_add_cylinder_collider(root, "RotundaColumnCollider_%d" % rci, 1.05, 24.0, Vector3(rc.x, 20.0, rc.y))
-
-	# 14 West & East Panoramic Gallery Outer Columns (exact GLB coordinates: X = +-36.25)
-	var gallery_col_zs: Array[float] = [-16.0, -10.5, -5.0, 0.5, 6.0, 11.5, 17.0]
-	for gci: int in range(gallery_col_zs.size()):
-		var gz: float = gallery_col_zs[gci]
-		_add_cylinder_collider(root, "GalleryColumnCollider_W_%d" % gci, 0.85, 18.0, Vector3(-36.25, 17.0, gz))
-		_add_cylinder_collider(root, "GalleryColumnCollider_E_%d" % gci, 0.85, 18.0, Vector3(36.25, 17.0, gz))
-
-	# Perimeter balustrade guard colliders matching exact GLB railings (height 2.2m, y = 8.0..10.2)
-	# (Front stairs, Rotunda center, East/West gallery archways, and North balcony archway remain 100% open!)
-	_add_box_collider(root, "BalustradeGuard_WestOuter", Vector3(0.9, 2.2, 37.6), Vector3(-37.4, 9.1, 1.0))
-	_add_box_collider(root, "BalustradeGuard_EastOuter", Vector3(0.9, 2.2, 37.6), Vector3(37.4, 9.1, 1.0))
-	_add_box_collider(root, "BalustradeGuard_WestFront", Vector3(15.4, 2.2, 0.9), Vector3(-29.95, 9.1, 19.5))
-	_add_box_collider(root, "BalustradeGuard_EastFront", Vector3(15.4, 2.2, 0.9), Vector3(29.95, 9.1, 19.5))
-	_add_box_collider(root, "BalustradeGuard_WestRear", Vector3(15.4, 2.2, 0.9), Vector3(-29.95, 9.1, -17.5))
-	_add_box_collider(root, "BalustradeGuard_EastRear", Vector3(15.4, 2.2, 0.9), Vector3(29.95, 9.1, -17.5))
-	_add_box_collider(root, "BalustradeGuard_NorthWest", Vector3(0.9, 2.2, 11.4), Vector3(-15.5, 9.1, -23.5))
-	_add_box_collider(root, "BalustradeGuard_NorthEast", Vector3(0.9, 2.2, 11.4), Vector3(15.5, 9.1, -23.5))
-	_add_box_collider(root, "BalustradeGuard_NorthShoulderW", Vector3(6.2, 2.2, 0.9), Vector3(-12.55, 9.1, -29.0))
-	_add_box_collider(root, "BalustradeGuard_NorthShoulderE", Vector3(6.2, 2.2, 0.9), Vector3(12.55, 9.1, -29.0))
-
-	# Curved 7-segment semicircular railing arc around the North Cloud Balcony apse (center (0, -24), R = 10.35)
+	# 7-segment semicircular railing arc around (0, 8.0, -24.0), radius 10.5 m (H = 2.4 m)
 	var apse_center_z: float = -24.0
-	var apse_radius: float = 10.35
+	var apse_radius: float = 10.5
 	var arc_segments: int = 7
-	var arc_half_span: float = deg_to_rad(64.0)
+	var arc_half_span: float = deg_to_rad(84.0)
 	for ai: int in range(arc_segments):
 		var frac: float = (float(ai) + 0.5) / float(arc_segments)
 		var theta: float = lerpf(-arc_half_span, arc_half_span, frac)
 		var seg_x: float = sin(theta) * apse_radius
 		var seg_z: float = apse_center_z - cos(theta) * apse_radius
-		var seg_len: float = (2.0 * arc_half_span * apse_radius) / float(arc_segments) + 0.5
+		var seg_len: float = (2.0 * arc_half_span * apse_radius) / float(arc_segments) + 0.6
 		var seg_body: StaticBody3D = _add_box_collider(
-			root, "BalustradeGuard_NorthApse_%d" % ai,
-			Vector3(seg_len, 2.2, 0.9),
-			Vector3(seg_x, 9.1, seg_z)
+			root, "NorthTerraceApseRail_%d" % ai,
+			Vector3(seg_len, 2.4, 0.9),
+			Vector3(seg_x, 9.2, seg_z)
 		)
 		seg_body.rotation.y = -theta
+
+	# 4 Ballroom Corner Baroque Pavilion Towers at (+-16.5, 24.0, +-16.5), R = 3.2 m
+	var ballroom_towers: Array[Vector2] = [
+		Vector2(-16.5, 16.5), Vector2(16.5, 16.5),
+		Vector2(-16.5, -16.5), Vector2(16.5, -16.5),
+	]
+	for ti: int in range(ballroom_towers.size()):
+		var tp: Vector2 = ballroom_towers[ti]
+		_add_cylinder_collider(root, "PalaceCornerTowerCollider_%d" % ti, 3.2, 48.0, Vector3(tp.x, 24.0, tp.y))
+
+	# 4 Outer Wing Corner Turrets at (+-34.0, 18.0, +-13.0), R = 2.4 m
+	var wing_turrets: Array[Vector2] = [
+		Vector2(-34.0, 13.0), Vector2(34.0, 13.0),
+		Vector2(-34.0, -13.0), Vector2(34.0, -13.0),
+	]
+	for wi: int in range(wing_turrets.size()):
+		var wp: Vector2 = wing_turrets[wi]
+		_add_cylinder_collider(root, "PalaceWingTurretCollider_%d" % wi, 2.4, 36.0, Vector3(wp.x, 18.0, wp.y))
 
 
 func _build_rotunda_skylight_sunbeam(root: Node3D) -> void:
@@ -1511,72 +1524,8 @@ func _offset_coplanar_surface_verts(
 	var count: int = verts.size()
 
 	if glb_kind == "cathedral":
-		if mat_name.contains("floormarble"):
-			for vi: int in range(count):
-				var ny: float = normals[vi].y if has_normals else 1.0
-				if ny <= 0.90:
-					continue
-				var v: Vector3 = verts[vi]
-				# 1. Clip North Balcony rectangular floor front edge (Z=-18.2 -> -21.82) so it never overlaps Main Rotunda (Z[-21.8..23.8])
-				if absf(v.y - 8.0) <= 0.015 and absf(v.x) > 14.0 and absf(v.x) < 18.0 and v.z > -21.8 and v.z < -17.0:
-					v.z = -21.82
-					verts[vi] = v
-					changed = true
-				# 2. Lift North Balcony circular apse (R=10.35 around Z=-24) to Y=8.045 as a clean raised dais
-				elif absf(v.y - 8.0) <= 0.015 and absf(v.x) <= 10.5 and v.z <= -13.5:
-					v.y = 8.045
-					verts[vi] = v
-					changed = true
-				# 3. Lift South Arrival marble apron (+0.045m -> Y=0.065) cleanly above meadow grass
-				elif v.y >= 0.005 and v.y <= 0.035 and v.z >= 24.0:
-					v.y += 0.045
-					verts[vi] = v
-					changed = true
-		elif mat_name.contains("gold"):
-			for vi: int in range(count):
-				var ny: float = normals[vi].y if has_normals else 1.0
-				if ny <= 0.90:
-					continue
-				var v: Vector3 = verts[vi]
-				# 1. Lift all 20 grand staircase golden nosing strips (were 5mm below marble treads -> now +3.7cm proud)
-				if v.y >= 0.35 and v.y <= 8.01 and absf(v.x) <= 13.5 and v.z >= 24.2 and v.z <= 38.5:
-					v.y += 0.042
-					verts[vi] = v
-					changed = true
-				# 2. Recess perimeter gold trim at Y=7.990 down to Y=7.935 so it never fights the Y=8.000 floor
-				elif v.y >= 7.980 and v.y <= 7.994:
-					v.y -= 0.055
-					verts[vi] = v
-					changed = true
-				# 3. Lift North Balcony Apse gold trim (was coplanar at Y=8.000) to Y=8.090 (4.5cm above raised apse)
-				elif absf(v.y - 8.0) <= 0.008 and absf(v.x) <= 11.0 and v.z <= -23.5:
-					v.y = 8.090
-					verts[vi] = v
-					changed = true
-				# 4. Lift Rotunda & Gallery golden floor inlays (were Y=8.030) to Y=8.085 (clean above both 8.000 & 8.045)
-				elif v.y >= 8.015 and v.y <= 8.045:
-					v.y = 8.085
-					verts[vi] = v
-					changed = true
-		elif mat_name.contains("islandgrass"):
-			for vi: int in range(count):
-				var v: Vector3 = verts[vi]
-				# Recess grass directly underneath the South Arrival marble apron so separation is >= 0.16m
-				if absf(v.x) <= 14.5 and v.z >= 24.0 and v.z <= 52.5 and v.y >= -0.08 and v.y <= 0.08:
-					v.y -= 0.085
-					verts[vi] = v
-					changed = true
-		elif mat_name.contains("waterfall"):
-			for vi: int in range(count):
-				var ny: float = normals[vi].y if has_normals else 1.0
-				if ny <= 0.90:
-					continue
-				var v: Vector3 = verts[vi]
-				# Lift horizontal waterfall pool surface cleanly above Y=3.920 grass terrace
-				if v.y >= 3.85 and v.y <= 3.89:
-					v.y = 3.965
-					verts[vi] = v
-					changed = true
+		# The Baroque Palace GLB has clean, non-overlapping floor & meadow geometry; leave vertices untouched.
+		return false
 
 	elif glb_kind == "plaza":
 		for vi: int in range(count):
@@ -1726,11 +1675,11 @@ func _classify_glb_surface_material(src_mat: Material) -> Material:
 		if mat_name.contains("window"):
 			return _mat_warm_window
 		if mat_name.contains("blueroof") or mat_name.contains("blue_roof"):
-			return _mat_cobalt_trim
+			return _mat_castle_blue_roof
 		if mat_name.contains("floormarble") or mat_name.contains("floor_marble"):
-			return _mat_polished_marble
+			return _mat_castle_floor_marble
 		if mat_name.contains("whitestone") or mat_name.contains("white_stone"):
-			return _mat_indigo_stone
+			return _mat_castle_white_stone
 		if mat_name.contains("gold") or mat_name.contains("brass"):
 			is_gold = true
 		if src_mat is BaseMaterial3D:
