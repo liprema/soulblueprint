@@ -28,21 +28,21 @@ uniform float mie_outer_strength : hint_range(0.0, 2.0) = 0.38;
 uniform float horizon_glow_strength : hint_range(0.0, 2.0) = 0.52;
 
 group_uniforms horizon_cumulus;
-uniform float cumulus_opacity : hint_range(0.0, 1.0) = 0.94;
-uniform float cumulus_height : hint_range(0.10, 0.32) = 0.25;
+uniform float cumulus_opacity : hint_range(0.0, 1.0) = 0.92;
+uniform float cumulus_height : hint_range(0.10, 0.32) = 0.24;
 uniform float cumulus_speed : hint_range(0.0, 0.08) = 0.006;
-uniform vec3 cumulus_shadow_color : source_color = vec3(0.369, 0.404, 0.675);   // #5E67AC Rich periwinkle-violet shadow base
-uniform vec3 cumulus_body_color : source_color = vec3(0.933, 0.902, 0.965);     // #EEE6F6 Painterly pearl-lavender midtone
-uniform vec3 cumulus_bounce_color : source_color = vec3(1.000, 0.663, 0.580);   // #FFA994 Warm coral-peach bounce light
-uniform vec3 cumulus_rim_color : source_color = vec3(1.000, 0.969, 0.878);      // #FFF7E0 Sunlit ivory-gold silver lining
+uniform vec3 cumulus_shadow_color : source_color = vec3(0.565, 0.604, 0.816);   // #909AD0 Soft periwinkle-lavender shadow base
+uniform vec3 cumulus_body_color : source_color = vec3(0.965, 0.925, 0.965);     // #F6ECF6 Plush pearl-blush midtone
+uniform vec3 cumulus_bounce_color : source_color = vec3(1.000, 0.745, 0.745);   // #FFBEBE Soft sakura-peach bounce light
+uniform vec3 cumulus_rim_color : source_color = vec3(1.000, 0.980, 0.925);      // #FFFAEC Sunlit ivory-cream rim
 
 group_uniforms twilight_clouds;
-uniform float cloud_coverage : hint_range(0.0, 1.0) = 0.52;
-uniform float cloud_opacity : hint_range(0.0, 1.0) = 0.68;
-uniform float cloud_speed : hint_range(0.0, 0.08) = 0.009;
-uniform vec3 cloud_shadow_color : source_color = vec3(0.620, 0.725, 0.905);     // Soft sky-periwinkle cirrus underside
-uniform vec3 cloud_body_color : source_color = vec3(0.953, 0.976, 1.000);       // Airy sky-white overhead feathers
-uniform vec3 cloud_lit_color : source_color = vec3(1.000, 0.855, 0.835);        // Sunlit cream-pink cirrus brushstrokes
+uniform float cloud_coverage : hint_range(0.0, 1.0) = 0.34;
+uniform float cloud_opacity : hint_range(0.0, 1.0) = 0.28;
+uniform float cloud_speed : hint_range(0.0, 0.08) = 0.007;
+uniform vec3 cloud_shadow_color : source_color = vec3(0.710, 0.790, 0.945);     // Airy periwinkle-blue high cloud underside
+uniform vec3 cloud_body_color : source_color = vec3(0.976, 0.984, 1.000);       // Soft cotton-white overhead clouds
+uniform vec3 cloud_lit_color : source_color = vec3(1.000, 0.910, 0.905);        // Sunlit cream-blush high clouds
 
 group_uniforms celestial_moon;
 uniform float moon_strength : hint_range(0.0, 2.0) = 1.0;
@@ -53,10 +53,10 @@ uniform vec3 moon_color : source_color = vec3(1.000, 0.980, 0.930);             
 uniform vec3 moon_halo_color : source_color = vec3(0.840, 0.925, 1.000);        // Soft opalescent sky-pearl halo
 
 group_uniforms astral_ring;
-uniform float river_strength : hint_range(0.0, 1.5) = 0.55;
-uniform float iridescent_strength : hint_range(0.0, 1.5) = 0.42;
-uniform vec3 river_gold_color : source_color = vec3(1.000, 0.935, 0.785);       // Gossamer golden-pearl celestial filament
-uniform vec3 river_cyan_color : source_color = vec3(0.760, 0.925, 0.990);       // Opalescent ice-aqua harmonic arc
+uniform float river_strength : hint_range(0.0, 1.5) = 0.0;
+uniform float iridescent_strength : hint_range(0.0, 1.5) = 0.0;
+uniform vec3 river_gold_color : source_color = vec3(1.000, 0.935, 0.785);       // Gossamer golden-pearl celestial filament (disabled)
+uniform vec3 river_cyan_color : source_color = vec3(0.760, 0.925, 0.990);       // Opalescent ice-aqua harmonic arc (disabled)
 
 group_uniforms celestial_stars;
 uniform float star_density : hint_range(0.0, 1.0) = 0.62;
@@ -419,46 +419,40 @@ void sky() {
 		float cir_elev_mask = smoothstep(0.05, 0.22, elev) * smoothstep(0.99, 0.62, elev);
 		if (cir_elev_mask > 0.002) {
 			vec2 cir_plane = dir.xz / (elev + 0.18);
-			// Rotate wind plane diagonally for sweeping Makoto Shinkai brushstrokes
+			// Soft dreamy high-altitude watercolor cloud veils (no sharp thin white streaks)
 			mat2 wind_rot = mat2(vec2(0.82, -0.57), vec2(0.57, 0.82));
 			vec2 cir_uv = wind_rot * cir_plane;
-			vec2 drift = vec2(TIME * cloud_speed * 0.85, -TIME * cloud_speed * 0.28);
+			vec2 drift = vec2(TIME * cloud_speed * 0.65, -TIME * cloud_speed * 0.22);
 
-			// Anisotropic domain-warped cirrus feathers
-			vec2 uv_stretch = cir_uv * vec2(0.28, 0.92) + drift;
-			float c_warp = fbm2_2d(uv_stretch * 0.85 - drift * 0.4);
-			float n_cirrus = fbm3_2d(uv_stretch + vec2(c_warp * 0.72, -c_warp * 0.22));
+			// Gentle isotropic-biased domain-warped sky wisps
+			vec2 uv_stretch = cir_uv * vec2(0.24, 0.42) + drift;
+			float c_warp = fbm2_2d(uv_stretch * 0.72 - drift * 0.35);
+			float n_cirrus = fbm3_2d(uv_stretch + vec2(c_warp * 0.55, -c_warp * 0.25));
 
-			// Fine wispy brushstroke striations (skipped in cubemap pass for speed)
-			float streak = 1.0;
-			if (!AT_CUBEMAP_PASS) {
-				float n_fine = value_noise_2d(cir_uv * vec2(0.65, 2.85) + drift * 1.4 + vec2(c_warp * 0.9, 0.0));
-				streak = mix(0.68, 1.18, n_fine);
-			}
-
-			float cov_th = mix(0.76, 0.38, cloud_coverage);
-			float cir_dens = smoothstep(cov_th, cov_th + 0.28, n_cirrus * streak);
-			cirrus_alpha = cir_dens * cir_elev_mask * cloud_opacity * 0.72;
+			float cov_th = mix(0.76, 0.44, cloud_coverage);
+			float cir_dens = smoothstep(cov_th, cov_th + 0.34, n_cirrus);
+			cir_dens = cir_dens * cir_dens * (3.0 - 2.0 * cir_dens);
+			cirrus_alpha = cir_dens * cir_elev_mask * cloud_opacity * 0.62;
 
 			if (cirrus_alpha > 0.003) {
-				// Directional sun-side highlight along cirrus feathers
-				vec2 sun_step = (wind_rot * sun_xz) * vec2(0.10, 0.22);
-				float n_cir_sun = fbm2_2d(uv_stretch + sun_step + vec2(c_warp * 0.72, -c_warp * 0.22));
-				float lit = clamp((n_cirrus - n_cir_sun) * 2.6 + 0.56, 0.0, 1.0);
+				// Directional sun-side highlight along soft high clouds
+				vec2 sun_step = (wind_rot * sun_xz) * vec2(0.08, 0.14);
+				float n_cir_sun = fbm2_2d(uv_stretch + sun_step + vec2(c_warp * 0.55, -c_warp * 0.25));
+				float lit = clamp((n_cirrus - n_cir_sun) * 1.9 + 0.58, 0.0, 1.0);
 
-				// Sunlit cream-pink near the sun; airy sky-white high overhead
+				// Sunlit cream-blush near the sun; airy cotton-white high overhead
 				float warm_mix = clamp(sun_side * 0.72 + sq(sun_dot) * 0.55, 0.0, 1.0) * smoothstep(0.72, 0.14, elev);
 				vec3 cir_top = mix(cloud_body_color, cloud_lit_color, warm_mix);
 				vec3 cir_base = mix(cloud_shadow_color, mid_sky_color, 0.35);
 
-				cirrus_col = mix(cir_base, cir_top, clamp(0.45 + lit * 0.55, 0.0, 1.0));
-				cirrus_col += sun_color * cube(sun_dot) * 0.22 * (1.0 - cir_dens * 0.35);
+				cirrus_col = mix(cir_base, cir_top, clamp(0.48 + lit * 0.52, 0.0, 1.0));
+				cirrus_col += sun_color * cube(sun_dot) * 0.18 * (1.0 - cir_dens * 0.35);
 			}
 		}
 	}
 
 	// =========================================================================
-	// 7. Sculpted Painted Cumulus Cloud Towers on the Horizon (elev = 0.0..0.28)
+	// 7. Soft Painterly Cumulus Cloud Towers on the Horizon (elev = 0.0..0.28)
 	// =========================================================================
 	float cumulus_alpha = 0.0;
 	vec3 cumulus_col = vec3(0.0);
@@ -478,12 +472,12 @@ void sky() {
 
 		vec2 p_far = vec2((az_u + c_drift) * 14.0, elev * 14.5);
 		float w_far = fbm2_2d_p(p_far * 0.5 + vec2(0.0, 3.2), 7.0);
-		vec2 p_far_w = p_far + vec2((w_far - 0.5) * 1.15, (w_far - 0.5) * 0.85);
+		vec2 p_far_w = p_far + vec2((w_far - 0.5) * 1.05, (w_far - 0.5) * 0.78);
 		float n_far = fbm3_2d_p(p_far_w, 14.0);
 		float lobe_far = billow_shape(n_far);
 
 		float field_far = (tower_top_far - elev) * 6.2 + (lobe_far - 0.46) * 1.35;
-		float mask_far = smoothstep(-0.06, 0.12, field_far) * horizon_base_fade;
+		float mask_far = smoothstep(-0.10, 0.18, field_far) * horizon_base_fade;
 
 		vec3 far_col = vec3(0.0);
 		if (mask_far > 0.002) {
@@ -492,37 +486,36 @@ void sky() {
 			// Directional lighting toward the sun (azimuthally toward az=0 and upward toward crowns)
 			vec2 sun_off = vec2(-sin(az) * 0.42, 0.55);
 			float n_far_sun = fbm2_2d_p(p_far_w + sun_off, 14.0);
-			float lobe_lit = clamp((lobe_far - billow_shape(n_far_sun)) * 2.3 + 0.44, 0.0, 1.0);
+			float lobe_lit = clamp((lobe_far - billow_shape(n_far_sun)) * 2.1 + 0.48, 0.0, 1.0);
 
-			// Rich periwinkle-violet shadow base -> pearl-lavender midtone -> coral-peach bounce -> ivory-gold rim
-			float lit_grad = clamp(h_frac * 0.78 + lobe_lit * 0.46 - 0.16, 0.0, 1.0);
-			float lit_sculpt = smoothstep(0.12, 0.84, lit_grad);
+			// Soft periwinkle-lavender shadow base -> pearl-blush midtone -> sakura-peach bounce -> ivory rim
+			float lit_grad = clamp(h_frac * 0.78 + lobe_lit * 0.44 - 0.12, 0.0, 1.0);
+			float lit_sculpt = smoothstep(0.10, 0.84, lit_grad);
 
-			// Deepen shadow base slightly on anti-solar side for dramatic Makoto Shinkai contrast
-			vec3 shadow_tone = mix(cumulus_shadow_color * 0.86, cumulus_shadow_color * 1.08, sun_side);
+			vec3 shadow_tone = mix(cumulus_shadow_color * 0.90, cumulus_shadow_color * 1.08, sun_side);
 			far_col = mix(shadow_tone, cumulus_body_color, lit_sculpt);
 
-			// Warm coral-peach bounce light on sun-facing lobes & lower-mid sunlit swells
+			// Warm sakura-peach bounce light on sun-facing lobes & lower-mid sunlit swells
 			float bounce_mask = clamp(lobe_lit * (0.28 + 0.72 * sun_side) * (0.45 + 0.55 * h_frac), 0.0, 1.0);
 			far_col = mix(far_col, cumulus_bounce_color, bounce_mask * (0.34 + 0.30 * sun_side));
 
-			// Bright sunlit ivory-gold silver lining hugging crisp sculpted cloud crests
-			float crest_rim = smoothstep(0.58, 0.02, field_far) * smoothstep(0.28, 0.85, h_frac);
+			// Soft sunlit ivory-cream halo hugging cloud crests
+			float crest_rim = smoothstep(0.62, 0.02, field_far) * smoothstep(0.28, 0.85, h_frac);
 			float silver_strength = crest_rim * (0.45 + 0.55 * sun_side + cube(sun_dot) * 0.75);
-			far_col = mix(far_col, cumulus_rim_color, clamp(silver_strength * 0.82, 0.0, 0.92));
-			far_col += sun_color * silver_strength * (0.14 + 0.28 * cube(sun_dot));
+			far_col = mix(far_col, cumulus_rim_color, clamp(silver_strength * 0.80, 0.0, 0.90));
+			far_col += sun_color * silver_strength * (0.12 + 0.24 * cube(sun_dot));
 		}
 
-		// --- Layer B: Nearer Sculpted Cumulus Bank for Layered Parallax Depth (period = 20) ---
+		// --- Layer B: Nearer Soft Cumulus Bank for Layered Parallax Depth (period = 20) ---
 		float near_ridge = fbm2_2d_p(vec2((az_u + c_drift * 1.45) * 10.0, 5.7), 10.0);
 		float tower_top_near = cumulus_height * (0.24 + 0.44 * near_ridge) * mix(0.76, 1.0, cathedral_frame);
 
 		vec2 p_near = vec2((az_u + c_drift * 1.55) * 20.0, elev * 19.0 + 2.4);
-		float n_near = fbm3_2d_p(p_near + vec2((w_far - 0.5) * 0.65, 0.0), 20.0);
+		float n_near = fbm3_2d_p(p_near + vec2((w_far - 0.5) * 0.60, 0.0), 20.0);
 		float lobe_near = billow_shape(n_near);
 
 		float field_near = (tower_top_near - elev) * 7.5 + (lobe_near - 0.48) * 1.25;
-		float mask_near = smoothstep(-0.05, 0.11, field_near) * horizon_base_fade;
+		float mask_near = smoothstep(-0.09, 0.16, field_near) * horizon_base_fade;
 
 		vec3 near_col = vec3(0.0);
 		if (mask_near > 0.002) {

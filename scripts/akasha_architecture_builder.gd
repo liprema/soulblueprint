@@ -74,6 +74,7 @@ var _mentor_base_y: Array[float] = []
 var _mentor_halos: Array[Node3D] = []
 var _elapsed_time: float = 0.0
 var _is_built: bool = false
+var _sanitized_mesh_cache: Dictionary = {}
 
 
 func _ready() -> void:
@@ -333,9 +334,11 @@ func _add_plaza_colliders(root: Node3D) -> void:
 	_add_box_collider(root, "PlazaSurfaceCollider", Vector3(16.0, 2.4, 23.0), Vector3(0.0, -1.2, 35.0))
 	# Forward ceremonial prow collider (top strictly at y = 0.0, covers down to z = 19.25)
 	_add_box_collider(root, "PlazaProwCollider", Vector3(11.0, 2.4, 5.5), Vector3(0.0, -1.2, 22.0))
-	# Low balustrade guard colliders along x = -7.0 and x = +7.0 (z = 24..46)
-	_add_box_collider(root, "PlazaBalustradeCollider_L", Vector3(0.9, 1.6, 22.0), Vector3(-7.0, 0.8, 35.0))
-	_add_box_collider(root, "PlazaBalustradeCollider_R", Vector3(0.9, 1.6, 22.0), Vector3(7.0, 0.8, 35.0))
+	# Invisible balustrade guard colliders along x = -7.0 and x = +7.0 (z = 24..46) + rear parapet at z = 46.2
+	# (Forward prow at z = 20..24 stays 100% open to walk/glide toward the floating islands)
+	_add_box_collider(root, "PlazaBalustradeCollider_L", Vector3(0.9, 2.2, 22.4), Vector3(-7.0, 1.1, 35.0))
+	_add_box_collider(root, "PlazaBalustradeCollider_R", Vector3(0.9, 2.2, 22.4), Vector3(7.0, 1.1, 35.0))
+	_add_box_collider(root, "PlazaBalustradeCollider_Back", Vector3(14.8, 2.2, 0.9), Vector3(0.0, 1.1, 46.2))
 
 
 func _build_starting_monolith_plaza() -> void:
@@ -343,7 +346,7 @@ func _build_starting_monolith_plaza() -> void:
 	root.name = "StartingMonolithPlaza"
 	add_child(root)
 
-	if _try_instantiate_override(plaza_model_path, root, Vector3(0.0, 0.0, 35.0)):
+	if _try_instantiate_override(plaza_model_path, root, Vector3(0.0, 0.0, 35.0), "plaza"):
 		_add_plaza_colliders(root)
 		return
 
@@ -415,8 +418,11 @@ func _build_starting_monolith_plaza() -> void:
 		_add_box_mesh(pylon, "GoldBand", Vector3(1.16, 0.22, 1.16), Vector3(0.0, 5.2, 0.0), _mat_gold_filigree)
 		_add_cylinder_mesh(pylon, "SpireCap", 0.08, 0.55, 1.8, 4, Vector3(0.0, 6.7, 0.0), _mat_gold_brass)
 
-	# Inlaid glowing golden astrolabe rings on the plaza floor (y = 0.015 to avoid z-fighting)
-	var floor_y := 0.015
+	# Inlaid glowing golden astrolabe rings on the plaza floor (clean >= 0.04m separation from deck & each other)
+	var ring_y: float = 0.042
+	var spoke_y: float = 0.056
+	var runway_y: float = 0.068
+	var medallion_y: float = 0.082
 	var ring_radii := [
 		Vector2(5.6, 5.95),
 		Vector2(3.8, 4.02),
@@ -427,7 +433,7 @@ func _build_starting_monolith_plaza() -> void:
 		var ring := _add_torus_mesh(
 			root, "FloorAstrolabeRing_%d" % i,
 			r.x, r.y, 48, 12,
-			Vector3(0.0, floor_y, plaza_center.z),
+			Vector3(0.0, ring_y, plaza_center.z),
 			_mat_gold_filigree
 		)
 		ring.scale = Vector3(1.0, 0.08, 1.0)
@@ -437,14 +443,14 @@ func _build_starting_monolith_plaza() -> void:
 		var spoke := _add_box_mesh(
 			root, "FloorCompassSpoke_%d" % i,
 			Vector3(0.14, 0.025, 11.6),
-			Vector3(0.0, floor_y, plaza_center.z),
+			Vector3(0.0, spoke_y + float(i) * 0.004, plaza_center.z),
 			_mat_gold_filigree
 		)
 		spoke.rotation.y = deg_to_rad(float(i) * 45.0)
 
 	# Center glowing compass disc & forward directional runway stripe
-	_add_cylinder_mesh(root, "FloorMedallion", 0.65, 0.65, 0.03, 24, Vector3(0.0, floor_y, plaza_center.z), _mat_gold_filigree)
-	_add_box_mesh(root, "RunwayStrip", Vector3(0.28, 0.025, 14.0), Vector3(0.0, floor_y, 27.5), _mat_gold_filigree)
+	_add_cylinder_mesh(root, "FloorMedallion", 0.65, 0.65, 0.03, 24, Vector3(0.0, medallion_y, plaza_center.z), _mat_gold_filigree)
+	_add_box_mesh(root, "RunwayStrip", Vector3(0.28, 0.025, 14.0), Vector3(0.0, runway_y, 27.5), _mat_gold_filigree)
 
 	# Monumental tapered monolith undercroft descending into the cloud sea
 	_add_box_mesh(root, "UndercroftTier1", Vector3(14.0, 6.0, 19.5), Vector3(0.0, -5.4, plaza_center.z), _mat_indigo_stone)
@@ -490,18 +496,35 @@ func _build_indigo_viaduct() -> void:
 			Vector3(deck_collider_width, deck_thickness, total_length + 4.0),
 			Vector3(viaduct_x, deck_top_y - deck_thickness * 0.5, deck_center_z)
 		)
+		# Invisible parapet/railing guard colliders along both edges of each viaduct (8.4m clear roadway inside)
+		_add_box_collider(
+			wing_root, "ViaductParapetCollider_%s_L" % side_tag,
+			Vector3(1.1, 2.0, total_length + 4.0),
+			Vector3(viaduct_x - 4.75, deck_top_y + 1.0, deck_center_z)
+		)
+		_add_box_collider(
+			wing_root, "ViaductParapetCollider_%s_R" % side_tag,
+			Vector3(1.1, 2.0, total_length + 4.0),
+			Vector3(viaduct_x + 4.75, deck_top_y + 1.0, deck_center_z)
+		)
 
 		if has_glb:
 			var loaded_any: bool = false
+			# Each viaduct_arch.glb bay spans Z[-10.85, +10.85] (21.70m) while bay_span is 21.667m;
+			# scale Z slightly so adjacent bays butt cleanly with zero coplanar seam overlap.
+			var bay_z_scale: float = (bay_span - 0.006) / 21.70
 			for i: int in range(arch_count):
 				var bay_z: float = z_start - (float(i) + 0.5) * bay_span
 				var prev_count: int = wing_root.get_child_count()
-				if _try_instantiate_override(viaduct_arch_model_path, wing_root, Vector3(viaduct_x, deck_top_y, bay_z)):
+				if _try_instantiate_override(viaduct_arch_model_path, wing_root, Vector3(viaduct_x, deck_top_y, bay_z), "viaduct"):
 					loaded_any = true
-					if side_sign < 0.0 and wing_root.get_child_count() > prev_count:
+					if wing_root.get_child_count() > prev_count:
 						var bay_node: Node = wing_root.get_child(wing_root.get_child_count() - 1)
 						if bay_node is Node3D:
-							(bay_node as Node3D).rotation_degrees.y = 180.0
+							var bay_3d: Node3D = bay_node as Node3D
+							bay_3d.scale.z = bay_z_scale
+							if side_sign < 0.0:
+								bay_3d.rotation_degrees.y = 180.0
 			if loaded_any:
 				continue
 
@@ -637,8 +660,18 @@ func _build_floating_temple_islands() -> void:
 		var collider_radius: float = 8.4
 		var collider_height: float = 2.6
 
-		if _try_instantiate_override(temple_island_model_path, island, Vector3.ZERO):
+		if _try_instantiate_override(temple_island_model_path, island, Vector3.ZERO, "island"):
 			_add_cylinder_collider(island, "IslandSlabCollider", collider_radius, collider_height, Vector3(0.0, -collider_height * 0.5, 0.0))
+			# 8 octagonal colonnade column colliders matching temple_island.glb (5.56m clear cardinal passages)
+			var glb_col_coords: Array[Vector2] = [
+				Vector2(-6.0, -3.5), Vector2(-6.0, 3.5),
+				Vector2(-3.5, -6.0), Vector2(-3.5, 6.0),
+				Vector2(3.5, -6.0), Vector2(3.5, 6.0),
+				Vector2(6.0, -3.5), Vector2(6.0, 3.5),
+			]
+			for ci: int in range(glb_col_coords.size()):
+				var cc: Vector2 = glb_col_coords[ci]
+				_add_cylinder_collider(island, "IslandColumnCollider_%d" % ci, 0.72, 12.0, Vector3(cc.x, 6.0, cc.y))
 			continue
 
 		# Top polished marble slab (top surface strictly at local y = 0.0)
@@ -663,11 +696,11 @@ func _build_floating_temple_islands() -> void:
 		)
 		rim.scale = Vector3(1.0, 0.35, 1.0)
 
-		# Inlaid golden sanctuary floor circle
+		# Inlaid golden sanctuary floor circle (raised to y = 0.045 to eliminate Z-fighting)
 		var floor_ring := _add_torus_mesh(
 			island, "FloorSanctuaryRing",
 			2.6, 2.82, 32, 8,
-			Vector3(0.0, 0.015, 0.0),
+			Vector3(0.0, 0.045, 0.0),
 			_mat_gold_filigree
 		)
 		floor_ring.scale = Vector3(1.0, 0.08, 1.0)
@@ -771,10 +804,10 @@ func _add_cathedral_colliders(root: Node3D) -> void:
 	# Main Rotunda & Panoramic Side Galleries floor slab (top strictly at y = 8.0, covering x = -38..+38, z = -22..+24)
 	_add_box_collider(root, "CathedralRotundaFloorCollider", Vector3(76.0, 4.0, 46.0), Vector3(0.0, 6.0, 1.0))
 
-	# North Cloud Horizon Balcony floor slab (top strictly at y = 8.0, covering x = -18..+18, z = -34..-18)
-	_add_box_collider(root, "CathedralNorthBalconyCollider", Vector3(36.0, 4.0, 16.0), Vector3(0.0, 6.0, -26.0))
+	# North Cloud Horizon Balcony floor slab (top strictly at y = 8.0, covering x = -18..+18, z = -34.8..-18)
+	_add_box_collider(root, "CathedralNorthBalconyCollider", Vector3(36.0, 4.0, 16.8), Vector3(0.0, 6.0, -26.4))
 
-	# Smooth sloped front ceremonial stairs ramp connecting y = 0.0 (z = +38.0) up to y = 8.0 (z = +24.0), width 28m
+	# Smooth sloped front ceremonial stairs ramp connecting y = 0.0 (z = +38.0) up to y = 8.0 (z = +24.0), width 26.4m
 	var stair_dz: float = 14.0
 	var stair_dy: float = 8.0
 	var ramp_angle: float = atan2(stair_dy, stair_dz)
@@ -792,17 +825,97 @@ func _add_cathedral_colliders(root: Node3D) -> void:
 	)
 	stairs_ramp.rotation.x = ramp_angle
 
-	# Perimeter balustrade guard colliders ONLY on outer edges of balconies
+	# Grand front staircase side balustrades / cheek walls (leaving full 26.4m stair width X[-13.2..+13.2] open)
+	for side_sign: float in [-1.0, 1.0]:
+		var s_tag: String = "W" if side_sign < 0.0 else "E"
+		var rail_center: Vector3 = Vector3(
+			side_sign * 14.2,
+			4.0 + cos(ramp_angle) * 1.4,
+			31.0 + sin(ramp_angle) * 1.4
+		)
+		var stair_rail: StaticBody3D = _add_box_collider(
+			root, "StairBalustradeCollider_%s" % s_tag,
+			Vector3(1.8, 3.2, ramp_len + 1.6),
+			rail_center
+		)
+		stair_rail.rotation.x = ramp_angle
+		# Bottom newel post at foot of stairs
+		_add_box_collider(root, "StairNewelCollider_%s" % s_tag, Vector3(2.8, 4.2, 3.2), Vector3(side_sign * 14.5, 2.1, 38.5))
+		# Front entrance portico piers at top of stairs (leaving X[-13.2..+13.2] = 26.4m open)
+		_add_box_collider(root, "FrontPorticoPierCollider_%s" % s_tag, Vector3(2.2, 18.0, 4.0), Vector3(side_sign * 14.3, 17.0, 25.75))
+
+	# 4 Massive Corner Rotunda Towers (exact GLB coordinates: (+-18.03, +-18.03), radius 4.25m)
+	var corner_towers: Array[Vector2] = [
+		Vector2(-18.03, 18.03), Vector2(18.03, 18.03),
+		Vector2(-18.03, -18.03), Vector2(18.03, -18.03),
+	]
+	for ti: int in range(corner_towers.size()):
+		var tp: Vector2 = corner_towers[ti]
+		_add_cylinder_collider(root, "CastleCornerTowerCollider_%d" % ti, 4.25, 48.0, Vector3(tp.x, 24.0, tp.y))
+
+	# 2 North Balcony Flanking Turrets (exact GLB coordinates: (+-16.20, -29.50), radius 2.60m)
+	_add_cylinder_collider(root, "CastleNorthTurretCollider_W", 2.60, 42.0, Vector3(-16.20, 21.0, -29.50))
+	_add_cylinder_collider(root, "CastleNorthTurretCollider_E", 2.60, 42.0, Vector3(16.20, 21.0, -29.50))
+
+	# 4 Outer Flanking Towers on West/East wings (solid for flying players as well)
+	_add_cylinder_collider(root, "CastleOuterTowerCollider_WN", 4.5, 48.0, Vector3(-40.5, 24.0, -5.0))
+	_add_cylinder_collider(root, "CastleOuterTowerCollider_EN", 4.5, 48.0, Vector3(40.5, 24.0, -5.0))
+	_add_cylinder_collider(root, "CastleOuterTowerCollider_WS", 3.8, 44.0, Vector3(-39.5, 22.0, 20.0))
+	_add_cylinder_collider(root, "CastleOuterTowerCollider_ES", 3.8, 44.0, Vector3(39.5, 22.0, 20.0))
+
+	# Inner Rotunda Colonnade Columns & North Archway Piers
+	# Verified open clearances:
+	# - Front Entrance Archway: X[-11.2..+11.2] = 22.4m wide open
+	# - North Balcony Archway:  X[-11.2..+11.2] = 22.4m wide open
+	# - West & East Galleries:  Z[-8.7..+8.7]   = 17.4m wide open
+	var rotunda_cols: Array[Vector2] = [
+		Vector2(-19.75, -9.75), Vector2(-19.75, 9.75),
+		Vector2(19.75, -9.75), Vector2(19.75, 9.75),
+		Vector2(-12.25, 18.25), Vector2(12.25, 18.25),
+		Vector2(-12.25, -18.25), Vector2(12.25, -18.25),
+		Vector2(-12.25, -21.50), Vector2(12.25, -21.50),
+	]
+	for rci: int in range(rotunda_cols.size()):
+		var rc: Vector2 = rotunda_cols[rci]
+		_add_cylinder_collider(root, "RotundaColumnCollider_%d" % rci, 1.05, 24.0, Vector3(rc.x, 20.0, rc.y))
+
+	# 14 West & East Panoramic Gallery Outer Columns (exact GLB coordinates: X = +-36.25)
+	var gallery_col_zs: Array[float] = [-16.0, -10.5, -5.0, 0.5, 6.0, 11.5, 17.0]
+	for gci: int in range(gallery_col_zs.size()):
+		var gz: float = gallery_col_zs[gci]
+		_add_cylinder_collider(root, "GalleryColumnCollider_W_%d" % gci, 0.85, 18.0, Vector3(-36.25, 17.0, gz))
+		_add_cylinder_collider(root, "GalleryColumnCollider_E_%d" % gci, 0.85, 18.0, Vector3(36.25, 17.0, gz))
+
+	# Perimeter balustrade guard colliders matching exact GLB railings (height 2.2m, y = 8.0..10.2)
 	# (Front stairs, Rotunda center, East/West gallery archways, and North balcony archway remain 100% open!)
-	_add_box_collider(root, "BalustradeGuard_WestOuter", Vector3(0.9, 1.6, 38.0), Vector3(-37.5, 8.8, 1.0))
-	_add_box_collider(root, "BalustradeGuard_EastOuter", Vector3(0.9, 1.6, 38.0), Vector3(37.5, 8.8, 1.0))
-	_add_box_collider(root, "BalustradeGuard_WestFront", Vector3(15.5, 1.6, 0.9), Vector3(-29.8, 8.8, 19.6))
-	_add_box_collider(root, "BalustradeGuard_EastFront", Vector3(15.5, 1.6, 0.9), Vector3(29.8, 8.8, 19.6))
-	_add_box_collider(root, "BalustradeGuard_WestRear", Vector3(15.5, 1.6, 0.9), Vector3(-29.8, 8.8, -17.6))
-	_add_box_collider(root, "BalustradeGuard_EastRear", Vector3(15.5, 1.6, 0.9), Vector3(29.8, 8.8, -17.6))
-	_add_box_collider(root, "BalustradeGuard_NorthWest", Vector3(0.9, 1.6, 13.0), Vector3(-15.6, 8.8, -24.5))
-	_add_box_collider(root, "BalustradeGuard_NorthEast", Vector3(0.9, 1.6, 13.0), Vector3(15.6, 8.8, -24.5))
-	_add_box_collider(root, "BalustradeGuard_NorthTip", Vector3(22.0, 1.6, 0.9), Vector3(0.0, 8.8, -33.6))
+	_add_box_collider(root, "BalustradeGuard_WestOuter", Vector3(0.9, 2.2, 37.6), Vector3(-37.4, 9.1, 1.0))
+	_add_box_collider(root, "BalustradeGuard_EastOuter", Vector3(0.9, 2.2, 37.6), Vector3(37.4, 9.1, 1.0))
+	_add_box_collider(root, "BalustradeGuard_WestFront", Vector3(15.4, 2.2, 0.9), Vector3(-29.95, 9.1, 19.5))
+	_add_box_collider(root, "BalustradeGuard_EastFront", Vector3(15.4, 2.2, 0.9), Vector3(29.95, 9.1, 19.5))
+	_add_box_collider(root, "BalustradeGuard_WestRear", Vector3(15.4, 2.2, 0.9), Vector3(-29.95, 9.1, -17.5))
+	_add_box_collider(root, "BalustradeGuard_EastRear", Vector3(15.4, 2.2, 0.9), Vector3(29.95, 9.1, -17.5))
+	_add_box_collider(root, "BalustradeGuard_NorthWest", Vector3(0.9, 2.2, 11.4), Vector3(-15.5, 9.1, -23.5))
+	_add_box_collider(root, "BalustradeGuard_NorthEast", Vector3(0.9, 2.2, 11.4), Vector3(15.5, 9.1, -23.5))
+	_add_box_collider(root, "BalustradeGuard_NorthShoulderW", Vector3(6.2, 2.2, 0.9), Vector3(-12.55, 9.1, -29.0))
+	_add_box_collider(root, "BalustradeGuard_NorthShoulderE", Vector3(6.2, 2.2, 0.9), Vector3(12.55, 9.1, -29.0))
+
+	# Curved 7-segment semicircular railing arc around the North Cloud Balcony apse (center (0, -24), R = 10.35)
+	var apse_center_z: float = -24.0
+	var apse_radius: float = 10.35
+	var arc_segments: int = 7
+	var arc_half_span: float = deg_to_rad(64.0)
+	for ai: int in range(arc_segments):
+		var frac: float = (float(ai) + 0.5) / float(arc_segments)
+		var theta: float = lerpf(-arc_half_span, arc_half_span, frac)
+		var seg_x: float = sin(theta) * apse_radius
+		var seg_z: float = apse_center_z - cos(theta) * apse_radius
+		var seg_len: float = (2.0 * arc_half_span * apse_radius) / float(arc_segments) + 0.5
+		var seg_body: StaticBody3D = _add_box_collider(
+			root, "BalustradeGuard_NorthApse_%d" % ai,
+			Vector3(seg_len, 2.2, 0.9),
+			Vector3(seg_x, 9.1, seg_z)
+		)
+		seg_body.rotation.y = -theta
 
 
 func _build_rotunda_skylight_sunbeam(root: Node3D) -> void:
@@ -830,7 +943,7 @@ func _build_colossal_cathedral() -> void:
 	root.position = CATHEDRAL_POSITION
 	add_child(root)
 
-	if _try_instantiate_override(cathedral_model_path, root, Vector3.ZERO):
+	if _try_instantiate_override(cathedral_model_path, root, Vector3.ZERO, "cathedral"):
 		_add_cathedral_colliders(root)
 		_build_rotunda_skylight_sunbeam(root)
 		_build_cathedral_astrolabe_rings(root, Vector3(0.0, 92.0, 0.0))
@@ -1319,7 +1432,7 @@ func _apply_colossal_mentor_materials(node: Node) -> void:
 # .glb Override Pipeline & Geometry Helpers
 # ---------------------------------------------------------------------------
 
-func _try_instantiate_override(res_path: String, parent: Node3D, local_pos: Vector3) -> bool:
+func _try_instantiate_override(res_path: String, parent: Node3D, local_pos: Vector3, glb_kind: String = "") -> bool:
 	if res_path.is_empty() or not ResourceLoader.exists(res_path):
 		return false
 	var loaded: Resource = ResourceLoader.load(res_path)
@@ -1328,9 +1441,253 @@ func _try_instantiate_override(res_path: String, parent: Node3D, local_pos: Vect
 		if inst is Node3D:
 			(inst as Node3D).position = local_pos
 		parent.add_child(inst)
+		if not glb_kind.is_empty():
+			_sanitize_glb_zfighting(inst, glb_kind)
 		_refine_glb_materials(inst)
 		return true
 	return false
+
+
+func _sanitize_glb_zfighting(node: Node, glb_kind: String) -> void:
+	if node is MeshInstance3D:
+		var mesh_inst: MeshInstance3D = node as MeshInstance3D
+		var src_mesh: Mesh = mesh_inst.mesh
+		if src_mesh != null:
+			var cache_key: String = "%s:%d" % [glb_kind, src_mesh.get_instance_id()]
+			if _sanitized_mesh_cache.has(cache_key):
+				mesh_inst.mesh = _sanitized_mesh_cache[cache_key] as Mesh
+			else:
+				var cleaned: Mesh = _sanitize_glb_mesh_surfaces(src_mesh, node.name.to_lower(), glb_kind)
+				_sanitized_mesh_cache[cache_key] = cleaned
+				mesh_inst.mesh = cleaned
+	for child: Node in node.get_children():
+		_sanitize_glb_zfighting(child, glb_kind)
+
+
+func _sanitize_glb_mesh_surfaces(src_mesh: Mesh, node_name: String, glb_kind: String) -> Mesh:
+	var surface_count: int = src_mesh.get_surface_count()
+	if surface_count <= 0:
+		return src_mesh
+
+	var new_mesh: ArrayMesh = ArrayMesh.new()
+	var any_modified: bool = false
+
+	for s_idx: int in range(surface_count):
+		var arrays: Array = src_mesh.surface_get_arrays(s_idx)
+		var prim_type: Mesh.PrimitiveType = src_mesh.surface_get_primitive_type(s_idx)
+		var s_mat: Material = src_mesh.surface_get_material(s_idx)
+		var mat_name: String = s_mat.resource_name.to_lower() if s_mat != null else ""
+
+		var verts_var: Variant = arrays[Mesh.ARRAY_VERTEX]
+		if verts_var is PackedVector3Array:
+			var verts: PackedVector3Array = verts_var as PackedVector3Array
+			var normals_var: Variant = arrays[Mesh.ARRAY_NORMAL]
+			var has_normals: bool = normals_var is PackedVector3Array and (normals_var as PackedVector3Array).size() == verts.size()
+			var normals: PackedVector3Array = (normals_var as PackedVector3Array) if has_normals else PackedVector3Array()
+			var surface_changed: bool = _offset_coplanar_surface_verts(verts, normals, has_normals, node_name, mat_name, glb_kind)
+			if surface_changed:
+				arrays[Mesh.ARRAY_VERTEX] = verts
+				any_modified = true
+
+		new_mesh.add_surface_from_arrays(prim_type, arrays)
+		var s_name: String = src_mesh.surface_get_name(s_idx)
+		if not s_name.is_empty():
+			new_mesh.surface_set_name(s_idx, s_name)
+		if s_mat != null:
+			new_mesh.surface_set_material(s_idx, s_mat)
+
+	return new_mesh if any_modified else src_mesh
+
+
+func _offset_coplanar_surface_verts(
+	verts: PackedVector3Array,
+	normals: PackedVector3Array,
+	has_normals: bool,
+	node_name: String,
+	mat_name: String,
+	glb_kind: String
+) -> bool:
+	var changed: bool = false
+	var count: int = verts.size()
+
+	if glb_kind == "cathedral":
+		if mat_name.contains("floormarble"):
+			for vi: int in range(count):
+				var ny: float = normals[vi].y if has_normals else 1.0
+				if ny <= 0.90:
+					continue
+				var v: Vector3 = verts[vi]
+				# 1. Clip North Balcony rectangular floor front edge (Z=-18.2 -> -21.82) so it never overlaps Main Rotunda (Z[-21.8..23.8])
+				if absf(v.y - 8.0) <= 0.015 and absf(v.x) > 14.0 and absf(v.x) < 18.0 and v.z > -21.8 and v.z < -17.0:
+					v.z = -21.82
+					verts[vi] = v
+					changed = true
+				# 2. Lift North Balcony circular apse (R=10.35 around Z=-24) to Y=8.045 as a clean raised dais
+				elif absf(v.y - 8.0) <= 0.015 and absf(v.x) <= 10.5 and v.z <= -13.5:
+					v.y = 8.045
+					verts[vi] = v
+					changed = true
+				# 3. Lift South Arrival marble apron (+0.045m -> Y=0.065) cleanly above meadow grass
+				elif v.y >= 0.005 and v.y <= 0.035 and v.z >= 24.0:
+					v.y += 0.045
+					verts[vi] = v
+					changed = true
+		elif mat_name.contains("gold"):
+			for vi: int in range(count):
+				var ny: float = normals[vi].y if has_normals else 1.0
+				if ny <= 0.90:
+					continue
+				var v: Vector3 = verts[vi]
+				# 1. Lift all 20 grand staircase golden nosing strips (were 5mm below marble treads -> now +3.7cm proud)
+				if v.y >= 0.35 and v.y <= 8.01 and absf(v.x) <= 13.5 and v.z >= 24.2 and v.z <= 38.5:
+					v.y += 0.042
+					verts[vi] = v
+					changed = true
+				# 2. Recess perimeter gold trim at Y=7.990 down to Y=7.935 so it never fights the Y=8.000 floor
+				elif v.y >= 7.980 and v.y <= 7.994:
+					v.y -= 0.055
+					verts[vi] = v
+					changed = true
+				# 3. Lift North Balcony Apse gold trim (was coplanar at Y=8.000) to Y=8.090 (4.5cm above raised apse)
+				elif absf(v.y - 8.0) <= 0.008 and absf(v.x) <= 11.0 and v.z <= -23.5:
+					v.y = 8.090
+					verts[vi] = v
+					changed = true
+				# 4. Lift Rotunda & Gallery golden floor inlays (were Y=8.030) to Y=8.085 (clean above both 8.000 & 8.045)
+				elif v.y >= 8.015 and v.y <= 8.045:
+					v.y = 8.085
+					verts[vi] = v
+					changed = true
+		elif mat_name.contains("islandgrass"):
+			for vi: int in range(count):
+				var v: Vector3 = verts[vi]
+				# Recess grass directly underneath the South Arrival marble apron so separation is >= 0.16m
+				if absf(v.x) <= 14.5 and v.z >= 24.0 and v.z <= 52.5 and v.y >= -0.08 and v.y <= 0.08:
+					v.y -= 0.085
+					verts[vi] = v
+					changed = true
+		elif mat_name.contains("waterfall"):
+			for vi: int in range(count):
+				var ny: float = normals[vi].y if has_normals else 1.0
+				if ny <= 0.90:
+					continue
+				var v: Vector3 = verts[vi]
+				# Lift horizontal waterfall pool surface cleanly above Y=3.920 grass terrace
+				if v.y >= 3.85 and v.y <= 3.89:
+					v.y = 3.965
+					verts[vi] = v
+					changed = true
+
+	elif glb_kind == "plaza":
+		for vi: int in range(count):
+			var ny: float = normals[vi].y if has_normals else 1.0
+			if ny <= 0.90:
+				continue
+			var v: Vector3 = verts[vi]
+			if mat_name.contains("obsidian"):
+				if v.y >= -0.055 and v.y <= 0.005:
+					v.y -= 0.090
+					verts[vi] = v
+					changed = true
+				elif v.y >= 0.014 and v.y <= 0.019:
+					v.y += 0.026
+					verts[vi] = v
+					changed = true
+			elif mat_name.contains("cobalt"):
+				if v.y >= 0.012 and v.y <= 0.018:
+					v.y += 0.022
+					verts[vi] = v
+					changed = true
+			elif mat_name.contains("goldbrass"):
+				if v.y >= -0.015 and v.y <= -0.005:
+					v.y -= 0.050
+					verts[vi] = v
+					changed = true
+				elif v.y >= 0.018 and v.y <= 0.034:
+					v.y = 0.046 + (v.y - 0.018) * 0.8
+					verts[vi] = v
+					changed = true
+			elif mat_name.contains("goldfiligree"):
+				if v.y >= 0.018 and v.y <= 0.034:
+					v.y = 0.064 + (v.y - 0.018) * 0.8
+					verts[vi] = v
+					changed = true
+			elif mat_name.contains("goldenglow"):
+				if v.y >= 0.018 and v.y <= 0.034:
+					v.y = 0.082 + (v.y - 0.018) * 0.8
+					verts[vi] = v
+					changed = true
+
+	elif glb_kind == "island":
+		if node_name.contains("terraceddeck"):
+			for vi: int in range(count):
+				var ny: float = normals[vi].y if has_normals else 1.0
+				if ny <= 0.90:
+					continue
+				var v: Vector3 = verts[vi]
+				if mat_name.contains("deepmarble") and v.y >= 0.003 and v.y <= 0.007:
+					v.y = 0.038
+					verts[vi] = v
+					changed = true
+				elif mat_name.contains("indigostone") and v.y >= 0.003 and v.y <= 0.007:
+					v.y = 0.046
+					verts[vi] = v
+					changed = true
+				elif mat_name.contains("obsidian") and v.y >= 0.006 and v.y <= 0.010:
+					v.y = 0.052
+					verts[vi] = v
+					changed = true
+				elif mat_name.contains("cobalt") and v.y >= 0.003 and v.y <= 0.010:
+					v.y = 0.060
+					verts[vi] = v
+					changed = true
+				elif mat_name.contains("goldbrass"):
+					if v.y >= -0.025 and v.y <= -0.015:
+						v.y = -0.060
+						verts[vi] = v
+						changed = true
+					elif v.y >= 0.011 and v.y <= 0.017:
+						v.y = 0.072
+						verts[vi] = v
+						changed = true
+				elif mat_name.contains("goldfiligree") and v.y >= 0.011 and v.y <= 0.017:
+					v.y = 0.086
+					verts[vi] = v
+					changed = true
+				elif mat_name.contains("goldenglow") and v.y >= 0.011 and v.y <= 0.017:
+					v.y = 0.100
+					verts[vi] = v
+					changed = true
+
+	elif glb_kind == "viaduct":
+		for vi: int in range(count):
+			var ny: float = normals[vi].y if has_normals else 1.0
+			if ny <= 0.90:
+				continue
+			var v: Vector3 = verts[vi]
+			if mat_name.contains("obsidian") and v.y >= -0.055 and v.y <= -0.045:
+				v.y = -0.100
+				verts[vi] = v
+				changed = true
+			elif mat_name.contains("goldbrass"):
+				if v.y >= -0.015 and v.y <= -0.005:
+					v.y = -0.055
+					verts[vi] = v
+					changed = true
+				elif v.y >= 0.016 and v.y <= 0.028:
+					v.y = 0.046
+					verts[vi] = v
+					changed = true
+			elif mat_name.contains("goldfiligree") and v.y >= 0.016 and v.y <= 0.028:
+				v.y = 0.062
+				verts[vi] = v
+				changed = true
+			elif mat_name.contains("goldenglow") and v.y >= 0.016 and v.y <= 0.028:
+				v.y = 0.078
+				verts[vi] = v
+				changed = true
+
+	return changed
 
 
 func _refine_glb_materials(node: Node) -> void:

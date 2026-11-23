@@ -23,17 +23,19 @@ signal flight_mode_changed(is_flying: bool)
 			else:
 				Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
-# --- Ground Movement (Fluid Meditative Feel) ---
+# --- Ground Movement (Silky Dreamy Inertia — Journey / Sky / Stray Feel) ---
 @export_group("Ground Movement")
-@export var ground_speed: float = 12.0
-@export var sprint_speed: float = 17.5
-@export var ground_acceleration: float = 24.0
-@export var ground_deceleration: float = 20.0
-@export var ground_turn_speed: float = 12.5
-@export var jump_velocity: float = 11.5
-@export var gravity: float = 24.0
-@export var fall_gravity_multiplier: float = 0.82
-@export var coyote_time: float = 0.16
+@export var ground_speed: float = 11.0
+@export var sprint_speed: float = 16.0
+@export var ground_acceleration: float = 5.2
+@export var ground_deceleration: float = 4.2
+@export var input_smooth_rate: float = 10.5
+@export var air_control_factor: float = 0.45
+@export var ground_turn_speed: float = 6.2
+@export var jump_velocity: float = 10.6
+@export var gravity: float = 20.0
+@export var fall_gravity_multiplier: float = 0.76
+@export var coyote_time: float = 0.18
 
 # --- Contextual Ledge / Perch Leap Assist ---
 @export_group("Ledge Leap Assist")
@@ -41,29 +43,30 @@ signal flight_mode_changed(is_flying: bool)
 @export var ledge_probe_max_dist: float = 9.5
 @export var ledge_min_height: float = 0.6
 @export var ledge_max_height: float = 5.0
-@export var ledge_max_horiz_speed: float = 18.5
+@export var ledge_max_horiz_speed: float = 16.5
 
 # --- Omnidirectional 3D Flight ("Fly Where You Look") ---
 @export_group("Free 3D Flight")
-@export var flight_cruise_speed: float = 19.0
-@export var flight_sprint_speed: float = 26.0
-@export var flight_strafe_speed: float = 14.5
-@export var flight_back_speed: float = 9.5
-@export var flight_descend_speed: float = 11.5
-@export var flight_max_speed: float = 34.0
-@export var flight_glide_sink: float = 0.85
-@export var flight_responsiveness: float = 6.0
-@export var max_bank_roll_deg: float = 34.0
+@export var flight_cruise_speed: float = 17.5
+@export var flight_sprint_speed: float = 23.5
+@export var flight_strafe_speed: float = 12.5
+@export var flight_back_speed: float = 8.5
+@export var flight_descend_speed: float = 9.5
+@export var flight_max_speed: float = 30.0
+@export var flight_glide_sink: float = 0.65
+@export var flight_responsiveness: float = 3.4
+@export var flight_decel_responsiveness: float = 2.4
+@export var max_bank_roll_deg: float = 28.0
 
 # --- Wing Energy & Abilities ---
 @export_group("Wing Energy & Abilities")
 @export var max_wing_energy: float = 5.0
 @export var wing_regen_rate: float = 0.35
 @export var flap_energy_cost: float = 1.0
-@export var flap_upward_boost: float = 10.5
-@export var flap_forward_boost: float = 8.5
-@export var surge_speed: float = 31.0
-@export var surge_duration: float = 0.34
+@export var flap_upward_boost: float = 9.5
+@export var flap_forward_boost: float = 7.5
+@export var surge_speed: float = 26.0
+@export var surge_duration: float = 0.45
 @export var surge_cooldown: float = 1.6
 @export var call_cooldown: float = 1.4
 @export var call_pulse_duration: float = 0.78
@@ -71,24 +74,24 @@ signal flight_mode_changed(is_flying: bool)
 # --- Camera (Silky Third-Person Framing) ---
 @export_group("Camera")
 @export var base_fov: float = 58.0
-@export var max_fov: float = 74.0
-@export var fov_lerp_speed: float = 4.6
-@export var camera_follow_speed: float = 4.2
-@export var camera_rot_smooth: float = 18.0
-@export var camera_pos_smooth: float = 18.0
-@export var auto_center_delay: float = 1.8
-@export var camera_roll_factor: float = 0.22
+@export var max_fov: float = 72.0
+@export var fov_lerp_speed: float = 3.2
+@export var camera_follow_speed: float = 2.6
+@export var camera_rot_smooth: float = 9.5
+@export var camera_pos_smooth: float = 7.5
+@export var auto_center_delay: float = 2.2
+@export var camera_roll_factor: float = 0.16
 @export var spring_length_ground: float = 6.8
 @export var spring_length_flight: float = 8.8
-@export var spring_length_surge_bonus: float = 1.6
-@export var spring_arm_lerp_speed: float = 4.5
-@export var mouse_look_sensitivity: float = 0.0035
+@export var spring_length_surge_bonus: float = 1.4
+@export var spring_arm_lerp_speed: float = 3.2
+@export var mouse_look_sensitivity: float = 0.0030
 @export var zoom_min_offset: float = -3.0
 @export var zoom_max_offset: float = 5.5
 @export var zoom_step: float = 0.75
-@export var zoom_lerp_speed: float = 9.0
-@export var keyboard_cam_yaw_speed: float = 2.2
-@export var keyboard_cam_pitch_speed: float = 1.6
+@export var zoom_lerp_speed: float = 6.5
+@export var keyboard_cam_yaw_speed: float = 2.0
+@export var keyboard_cam_pitch_speed: float = 1.4
 
 # --- Trails ---
 @export_group("Wingtip Trails")
@@ -113,6 +116,8 @@ var wing_energy: float = 5.0
 var facing_yaw: float = 0.0
 var bank_roll: float = 0.0
 var visual_pitch: float = 0.0
+var _smoothed_move_input: Vector2 = Vector2.ZERO
+var _flight_blend: float = 0.0
 
 var cam_yaw: float = 0.0
 var cam_pitch: float = -0.22
@@ -187,6 +192,16 @@ func _ready() -> void:
 	_target_cam_yaw = cam_yaw
 	_target_cam_pitch = cam_pitch
 	_was_input_enabled = input_enabled
+
+	# Smooth CharacterBody3D wall, railing, and slope sliding (no sticking or corner jitter)
+	motion_mode = CharacterBody3D.MOTION_MODE_GROUNDED
+	slide_on_ceiling = true
+	wall_min_slide_angle = deg_to_rad(5.0)
+	floor_stop_on_slope = false
+	floor_max_angle = deg_to_rad(50.0)
+	floor_snap_length = 0.25
+	max_slides = 6
+	safe_margin = 0.02
 
 	if input_enabled:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
@@ -512,8 +527,19 @@ func _physics_process(delta: float) -> void:
 		return
 
 	# Use physical WASD for Spark movement so Arrow keys cleanly orbit the camera
-	var steer_x: float = (1.0 if Input.is_physical_key_pressed(KEY_D) else 0.0) - (1.0 if Input.is_physical_key_pressed(KEY_A) else 0.0)
-	var move_z: float = (1.0 if Input.is_physical_key_pressed(KEY_S) else 0.0) - (1.0 if Input.is_physical_key_pressed(KEY_W) else 0.0)
+	var raw_steer_x: float = (1.0 if Input.is_physical_key_pressed(KEY_D) else 0.0) - (1.0 if Input.is_physical_key_pressed(KEY_A) else 0.0)
+	var raw_move_z: float = (1.0 if Input.is_physical_key_pressed(KEY_S) else 0.0) - (1.0 if Input.is_physical_key_pressed(KEY_W) else 0.0)
+	var raw_input: Vector2 = Vector2(raw_steer_x, raw_move_z)
+	if raw_input.length_squared() > 1.0:
+		raw_input = raw_input.normalized()
+
+	var input_t: float = 1.0 - exp(-input_smooth_rate * delta)
+	_smoothed_move_input = _smoothed_move_input.lerp(raw_input, input_t)
+	if raw_input.length_squared() < 0.0001 and _smoothed_move_input.length_squared() < 0.0004:
+		_smoothed_move_input = Vector2.ZERO
+
+	var steer_x: float = _smoothed_move_input.x
+	var move_z: float = _smoothed_move_input.y
 
 	# Golden Resonance Call [Q]
 	if Input.is_action_just_pressed("soul_spark") and _call_cooldown_timer <= 0.0:
@@ -521,7 +547,7 @@ func _physics_process(delta: float) -> void:
 
 	# Golden Forward Surge [E]
 	if Input.is_action_just_pressed("blink") and _surge_cooldown_timer <= 0.0:
-		_trigger_golden_surge(steer_x, move_z)
+		_trigger_golden_surge(raw_steer_x, raw_move_z)
 
 	if is_flying:
 		_physics_flight(delta, steer_x, move_z)
@@ -529,13 +555,22 @@ func _physics_process(delta: float) -> void:
 		_physics_ground(delta, steer_x, move_z)
 
 	move_and_slide()
+
+	# Smoothly glide surge direction along castle walls & railings instead of pushing into them
+	if _surge_timer > 0.0 and is_on_wall():
+		var wall_normal: Vector3 = get_wall_normal()
+		if _surge_dir.dot(wall_normal) < 0.0:
+			var slid_dir: Vector3 = _surge_dir.slide(wall_normal)
+			if slid_dir.length_squared() > 0.01:
+				_surge_dir = slid_dir.normalized()
+
 	_apply_playable_boundary_cushion(delta)
 
 	# Gentle Cloud-Sea Updraft Safety Cushion: catch Spark before falling into the void
 	if global_position.y < -16.0:
 		if not is_flying:
 			_enter_flight()
-		velocity.y = maxf(velocity.y, 12.0)
+		velocity.y = lerpf(velocity.y, maxf(velocity.y, 12.0), 1.0 - exp(-6.0 * delta))
 		_boost_velocity.y = maxf(_boost_velocity.y, 6.0)
 		_energy_flare = maxf(_energy_flare, 0.85)
 		recharge_wing_energy(wing_regen_rate * 4.0 * delta)
@@ -638,6 +673,7 @@ func teleport_to(target_pos: Vector3, new_yaw: float = facing_yaw) -> void:
 	reset_physics_interpolation()
 	velocity = Vector3.ZERO
 	_boost_velocity = Vector3.ZERO
+	_smoothed_move_input = Vector2.ZERO
 	facing_yaw = new_yaw
 	if visual_pivot:
 		visual_pivot.global_position = target_pos + Vector3(0.0, 0.9, 0.0)
@@ -665,10 +701,12 @@ func _update_timers_and_regen(delta: float) -> void:
 	if _manual_cam_timer > 0.0:
 		_manual_cam_timer = maxf(0.0, _manual_cam_timer - delta)
 	if _energy_flare > 0.0:
-		_energy_flare = maxf(0.0, _energy_flare - delta * 2.1)
+		_energy_flare = maxf(0.0, _energy_flare - delta * 1.8)
 
-	# Decay boost impulse smoothly
-	_boost_velocity = _boost_velocity.lerp(Vector3.ZERO, 1.0 - exp(-4.8 * delta))
+	# Decay boost / updraft impulse smoothly so flaps and flight entry glide like warm air currents
+	_boost_velocity = _boost_velocity.lerp(Vector3.ZERO, 1.0 - exp(-3.0 * delta))
+	if _boost_velocity.length_squared() < 0.0004:
+		_boost_velocity = Vector3.ZERO
 
 	# Slow passive wing energy regeneration
 	if wing_energy < max_wing_energy:
@@ -681,11 +719,12 @@ func _update_timers_and_regen(delta: float) -> void:
 func _process_disabled_state(delta: float) -> void:
 	if Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	_smoothed_move_input = Vector2.ZERO
 	if is_flying:
-		velocity = velocity.lerp(Vector3.ZERO, 1.0 - exp(-4.0 * delta))
+		velocity = velocity.lerp(Vector3.ZERO, 1.0 - exp(-2.8 * delta))
 	else:
-		var horiz: Vector3 = Vector3(velocity.x, 0.0, velocity.z).lerp(Vector3.ZERO, 1.0 - exp(-ground_deceleration * 0.45 * delta))
-		if horiz.length_squared() < 0.002:
+		var horiz: Vector3 = Vector3(velocity.x, 0.0, velocity.z).lerp(Vector3.ZERO, 1.0 - exp(-ground_deceleration * delta))
+		if horiz.length_squared() < 0.001:
 			horiz = Vector3.ZERO
 		velocity.x = horiz.x
 		velocity.z = horiz.z
@@ -694,6 +733,13 @@ func _process_disabled_state(delta: float) -> void:
 	move_and_slide()
 	if global_position.y < -16.0:
 		velocity.y = maxf(velocity.y, 12.0)
+
+
+func _get_surge_curve() -> float:
+	if _surge_timer <= 0.0:
+		return 0.0
+	var progress: float = 1.0 - clampf(_surge_timer / maxf(surge_duration, 0.01), 0.0, 1.0)
+	return pow(sin(progress * PI), 0.65)
 
 
 func _physics_ground(delta: float, steer_x: float, move_z: float) -> void:
@@ -709,31 +755,43 @@ func _physics_ground(delta: float, steer_x: float, move_z: float) -> void:
 	# Camera-relative movement on marble bridges & islands
 	var cam_forward: Vector3 = Vector3(-sin(cam_yaw), 0.0, -cos(cam_yaw))
 	var cam_right: Vector3 = Vector3(cos(cam_yaw), 0.0, -sin(cam_yaw))
-	var wish_dir: Vector3 = cam_right * steer_x - cam_forward * move_z
-	var has_move_input: bool = wish_dir.length_squared() > 0.001
+	var wish_vec: Vector3 = cam_right * steer_x - cam_forward * move_z
+	var input_mag: float = clampf(wish_vec.length(), 0.0, 1.0)
+	var has_move_input: bool = input_mag > 0.04
+	var wish_dir: Vector3 = wish_vec / maxf(input_mag, 0.0001) if has_move_input else Vector3.ZERO
 
 	var horiz_vel: Vector3 = Vector3(velocity.x, 0.0, velocity.z)
 	var turn_angle_diff: float = 0.0
 
 	if has_move_input:
-		wish_dir = wish_dir.normalized()
-		var target_horiz: Vector3 = wish_dir * active_ground_speed
-		var accel_rate: float = ground_acceleration * (0.35 if _ledge_leap_timer > 0.0 else 1.0)
-		horiz_vel = horiz_vel.lerp(target_horiz, 1.0 - exp(-accel_rate * 0.45 * delta))
+		var target_horiz: Vector3 = wish_dir * (active_ground_speed * input_mag)
+		var base_rate: float = ground_acceleration if target_horiz.length_squared() >= horiz_vel.length_squared() else ground_deceleration
+		var control_mult: float = 1.0
+		if _ledge_leap_timer > 0.0:
+			control_mult = 0.30
+		elif not is_on_floor():
+			control_mult = air_control_factor
+		horiz_vel = horiz_vel.lerp(target_horiz, 1.0 - exp(-base_rate * control_mult * delta))
 
 		var target_yaw: float = atan2(-wish_dir.x, -wish_dir.z)
 		turn_angle_diff = wrapf(target_yaw - facing_yaw, -PI, PI)
 		facing_yaw = lerp_angle(facing_yaw, target_yaw, 1.0 - exp(-ground_turn_speed * delta))
 	elif _ledge_leap_timer <= 0.0:
-		horiz_vel = horiz_vel.lerp(Vector3.ZERO, 1.0 - exp(-ground_deceleration * 0.45 * delta))
-		if horiz_vel.length_squared() < 0.002:
+		var coast_rate: float = ground_deceleration * (1.0 if is_on_floor() else air_control_factor * 0.6)
+		horiz_vel = horiz_vel.lerp(Vector3.ZERO, 1.0 - exp(-coast_rate * delta))
+		if horiz_vel.length_squared() < 0.001:
 			horiz_vel = Vector3.ZERO
 
-	# Apply Golden Forward Surge if active
+	# Apply Golden Forward Surge with silky ease-in/ease-out curve (no abrupt teleport snap)
 	if _surge_timer > 0.0:
 		var surge_horiz: Vector3 = Vector3(_surge_dir.x, 0.0, _surge_dir.z)
 		if surge_horiz.length_squared() > 0.001:
-			horiz_vel = surge_horiz.normalized() * surge_speed
+			var surge_norm: Vector3 = surge_horiz.normalized()
+			var surge_curve: float = _get_surge_curve()
+			var target_surge_vel: Vector3 = surge_norm * lerpf(active_ground_speed, surge_speed, surge_curve)
+			horiz_vel = horiz_vel.lerp(target_surge_vel, 1.0 - exp(-9.5 * delta))
+			var surge_yaw: float = atan2(-surge_norm.x, -surge_norm.z)
+			facing_yaw = lerp_angle(facing_yaw, surge_yaw, 1.0 - exp(-8.5 * delta))
 
 	velocity.x = horiz_vel.x + _boost_velocity.x
 	velocity.z = horiz_vel.z + _boost_velocity.z
@@ -747,28 +805,28 @@ func _physics_ground(delta: float, steer_x: float, move_z: float) -> void:
 			if not did_ledge_leap:
 				velocity.y = jump_velocity
 				_coyote_timer = 0.0
-				_flap_anim_timer = 0.28
+				_flap_anim_timer = 0.32
 		else:
 			_enter_flight()
 			return
 
-	# Gravity (slightly floatier on descent for graceful cat-like arc)
+	# Gravity (floatier on descent for graceful floating-spirit arc)
 	if not is_on_floor():
 		var g: float = gravity * (fall_gravity_multiplier if velocity.y < 0.0 else 1.0)
 		velocity.y -= g * delta
 
-	# Natural cat-like lean into turns and forward sprint pitch
+	# Gentle spirit lean into turns and soft forward glide pitch
 	var ground_turn_lean: float = 0.0
 	if has_move_input:
-		ground_turn_lean = clampf(turn_angle_diff * 0.65 - steer_x * 0.14, -deg_to_rad(18.0), deg_to_rad(18.0))
-	bank_roll = lerpf(bank_roll, ground_turn_lean, 1.0 - exp(-10.0 * delta))
+		ground_turn_lean = clampf((turn_angle_diff * 0.48 - steer_x * 0.10) * input_mag, -deg_to_rad(14.0), deg_to_rad(14.0))
+	bank_roll = lerpf(bank_roll, ground_turn_lean, 1.0 - exp(-5.5 * delta))
 
 	var target_pitch: float = 0.0
 	if not is_on_floor():
-		target_pitch = clampf(velocity.y * 0.025, -0.22, 0.24)
+		target_pitch = clampf(velocity.y * 0.022, -0.20, 0.22)
 	elif has_move_input:
-		target_pitch = -0.19 if is_sprinting else -0.12
-	visual_pitch = lerpf(visual_pitch, target_pitch, 1.0 - exp(-9.5 * delta))
+		target_pitch = (-0.15 if is_sprinting else -0.09) * input_mag
+	visual_pitch = lerpf(visual_pitch, target_pitch, 1.0 - exp(-5.5 * delta))
 
 
 func _try_contextual_ledge_leap(move_dir: Vector3) -> bool:
@@ -833,13 +891,12 @@ func _try_contextual_ledge_leap(move_dir: Vector3) -> bool:
 		if leap_horiz_vel.length() > ledge_max_horiz_speed:
 			leap_horiz_vel = leap_horiz_vel.normalized() * ledge_max_horiz_speed
 
-		velocity.x = leap_horiz_vel.x
-		velocity.z = leap_horiz_vel.z
+		velocity.x = lerpf(velocity.x, leap_horiz_vel.x, 0.72)
+		velocity.z = lerpf(velocity.z, leap_horiz_vel.z, 0.72)
 		velocity.y = vy
-		facing_yaw = atan2(-move_dir.x, -move_dir.z)
 		_coyote_timer = 0.0
 		_ledge_leap_timer = minf(total_time * 0.65, 0.42)
-		_flap_anim_timer = 0.36
+		_flap_anim_timer = 0.38
 		_energy_flare = maxf(_energy_flare, 0.55)
 		return true
 
@@ -858,12 +915,13 @@ func _physics_flight(delta: float, steer_x: float, move_z: float) -> void:
 	var is_descending: bool = Input.is_physical_key_pressed(KEY_CTRL) or Input.is_physical_key_pressed(KEY_C)
 
 	var target_velocity: Vector3 = Vector3.ZERO
+	var has_flight_input: bool = absf(forward_input) > 0.03 or absf(steer_x) > 0.03 or is_descending
 
 	# W flies directly along the 3D camera look vector (look up to climb, look down to dive)
 	if forward_input > 0.01:
 		var fwd_speed: float = flight_sprint_speed if is_sprinting else flight_cruise_speed
 		if cam_forward_3d.y < -0.15:
-			fwd_speed += (-cam_forward_3d.y) * 5.0
+			fwd_speed += (-cam_forward_3d.y) * 4.2
 		target_velocity += cam_forward_3d * (forward_input * fwd_speed)
 	elif forward_input < -0.01:
 		# S gently brakes / glides backward
@@ -883,12 +941,16 @@ func _physics_flight(delta: float, steer_x: float, move_z: float) -> void:
 
 	target_velocity += _boost_velocity
 
+	# Apply Golden Forward Surge with silky ease-in/ease-out curve
 	if _surge_timer > 0.0:
-		target_velocity = _surge_dir * surge_speed
+		var surge_curve: float = _get_surge_curve()
+		var surge_vel: Vector3 = _surge_dir * lerpf(flight_cruise_speed, surge_speed, surge_curve)
+		target_velocity = target_velocity.lerp(surge_vel, surge_curve)
 	elif target_velocity.length() > flight_max_speed:
 		target_velocity = target_velocity.normalized() * flight_max_speed
 
-	velocity = velocity.lerp(target_velocity, 1.0 - exp(-flight_responsiveness * delta))
+	var resp_rate: float = flight_responsiveness if (has_flight_input or _surge_timer > 0.0) else flight_decel_responsiveness
+	velocity = velocity.lerp(target_velocity, 1.0 - exp(-resp_rate * delta))
 
 	# Smoothly orient Spark's visual body toward her 3D velocity with natural banking
 	var horiz_vel: Vector3 = Vector3(velocity.x, 0.0, velocity.z)
@@ -896,29 +958,31 @@ func _physics_flight(delta: float, steer_x: float, move_z: float) -> void:
 	if horiz_speed > 0.9:
 		var vel_yaw: float = atan2(-horiz_vel.x, -horiz_vel.z)
 		var yaw_diff: float = wrapf(vel_yaw - facing_yaw, -PI, PI)
-		facing_yaw = lerp_angle(facing_yaw, vel_yaw, 1.0 - exp(-9.5 * delta))
+		facing_yaw = lerp_angle(facing_yaw, vel_yaw, 1.0 - exp(-5.4 * delta))
 
 		var max_bank_rad: float = deg_to_rad(max_bank_roll_deg)
-		var target_bank: float = clampf(yaw_diff * 1.15 - steer_x * 0.42, -max_bank_rad, max_bank_rad)
-		bank_roll = lerpf(bank_roll, target_bank, 1.0 - exp(-8.5 * delta))
+		var target_bank: float = clampf(yaw_diff * 0.85 - steer_x * 0.34, -max_bank_rad, max_bank_rad)
+		bank_roll = lerpf(bank_roll, target_bank, 1.0 - exp(-4.8 * delta))
 
-		var target_pitch: float = clampf(atan2(velocity.y, maxf(horiz_speed, 4.0)), deg_to_rad(-44.0), deg_to_rad(44.0))
-		visual_pitch = lerpf(visual_pitch, target_pitch, 1.0 - exp(-8.5 * delta))
+		var target_pitch: float = clampf(atan2(velocity.y, maxf(horiz_speed, 4.5)), deg_to_rad(-38.0), deg_to_rad(38.0))
+		visual_pitch = lerpf(visual_pitch, target_pitch, 1.0 - exp(-4.8 * delta))
 	else:
-		facing_yaw = lerp_angle(facing_yaw, cam_yaw, 1.0 - exp(-5.0 * delta))
-		bank_roll = lerpf(bank_roll, -steer_x * deg_to_rad(14.0), 1.0 - exp(-7.0 * delta))
-		visual_pitch = lerpf(visual_pitch, clampf(velocity.y * 0.04, -0.35, 0.35), 1.0 - exp(-7.0 * delta))
+		facing_yaw = lerp_angle(facing_yaw, cam_yaw, 1.0 - exp(-3.6 * delta))
+		bank_roll = lerpf(bank_roll, -steer_x * deg_to_rad(11.0), 1.0 - exp(-4.5 * delta))
+		visual_pitch = lerpf(visual_pitch, clampf(velocity.y * 0.032, -0.30, 0.30), 1.0 - exp(-4.5 * delta))
 
 
 func _enter_flight() -> void:
 	if is_flying:
 		return
 	is_flying = true
-	_flight_entry_grace = 0.25
+	_flight_entry_grace = 0.28
 	_ledge_leap_timer = 0.0
 
-	velocity.y = maxf(velocity.y, 5.5)
-	_flap_anim_timer = 0.45
+	# Catch a gentle warm updraft instead of snapping upward abruptly
+	velocity.y = lerpf(velocity.y, maxf(velocity.y, 4.2), 0.45)
+	_boost_velocity.y = maxf(_boost_velocity.y, 6.2)
+	_flap_anim_timer = 0.50
 	_energy_flare = maxf(_energy_flare, 0.72)
 	flight_mode_changed.emit(true)
 
@@ -927,7 +991,8 @@ func _exit_flight() -> void:
 	if not is_flying:
 		return
 	is_flying = false
-	_boost_velocity = Vector3.ZERO
+	# Preserve a soft fraction of glide momentum on touchdown instead of cutting abruptly
+	_boost_velocity = Vector3(_boost_velocity.x * 0.35, 0.0, _boost_velocity.z * 0.35)
 	flight_mode_changed.emit(false)
 
 
@@ -938,29 +1003,29 @@ func _perform_wing_flap_boost() -> void:
 	wing_energy = maxf(0.0, wing_energy - flap_energy_cost)
 	wing_energy_changed.emit(wing_energy, max_wing_energy)
 
+	# Channel wingbeat lift smoothly through _boost_velocity for a buoyant, dreamy updraft
 	var cam_forward_3d: Vector3 = _get_camera_forward_3d()
-	velocity.y = maxf(velocity.y + flap_upward_boost * 0.65, flap_upward_boost)
-	_boost_velocity += Vector3.UP * (flap_upward_boost * 0.6) + cam_forward_3d * (flap_forward_boost * 0.45)
-	_flap_anim_timer = 0.55
+	velocity.y = maxf(velocity.y, 3.2)
+	_boost_velocity += Vector3.UP * (flap_upward_boost * 0.85) + cam_forward_3d * (flap_forward_boost * 0.55)
+	_flap_anim_timer = 0.58
 	_energy_flare = 1.15
 
 
 func _trigger_golden_surge(steer_x: float, move_z: float) -> void:
 	_surge_timer = surge_duration
 	_surge_cooldown_timer = surge_cooldown
-	_flap_anim_timer = maxf(_flap_anim_timer, 0.35)
+	_flap_anim_timer = maxf(_flap_anim_timer, 0.42)
 	_energy_flare = 1.3
 
 	if is_flying:
 		_surge_dir = _get_camera_forward_3d()
-		_boost_velocity += _surge_dir * 7.0
+		_boost_velocity += _surge_dir * 4.5
 	else:
 		var cam_forward: Vector3 = Vector3(-sin(cam_yaw), 0.0, -cos(cam_yaw))
 		var cam_right: Vector3 = Vector3(cos(cam_yaw), 0.0, -sin(cam_yaw))
 		var wish: Vector3 = cam_right * steer_x - cam_forward * move_z
 		if wish.length_squared() > 0.01:
 			_surge_dir = wish.normalized()
-			facing_yaw = atan2(-_surge_dir.x, -_surge_dir.z)
 		else:
 			_surge_dir = Vector3(-sin(facing_yaw), 0.0, -cos(facing_yaw))
 
@@ -985,25 +1050,30 @@ func _update_visual_rig(delta: float) -> void:
 	if not visual_pivot:
 		return
 
+	# Smooth visual transition blend between grounded gliding and free 3D flight
+	_flight_blend = lerpf(_flight_blend, 1.0 if is_flying else 0.0, 1.0 - exp(-4.5 * delta))
+
 	# Track physics-interpolated origin every render frame so VisualPivot has zero 60Hz stutter
 	var interp_origin: Vector3 = get_global_transform_interpolated().origin
-	var hover_bob: float = sin(_anim_time * (3.2 if is_flying else 2.4)) * (0.07 if is_flying else 0.032)
+	var bob_freq: float = lerpf(2.2, 3.0, _flight_blend)
+	var bob_amp: float = lerpf(0.032, 0.068, _flight_blend)
+	var hover_bob: float = sin(_anim_time * bob_freq) * bob_amp
 	visual_pivot.global_position = interp_origin + Vector3(0.0, 0.9 + hover_bob, 0.0)
 
-	# Orient VisualPivot with smooth render-frame yaw, pitch, and banking roll
+	# Orient VisualPivot with silky render-frame yaw, pitch, and banking roll
 	var target_basis: Basis = Basis.from_euler(Vector3(visual_pitch, facing_yaw, bank_roll))
-	visual_pivot.basis = visual_pivot.basis.slerp(target_basis, 1.0 - exp(-12.0 * delta))
+	visual_pivot.basis = visual_pivot.basis.slerp(target_basis, 1.0 - exp(-7.5 * delta))
 
 	# Orbiting celestial star-halo ring above Spark's head
 	if star_halo and star_halo.visible:
-		var halo_spin: float = 1.5 + (_energy_flare * 4.2) + (1.1 if is_flying else 0.0)
+		var halo_spin: float = 1.5 + (_energy_flare * 4.2) + (_flight_blend * 1.1)
 		star_halo.rotate_z(halo_spin * delta)
 		star_halo.position.y = _base_halo_y + sin(_anim_time * 3.4) * 0.045
 		var halo_scale: float = 1.0 + _energy_flare * 0.2
 		star_halo.scale = Vector3.ONE * halo_scale
 
 	if _spark_halo_node != null:
-		var model_halo_spin: float = 0.85 + (_energy_flare * 3.2) + (0.75 if is_flying else 0.0)
+		var model_halo_spin: float = 0.85 + (_energy_flare * 3.2) + (_flight_blend * 0.75)
 		_spark_halo_node.rotate_object_local(Vector3.FORWARD, model_halo_spin * delta)
 		_spark_halo_node.position.y = _spark_halo_base_y + sin(_anim_time * 3.2) * 0.032
 		var model_halo_scale: float = 1.0 + _energy_flare * 0.16
@@ -1014,10 +1084,10 @@ func _update_visual_rig(delta: float) -> void:
 	# Drive Spark's living flame core shader & flowing wind-wave cape shader
 	var flap_burst: float = 0.0
 	if _flap_anim_timer > 0.0:
-		var ft: float = 1.0 - clampf(_flap_anim_timer / 0.55, 0.0, 1.0)
+		var ft: float = 1.0 - clampf(_flap_anim_timer / 0.58, 0.0, 1.0)
 		flap_burst = sin(ft * PI)
 	if _surge_timer > 0.0:
-		flap_burst = maxf(flap_burst, 0.9)
+		flap_burst = maxf(flap_burst, _get_surge_curve() * 0.9)
 
 	if _flame_shader_mat:
 		_flame_shader_mat.set_shader_parameter("flare_intensity", _energy_flare)
@@ -1036,14 +1106,14 @@ func _update_visual_rig(delta: float) -> void:
 
 	# Procedural billowing animation on left & right 3D cape wings + radiant light-wing flares
 	if cape_left and cape_right:
-		var billow_freq: float = lerpf(3.2, 13.5, speed_ratio)
-		var billow_amp: float = lerpf(0.07, 0.24, speed_ratio)
+		var billow_freq: float = lerpf(3.0, 12.5, speed_ratio)
+		var billow_amp: float = lerpf(0.07, 0.22, speed_ratio)
 		var wave_l: float = sin(_anim_time * billow_freq) * billow_amp
 		var wave_r: float = sin(_anim_time * billow_freq + 0.55) * billow_amp
 
-		var flap_stroke: float = flap_burst * 0.88
-		var spread_angle: float = 0.10 if is_flying else -0.52
-		var sweep_back: float = lerpf(0.18, 0.54, speed_ratio) if is_flying else lerpf(0.12, 0.42, speed_ratio)
+		var flap_stroke: float = flap_burst * 0.85
+		var spread_angle: float = lerpf(-0.52, 0.10, _flight_blend)
+		var sweep_back: float = lerpf(lerpf(0.12, 0.42, speed_ratio), lerpf(0.18, 0.54, speed_ratio), _flight_blend)
 
 		cape_left.rotation = Vector3(
 			0.12 + wave_l * 0.5,
@@ -1057,7 +1127,7 @@ func _update_visual_rig(delta: float) -> void:
 		)
 
 	# Radiant additive light-wing flares bloom open on wing flaps, surge, or fast flight
-	var flare_vis: float = clampf(flap_burst * 0.85 + (_energy_flare * 0.35) + (0.14 if is_flying else 0.0), 0.0, 1.0)
+	var flare_vis: float = clampf(flap_burst * 0.85 + (_energy_flare * 0.35) + (_flight_blend * 0.14), 0.0, 1.0)
 	if _wing_flare_mat:
 		_wing_flare_mat.albedo_color = Color(1.0, 0.72, 0.88, flare_vis * 0.72)
 	var flare_scale: Vector3 = Vector3(lerpf(0.65, 1.45, flare_vis), lerpf(0.55, 1.35, flare_vis), 1.0)
@@ -1070,8 +1140,8 @@ func _update_visual_rig(delta: float) -> void:
 
 	# Warm OmniLight3D intensity modulation on abilities & speed (kept soft to avoid floor hotspots)
 	if spark_light:
-		var target_energy: float = _base_light_energy + (_energy_flare * 0.42) + (0.14 if is_flying else 0.0)
-		spark_light.light_energy = lerpf(spark_light.light_energy, target_energy, 1.0 - exp(-10.0 * delta))
+		var target_energy: float = _base_light_energy + (_energy_flare * 0.42) + (_flight_blend * 0.14)
+		spark_light.light_energy = lerpf(spark_light.light_energy, target_energy, 1.0 - exp(-7.5 * delta))
 
 
 func _update_camera(delta: float) -> void:
@@ -1087,16 +1157,16 @@ func _update_camera(delta: float) -> void:
 			_target_cam_pitch = clampf(_target_cam_pitch + key_cam_y * keyboard_cam_pitch_speed * delta, deg_to_rad(-68.0), deg_to_rad(52.0))
 			_manual_cam_timer = auto_center_delay
 
-	# Gentle Stray-style auto-centering behind Spark's travel direction after 1.8s of no manual input
+	# Gentle Stray-style auto-centering behind Spark's travel direction after idle manual look
 	if input_enabled and _manual_cam_timer <= 0.0:
 		var horiz_vel: Vector3 = Vector3(velocity.x, 0.0, velocity.z)
 		var horiz_speed: float = horiz_vel.length()
-		if horiz_speed > 1.5:
+		if horiz_speed > 1.8:
 			var travel_yaw: float = atan2(-horiz_vel.x, -horiz_vel.z)
-			var follow_rate: float = camera_follow_speed * (0.65 if is_flying else 0.45)
+			var follow_rate: float = camera_follow_speed * lerpf(0.45, 0.65, _flight_blend)
 			_target_cam_yaw = lerp_angle(_target_cam_yaw, travel_yaw, 1.0 - exp(-follow_rate * delta))
 			if not is_flying:
-				_target_cam_pitch = lerpf(_target_cam_pitch, -0.22, 1.0 - exp(-follow_rate * 0.4 * delta))
+				_target_cam_pitch = lerpf(_target_cam_pitch, -0.22, 1.0 - exp(-follow_rate * 0.35 * delta))
 
 	# Silky exponential rotational inertia for mouse & keyboard orbit (zero micro-stutter)
 	var rot_t: float = 1.0 - exp(-camera_rot_smooth * delta)
@@ -1109,7 +1179,7 @@ func _update_camera(delta: float) -> void:
 	if camera_rig.global_position.distance_squared_to(target_rig_pos) > 144.0:
 		camera_rig.global_position = target_rig_pos
 	else:
-		var pos_rate: float = camera_pos_smooth * (0.85 if is_flying else 1.1)
+		var pos_rate: float = camera_pos_smooth * lerpf(1.08, 0.80, _flight_blend)
 		camera_rig.global_position = camera_rig.global_position.lerp(target_rig_pos, 1.0 - exp(-pos_rate * delta))
 
 	camera_rig.rotation = Vector3(cam_pitch, cam_yaw, 0.0)
@@ -1118,29 +1188,27 @@ func _update_camera(delta: float) -> void:
 	cam_zoom_offset = lerpf(cam_zoom_offset, _target_zoom_offset, 1.0 - exp(-zoom_lerp_speed * delta))
 
 	# Dynamic FOV expansion during fast movement, flight, wing flap boost, or golden surge
-	var speed_factor: float = clampf((velocity.length() - 10.0) / maxf(flight_max_speed - 10.0, 1.0), 0.0, 1.0)
-	var boost_fov: float = 0.0
-	if _surge_timer > 0.0:
-		boost_fov += 6.5
+	var speed_factor: float = clampf((velocity.length() - 9.0) / maxf(flight_max_speed - 9.0, 1.0), 0.0, 1.0)
+	var surge_curve: float = _get_surge_curve()
+	var boost_fov: float = surge_curve * 5.5
 	if _flap_anim_timer > 0.0:
-		boost_fov += 3.8 * clampf(_flap_anim_timer / 0.55, 0.0, 1.0)
+		var flap_t: float = 1.0 - clampf(_flap_anim_timer / 0.58, 0.0, 1.0)
+		boost_fov += 3.0 * sin(flap_t * PI)
 
 	var target_fov: float = clampf(lerpf(base_fov, max_fov - 4.0, speed_factor) + boost_fov, base_fov, max_fov)
 	camera.fov = lerpf(camera.fov, target_fov, 1.0 - exp(-fov_lerp_speed * delta))
 
 	# Silky SpringArm3D distance easing + player mouse-wheel / trackpad zoom offset
 	if spring_arm:
-		var target_arm: float = lerpf(spring_length_ground, spring_length_flight, 1.0 if is_flying else 0.0)
-		if is_flying:
-			target_arm += speed_factor * 1.1
-		if _surge_timer > 0.0:
-			target_arm += spring_length_surge_bonus
+		var target_arm: float = lerpf(spring_length_ground, spring_length_flight, _flight_blend)
+		target_arm += speed_factor * 1.1 * _flight_blend
+		target_arm += spring_length_surge_bonus * surge_curve
 		target_arm = clampf(target_arm + cam_zoom_offset, 2.5, 18.0)
 		spring_arm.spring_length = lerpf(spring_arm.spring_length, target_arm, 1.0 - exp(-spring_arm_lerp_speed * delta))
 
 	# Subtle cinematic camera roll following banking angle in flight
-	var target_cam_roll: float = bank_roll * camera_roll_factor if is_flying else 0.0
-	camera.rotation.z = lerpf(camera.rotation.z, target_cam_roll, 1.0 - exp(-6.2 * delta))
+	var target_cam_roll: float = bank_roll * camera_roll_factor * _flight_blend
+	camera.rotation.z = lerpf(camera.rotation.z, target_cam_roll, 1.0 - exp(-4.2 * delta))
 
 
 func _update_call_pulse(delta: float) -> void:

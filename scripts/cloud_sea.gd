@@ -1,11 +1,11 @@
 class_name CloudSea
 extends Node3D
 
-## Procedurally populates a photorealistic, multi-tiered 3D cumulus cloudscape using a
-## sculpted 5-lobe organic cumulus ArrayMesh (~772 tris) and cloud_puff.gdshader:
-## billowing cloud sea floor, under-viaduct arch billows, flanking cumulus canyon towers,
-## Cathedral cloud amphitheater, and high celestial wisps, keeping a crystal-clear central
-## flight corridor along -Z (z=50 to z=-320).
+## Procedurally populates an ultra-soft, plush cotton-wool & pastel cotton-candy 3D cloudscape
+## using a silky-smooth 6-lobe rounded cumulus ArrayMesh (~1,952 tris) and cloud_puff.gdshader:
+## dreamy sakura-blush cloud sea floor, under-viaduct billows, flanking cumulus canyon towers,
+## Cathedral cloud amphitheater, and plump snow-cream floating sky clouds, keeping a crystal-clear
+## central flight corridor along -Z (z=50 to z=-320).
 
 @export var cloud_shader: Shader = preload("res://shaders/cloud_puff.gdshader")
 @export var seed_value: int = 4242
@@ -36,8 +36,8 @@ extends Node3D
 @export_group("Cathedral Cloud Amphitheater")
 @export var cathedral_cloud_count: int = 6
 
-@export_group("High Celestial Wisps")
-@export var high_wisp_count: int = 5
+@export_group("High Celestial Clouds")
+@export var high_wisp_count: int = 6
 
 @export_group("Animation")
 @export var bob_amplitude_scale: float = 1.0
@@ -45,7 +45,9 @@ extends Node3D
 @export var drift_amplitude_scale: float = 1.0
 
 var _shared_mesh: ArrayMesh
-var _shared_material: ShaderMaterial
+var _material_cotton_white: ShaderMaterial
+var _material_cotton_blush: ShaderMaterial
+var _material_cotton_sakura: ShaderMaterial
 var _rng: RandomNumberGenerator = RandomNumberGenerator.new()
 
 var _clusters: Array[Node3D] = []
@@ -66,89 +68,143 @@ func _ready() -> void:
 
 
 func _setup_shared_resources() -> void:
-	_shared_mesh = _build_sculpted_cumulus_mesh()
+	_shared_mesh = _build_plush_cumulus_mesh()
 
-	_shared_material = ShaderMaterial.new()
-	_shared_material.shader = cloud_shader
+	# 1. Plush snow-cream cotton-wool (floating sky clouds & sunlit upper crowns)
+	_material_cotton_white = _create_cloud_material(
+		Color(0.698, 0.745, 0.878, 1.0),  # #B2BEE0 Gentle periwinkle-lavender cushion shadow
+		Color(0.812, 0.847, 0.941, 1.0),  # #CFD8F0 Airy powder-periwinkle mid-shadow
+		Color(0.976, 0.933, 0.957, 1.0),  # #F9EEF4 Soft pastel blush-pearl midtone
+		Color(1.000, 0.992, 0.976, 1.0),  # #FFFDF9 Warm sunlit ivory-cream crown
+		Color(1.000, 0.976, 0.945, 1.0),  # #FFF9F1 Plush backlit cotton-wool velvet halo
+		Color(1.000, 0.839, 0.871, 1.0)   # #FFD6DE Soft sakura-peach horizon bounce
+	)
+
+	# 2. Soft cream-to-blush transitional cumulus (mid-canyon & under-viaduct billows)
+	_material_cotton_blush = _create_cloud_material(
+		Color(0.784, 0.729, 0.867, 1.0),  # #C8BADD Soft lavender-rose cushion shadow
+		Color(0.878, 0.816, 0.918, 1.0),  # #E0D0EA Pastel lilac-blush mid-shadow
+		Color(0.992, 0.894, 0.925, 1.0),  # #FDE4EC Delicate rose-quartz pearl midtone
+		Color(1.000, 0.984, 0.976, 1.0),  # #FFFBF9 Warm cream-ivory crown
+		Color(1.000, 0.953, 0.949, 1.0),  # #FFF3F2 Velvety blush-cream rim halo
+		Color(1.000, 0.816, 0.855, 1.0)   # #FFD0DA Warm sakura-pink horizon bounce
+	)
+
+	# 3. Dreamy pastel sakura-pink & peach cotton-candy (horizon sea & Cathedral banks)
+	_material_cotton_sakura = _create_cloud_material(
+		Color(0.824, 0.678, 0.812, 1.0),  # #D2ADCF Soft rose-lavender cushion shadow
+		Color(0.922, 0.733, 0.835, 1.0),  # #EBBBD5 Pastel orchid-pink mid-shadow
+		Color(1.000, 0.827, 0.886, 1.0),  # #FFD3E2 Dreamy cotton-candy sakura midtone
+		Color(1.000, 0.957, 0.969, 1.0),  # #FFF4F7 Sunlit pastel-pink cream crown
+		Color(1.000, 0.922, 0.941, 1.0),  # #FFEBF0 Plush backlit cotton-candy halo
+		Color(1.000, 0.812, 0.788, 1.0)   # #FFCFCA Warm peach-blush horizon bounce
+	)
 
 
-func _build_sculpted_cumulus_mesh() -> ArrayMesh:
-	## Procedurally fuses 5 overlapping bumpy noise-displaced organic cloud lobes into a
-	## single clean smooth ArrayMesh (~772 triangles total):
-	##   1 broad flat-bottomed cumulus base + 3 rising cauliflower side-domes + 1 billowing crown dome.
+func _create_cloud_material(
+	underside: Color,
+	shadow: Color,
+	mid: Color,
+	sunlit: Color,
+	rim: Color,
+	bounce: Color
+) -> ShaderMaterial:
+	var mat: ShaderMaterial = ShaderMaterial.new()
+	mat.shader = cloud_shader
+	mat.set_shader_parameter("underside_color", underside)
+	mat.set_shader_parameter("shadow_color", shadow)
+	mat.set_shader_parameter("mid_color", mid)
+	mat.set_shader_parameter("sunlit_color", sunlit)
+	mat.set_shader_parameter("silver_lining_color", rim)
+	mat.set_shader_parameter("horizon_bounce_color", bounce)
+	return mat
+
+
+func _build_plush_cumulus_mesh() -> ArrayMesh:
+	## Procedurally fuses 6 silky-smooth, overlapping rounded cotton-wool cushions into a
+	## single clean ArrayMesh (1,952 triangles total, zero sharp creases or faceted planes):
+	##   1 broad pillowy base cushion + 4 plump rounded side cushions + 1 sunlit crown dome.
 	var noise: FastNoiseLite = FastNoiseLite.new()
 	noise.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
-	noise.fractal_type = FastNoiseLite.FRACTAL_FBM
-	noise.fractal_octaves = 3
-	noise.fractal_lacunarity = 2.1
-	noise.fractal_gain = 0.48
-	noise.frequency = 1.15
+	noise.fractal_type = FastNoiseLite.FRACTAL_NONE
+	noise.frequency = 0.52
 	noise.seed = 1337
 
 	var st: SurfaceTool = SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 
-	# Lobe 0: Broad flat-bottomed cumulus condensation base (14x8 -> 196 tris)
-	_append_sculpted_lobe(
+	# Lobe 0: Broad pillowy base cushion (20x12 -> 440 tris)
+	_append_plush_lobe(
 		st,
 		noise,
-		Vector3(0.0, -0.18, 0.0),
-		Vector3(1.18, 0.56, 1.12),
-		14,
-		8,
-		0.36,
+		Vector3(0.0, -0.14, 0.0),
+		Vector3(1.12, 0.62, 1.06),
+		20,
+		12,
+		0.62,
 		1.0
 	)
-	# Lobe 1: Rising cauliflower side-dome (front-left shoulder, 12x7 -> 144 tris)
-	_append_sculpted_lobe(
+	# Lobe 1: Plump left cotton cushion (16x10 -> 288 tris)
+	_append_plush_lobe(
 		st,
 		noise,
-		Vector3(-0.62, 0.16, 0.24),
-		Vector3(0.64, 0.62, 0.60),
-		12,
-		7,
-		0.55,
-		1.08
+		Vector3(-0.66, 0.08, 0.14),
+		Vector3(0.64, 0.60, 0.62),
+		16,
+		10,
+		0.72,
+		1.0
 	)
-	# Lobe 2: Rising cauliflower side-dome (front-right shoulder, 12x7 -> 144 tris)
-	_append_sculpted_lobe(
+	# Lobe 2: Plump right cotton cushion (16x10 -> 288 tris)
+	_append_plush_lobe(
 		st,
 		noise,
-		Vector3(0.58, 0.22, 0.34),
-		Vector3(0.58, 0.68, 0.56),
-		12,
-		7,
-		0.55,
-		1.12
+		Vector3(0.64, 0.12, 0.18),
+		Vector3(0.60, 0.62, 0.58),
+		16,
+		10,
+		0.72,
+		1.0
 	)
-	# Lobe 3: Rising cauliflower side-dome (rear shoulder, 12x7 -> 144 tris)
-	_append_sculpted_lobe(
+	# Lobe 3: Plump rear-left cotton cushion (16x10 -> 288 tris)
+	_append_plush_lobe(
 		st,
 		noise,
-		Vector3(0.08, 0.14, -0.60),
-		Vector3(0.62, 0.58, 0.64),
-		12,
-		7,
-		0.52,
-		1.05
+		Vector3(-0.22, 0.10, -0.56),
+		Vector3(0.60, 0.58, 0.60),
+		16,
+		10,
+		0.72,
+		1.0
 	)
-	# Lobe 4: Billowing crown dome crowning the sunlit summit (12x7 -> 144 tris)
-	_append_sculpted_lobe(
+	# Lobe 4: Plump rear-right cotton cushion (16x10 -> 288 tris)
+	_append_plush_lobe(
 		st,
 		noise,
-		Vector3(-0.04, 0.54, 0.04),
-		Vector3(0.56, 0.66, 0.54),
-		12,
-		7,
-		0.70,
-		1.15
+		Vector3(0.30, 0.08, -0.52),
+		Vector3(0.58, 0.56, 0.58),
+		16,
+		10,
+		0.72,
+		1.0
+	)
+	# Lobe 5: Plump sunlit summit crown dome (18x11 -> 360 tris)
+	_append_plush_lobe(
+		st,
+		noise,
+		Vector3(-0.02, 0.48, 0.02),
+		Vector3(0.64, 0.64, 0.62),
+		18,
+		11,
+		0.80,
+		1.0
 	)
 
 	st.index()
 	return st.commit()
 
 
-func _append_sculpted_lobe(
+func _append_plush_lobe(
 	st: SurfaceTool,
 	noise: FastNoiseLite,
 	center: Vector3,
@@ -180,20 +236,16 @@ func _append_sculpted_lobe(
 			var phi: float = u_frac * TAU
 			var dir: Vector3 = Vector3(sin_t * cos(phi), cos_t, sin_t * sin(phi))
 
-			var local_p: Vector3 = Vector3(dir.x * radii.x, dir.y * radii.y, dir.z * radii.z)
-			if local_p.y < 0.0:
-				local_p.y *= flat_bottom_scale
+			# Smooth C1-continuous pillow squash on underside (zero hard crease lines)
+			var bottom_t: float = smoothstep(0.18, -0.82, dir.y)
+			var y_scale: float = lerpf(1.0, flat_bottom_scale, bottom_t)
+			var local_p: Vector3 = Vector3(dir.x * radii.x, dir.y * radii.y * y_scale, dir.z * radii.z)
 
 			var p: Vector3 = center + local_p
-			var n_primary: float = noise.get_noise_3dv(p * 1.45)
-			var n_detail: float = noise.get_noise_3dv(p * 2.85 + Vector3(7.3, -4.1, 5.7))
-			var up_factor: float = clampf((dir.y + 0.35) * 0.85, 0.22, 1.0)
-			var disp: float = (n_primary * 0.19 + n_detail * 0.08) * bump_strength * up_factor
+			# Ultra-gentle low-frequency organic pillowing keeps silhouettes plump & silky
+			var n_primary: float = noise.get_noise_3dv(p * 0.95)
+			var disp: float = n_primary * 0.045 * bump_strength
 			p += dir * disp
-
-			# Shared meteorological condensation level so fused lobes share a natural flat underside
-			if p.y < -0.42:
-				p.y = -0.42 + (p.y + 0.42) * 0.32
 
 			var idx: int = r * cols + s
 			positions[idx] = p
@@ -225,16 +277,28 @@ func _append_sculpted_lobe(
 		smooth_normals[left_idx] = welded
 		smooth_normals[right_idx] = welded
 
-	# Blend geometric lobe normal with macro cumulus radial normal for unified volumetric shading
-	var macro_center: Vector3 = Vector3(0.0, -0.14, 0.0)
+	# Unify pole normals at r = 0 and r = rings for completely seamless smooth crowns & bellies
+	var north_sum: Vector3 = Vector3.ZERO
+	var south_sum: Vector3 = Vector3.ZERO
+	var south_row_offset: int = rings * cols
+	for s: int in range(cols):
+		north_sum += smooth_normals[s]
+		south_sum += smooth_normals[south_row_offset + s]
+	for s: int in range(cols):
+		smooth_normals[s] = north_sum
+		smooth_normals[south_row_offset + s] = south_sum
+
+	# Blend geometric lobe normal with macro cumulus radial normal for unified plush velvet shading
+	var macro_center: Vector3 = Vector3(0.0, -0.06, 0.0)
 	for i: int in range(vert_count):
 		var geo_n: Vector3 = smooth_normals[i]
-		var macro_n: Vector3 = (positions[i] - macro_center).normalized()
+		var radial: Vector3 = positions[i] - macro_center
+		var macro_n: Vector3 = radial.normalized() if radial.length_squared() > 0.0001 else Vector3.UP
 		if geo_n.length_squared() < 0.0001:
 			geo_n = macro_n
 		else:
 			geo_n = geo_n.normalized()
-		smooth_normals[i] = geo_n.lerp(macro_n, 0.28).normalized()
+		smooth_normals[i] = geo_n.lerp(macro_n, 0.38).normalized()
 
 	var tri_count: int = tri_indices.size()
 	for k: int in range(tri_count):
@@ -305,20 +369,24 @@ func _generate_sea_floor() -> void:
 
 		var base_scale: Vector3 = Vector3(
 			_rng.randf_range(21.0, 38.0),
-			_rng.randf_range(8.5, 14.5),
+			_rng.randf_range(10.0, 16.5),
 			_rng.randf_range(21.0, 37.0)
 		)
 		var puff_count: int = 3
+		# Dreamy sakura-pink & cream-blush cotton-candy sea floor near the horizon
+		var floor_mat: ShaderMaterial = _material_cotton_sakura if (i % 2 == 0) else _material_cotton_blush
 		_spawn_cumulus_tower(
 			"SeaFloor_%02d" % i,
 			Vector3(x_pos, y_pos, z_pos),
 			base_scale,
 			puff_count,
-			0.52,
+			0.58,
 			0.75,
 			1.65,
 			0.07,
-			0.18
+			0.18,
+			floor_mat,
+			_material_cotton_blush
 		)
 
 
@@ -337,7 +405,7 @@ func _generate_viaduct_billows(side_sign: float) -> void:
 
 		var base_scale: Vector3 = Vector3(
 			_rng.randf_range(12.5, 19.5),
-			_rng.randf_range(4.8, 7.8),
+			_rng.randf_range(6.4, 9.8),
 			_rng.randf_range(13.5, 21.5)
 		)
 		var puff_count: int = 2
@@ -349,12 +417,13 @@ func _generate_viaduct_billows(side_sign: float) -> void:
 			0.65,
 			1.35,
 			0.14,
-			0.28
+			0.28,
+			_material_cotton_blush
 		)
 
 
 func _generate_canyon_wall(side_sign: float) -> void:
-	# Dramatic multi-tiered cumulus towers flanking outside the twin viaducts
+	# Plush multi-tiered cumulus towers flanking outside the twin viaducts
 	var side_label: String = "Left" if side_sign < 0.0 else "Right"
 	var safe_inner_x: float = maxf(corridor_half_width + 12.0, canyon_inner_x)
 
@@ -374,10 +443,13 @@ func _generate_canyon_wall(side_sign: float) -> void:
 
 		var base_scale: Vector3 = Vector3(
 			_rng.randf_range(18.5, 31.5),
-			_rng.randf_range(11.0, 19.0),
+			_rng.randf_range(12.5, 20.5),
 			_rng.randf_range(19.5, 32.5)
 		)
 		var puff_count: int = _rng.randi_range(3, 4)
+		# Blend pastel sakura-blush lower canyon banks into sunlit snow-cream crowns
+		var base_mat: ShaderMaterial = _material_cotton_sakura if (t > 0.45 or i % 2 == 0) else _material_cotton_blush
+		var crown_mat: ShaderMaterial = _material_cotton_white if (y_pos > 2.0) else _material_cotton_blush
 		_spawn_cumulus_tower(
 			"Canyon_%s_%02d" % [side_label, i],
 			Vector3(x_pos, y_pos, z_pos),
@@ -387,12 +459,14 @@ func _generate_canyon_wall(side_sign: float) -> void:
 			0.95,
 			2.15,
 			0.10,
-			0.26
+			0.26,
+			base_mat,
+			crown_mat
 		)
 
 
 func _generate_cathedral_amphitheater() -> void:
-	# Sweeping sunlit cumulus towers embracing the lower base & flanks of the Castle at z = -280
+	# Sweeping cotton-candy sakura & cream cumulus banks embracing the base & flanks of the Castle at z = -280
 	# Radius 104..164m frames the Floating Castle Island, lakes, and waterfalls cleanly with zero clipping
 	for i: int in range(cathedral_cloud_count):
 		var t: float = float(i) / maxf(float(cathedral_cloud_count - 1), 1.0)
@@ -404,7 +478,7 @@ func _generate_cathedral_amphitheater() -> void:
 
 		var base_scale: Vector3 = Vector3(
 			_rng.randf_range(24.0, 40.0),
-			_rng.randf_range(13.0, 22.0),
+			_rng.randf_range(14.5, 24.0),
 			_rng.randf_range(22.0, 36.0)
 		)
 		var puff_count: int = _rng.randi_range(3, 4)
@@ -413,15 +487,18 @@ func _generate_cathedral_amphitheater() -> void:
 			Vector3(x_pos, y_pos, z_pos),
 			base_scale,
 			puff_count,
-			1.12,
+			1.10,
 			0.85,
 			1.75,
 			0.05,
-			0.14
+			0.14,
+			_material_cotton_sakura,
+			_material_cotton_blush
 		)
 
 
 func _generate_high_wisps() -> void:
+	# Plump, velvety snow-cream cotton-wool clouds floating high in the sapphire-azure sky
 	var safe_inner_x: float = maxf(corridor_half_width + 10.0, canyon_inner_x)
 
 	for i: int in range(high_wisp_count):
@@ -429,23 +506,24 @@ func _generate_high_wisps() -> void:
 		var t: float = float(i) / maxf(float(high_wisp_count - 1), 1.0)
 		var z_pos: float = lerpf(corridor_z_start, corridor_z_end - 40.0, t) + _rng.randf_range(-16.0, 16.0)
 		var x_pos: float = side_sign * _rng.randf_range(safe_inner_x, canyon_outer_x + 34.0)
-		var y_pos: float = _rng.randf_range(62.0, 98.0)
+		var y_pos: float = _rng.randf_range(58.0, 94.0)
 
 		var base_scale: Vector3 = Vector3(
-			_rng.randf_range(22.0, 38.0),
-			_rng.randf_range(4.4, 8.2),
-			_rng.randf_range(17.0, 28.0)
+			_rng.randf_range(19.0, 31.0),
+			_rng.randf_range(9.5, 14.5),
+			_rng.randf_range(16.0, 25.0)
 		)
 		var puff_count: int = 2
 		_spawn_stratified_cloud(
-			"HighWisp_%02d" % i,
+			"HighCloud_%02d" % i,
 			Vector3(x_pos, y_pos, z_pos),
 			base_scale,
 			puff_count,
-			1.3,
-			2.6,
-			0.18,
-			0.40
+			1.2,
+			2.4,
+			0.16,
+			0.36,
+			_material_cotton_white
 		)
 
 
@@ -458,13 +536,14 @@ func _spawn_cumulus_tower(
 	bob_min: float,
 	bob_max: float,
 	drift_speed_min: float,
-	drift_speed_max: float
+	drift_speed_max: float,
+	base_material: ShaderMaterial,
+	crown_material: ShaderMaterial
 ) -> void:
-	## Builds a towering multi-tiered cumulus formation from 3-4 sculpted 5-lobe cumulus instances
-	## (15-20 organic lobes per tower with minimal transparent overdraw):
-	## Tier 1: Wide flat-bottomed cumulus deck.
-	## Tier 2: Rising billowing shoulder formation.
-	## Tier 3: Sunlit cumulus congestus summit crown.
+	## Builds a plush multi-tiered cumulus formation from 3-4 silky 6-lobe cotton-wool instances:
+	## Tier 1: Broad pillowy cumulus deck.
+	## Tier 2: Rising rounded cotton shoulder formation.
+	## Tier 3: Sunlit plush summit crown.
 	var cluster: Node3D = Node3D.new()
 	cluster.name = cluster_name
 	cluster.position = origin
@@ -478,63 +557,63 @@ func _spawn_cumulus_tower(
 
 	var base_angle_offset: float = _rng.randf_range(0.0, TAU)
 
-	# Tier 1: Flat-bottomed wide base formations
+	# Tier 1: Pillowy wide base formations
 	for b: int in range(base_lobes):
 		var pos: Vector3 = Vector3.ZERO
 		var scl: Vector3 = base_scale
 		if b == 0:
-			scl = Vector3(base_scale.x * 1.06, base_scale.y * 0.88, base_scale.z * 1.04)
+			scl = Vector3(base_scale.x * 1.06, base_scale.y * 0.90, base_scale.z * 1.04)
 		else:
 			var angle: float = base_angle_offset + (float(b - 1) / maxf(float(base_lobes - 1), 1.0)) * TAU + _rng.randf_range(-0.45, 0.45)
-			var dist: float = _rng.randf_range(0.54, 0.86)
+			var dist: float = _rng.randf_range(0.50, 0.80)
 			pos = Vector3(
 				cos(angle) * base_scale.x * dist,
-				_rng.randf_range(-0.12, 0.08) * base_scale.y,
+				_rng.randf_range(-0.10, 0.08) * base_scale.y,
 				sin(angle) * base_scale.z * dist
 			)
-			var factor: float = _rng.randf_range(0.72, 0.92)
+			var factor: float = _rng.randf_range(0.74, 0.92)
 			scl = Vector3(
-				base_scale.x * factor * _rng.randf_range(0.92, 1.15),
-				base_scale.y * factor * _rng.randf_range(0.74, 0.94),
-				base_scale.z * factor * _rng.randf_range(0.92, 1.15)
+				base_scale.x * factor * _rng.randf_range(0.92, 1.12),
+				base_scale.y * factor * _rng.randf_range(0.80, 0.98),
+				base_scale.z * factor * _rng.randf_range(0.92, 1.12)
 			)
-		_add_puff_mesh(cluster, pos, scl, 0.10)
+		_add_puff_mesh(cluster, pos, scl, 0.08, base_material)
 
 	# Tier 2: Rising rounded billowing mid-formation
 	var mid_angle_offset: float = base_angle_offset + _rng.randf_range(0.5, 1.6)
 	for m: int in range(mid_domes):
 		var angle: float = mid_angle_offset + (float(m) / maxf(float(mid_domes), 1.0)) * TAU + _rng.randf_range(-0.4, 0.4)
-		var dist: float = _rng.randf_range(0.24, 0.56) if mid_domes > 1 else _rng.randf_range(0.10, 0.28)
+		var dist: float = _rng.randf_range(0.22, 0.50) if mid_domes > 1 else _rng.randf_range(0.08, 0.24)
 		var pos: Vector3 = Vector3(
 			cos(angle) * base_scale.x * dist,
-			_rng.randf_range(0.30, 0.56) * base_scale.y * tower_height_factor,
+			_rng.randf_range(0.28, 0.52) * base_scale.y * tower_height_factor,
 			sin(angle) * base_scale.z * dist
 		)
-		var factor: float = _rng.randf_range(0.62, 0.82)
+		var factor: float = _rng.randf_range(0.64, 0.82)
 		var scl: Vector3 = Vector3(
-			base_scale.x * factor * _rng.randf_range(0.88, 1.08),
-			base_scale.y * factor * _rng.randf_range(0.96, 1.22) * tower_height_factor,
-			base_scale.z * factor * _rng.randf_range(0.88, 1.08)
+			base_scale.x * factor * _rng.randf_range(0.90, 1.08),
+			base_scale.y * factor * _rng.randf_range(0.94, 1.16) * tower_height_factor,
+			base_scale.z * factor * _rng.randf_range(0.90, 1.08)
 		)
-		_add_puff_mesh(cluster, pos, scl, 0.14)
+		_add_puff_mesh(cluster, pos, scl, 0.12, base_material)
 
-	# Tier 3: Sunlit summit crown formation
+	# Tier 3: Sunlit plush summit crown formation
 	var crown_angle_offset: float = mid_angle_offset + _rng.randf_range(0.4, 1.4)
 	for c: int in range(crown_turrets):
 		var angle: float = crown_angle_offset + (float(c) / maxf(float(crown_turrets), 1.0)) * TAU + _rng.randf_range(-0.35, 0.35)
-		var dist: float = _rng.randf_range(0.08, 0.30) if crown_turrets > 1 else _rng.randf_range(0.0, 0.16)
+		var dist: float = _rng.randf_range(0.06, 0.26) if crown_turrets > 1 else _rng.randf_range(0.0, 0.14)
 		var pos: Vector3 = Vector3(
 			cos(angle) * base_scale.x * dist,
-			_rng.randf_range(0.60, 0.90) * base_scale.y * tower_height_factor,
+			_rng.randf_range(0.54, 0.82) * base_scale.y * tower_height_factor,
 			sin(angle) * base_scale.z * dist
 		)
-		var factor: float = _rng.randf_range(0.44, 0.62)
+		var factor: float = _rng.randf_range(0.48, 0.66)
 		var scl: Vector3 = Vector3(
-			base_scale.x * factor * _rng.randf_range(0.84, 1.06),
-			base_scale.y * factor * _rng.randf_range(1.02, 1.32) * tower_height_factor,
-			base_scale.z * factor * _rng.randf_range(0.84, 1.06)
+			base_scale.x * factor * _rng.randf_range(0.88, 1.06),
+			base_scale.y * factor * _rng.randf_range(0.96, 1.20) * tower_height_factor,
+			base_scale.z * factor * _rng.randf_range(0.88, 1.06)
 		)
-		_add_puff_mesh(cluster, pos, scl, 0.18)
+		_add_puff_mesh(cluster, pos, scl, 0.14, crown_material)
 
 	_register_cluster(cluster, origin, bob_min, bob_max, drift_speed_min, drift_speed_max)
 
@@ -547,9 +626,10 @@ func _spawn_stratified_cloud(
 	bob_min: float,
 	bob_max: float,
 	drift_speed_min: float,
-	drift_speed_max: float
+	drift_speed_max: float,
+	cloud_material: ShaderMaterial
 ) -> void:
-	## Builds a softer horizontal cloud bank / wisp cluster (for under-viaduct billows & high celestial wisps).
+	## Builds a plump floating cotton-wool cloud bank (for under-viaduct billows & high sky clouds).
 	var cluster: Node3D = Node3D.new()
 	cluster.name = cluster_name
 	cluster.position = origin
@@ -561,27 +641,33 @@ func _spawn_stratified_cloud(
 		var scl: Vector3 = base_scale
 		if p > 0:
 			var angle: float = angle_offset + (float(p - 1) / maxf(float(puff_count - 1), 1.0)) * TAU + _rng.randf_range(-0.4, 0.4)
-			var dist: float = _rng.randf_range(0.52, 0.88)
+			var dist: float = _rng.randf_range(0.48, 0.78)
 			pos = Vector3(
 				cos(angle) * base_scale.x * dist,
-				_rng.randf_range(-0.16, 0.24) * base_scale.y,
+				_rng.randf_range(-0.12, 0.20) * base_scale.y,
 				sin(angle) * base_scale.z * dist
 			)
-			var factor: float = _rng.randf_range(0.58, 0.86)
+			var factor: float = _rng.randf_range(0.62, 0.86)
 			scl = Vector3(
-				base_scale.x * factor * _rng.randf_range(0.90, 1.18),
-				base_scale.y * factor * _rng.randf_range(0.76, 1.06),
-				base_scale.z * factor * _rng.randf_range(0.90, 1.18)
+				base_scale.x * factor * _rng.randf_range(0.92, 1.14),
+				base_scale.y * factor * _rng.randf_range(0.84, 1.08),
+				base_scale.z * factor * _rng.randf_range(0.92, 1.14)
 			)
-		_add_puff_mesh(cluster, pos, scl, 0.12)
+		_add_puff_mesh(cluster, pos, scl, 0.10, cloud_material)
 
 	_register_cluster(cluster, origin, bob_min, bob_max, drift_speed_min, drift_speed_max)
 
 
-func _add_puff_mesh(cluster: Node3D, local_pos: Vector3, local_scale: Vector3, tilt_max: float) -> void:
+func _add_puff_mesh(
+	cluster: Node3D,
+	local_pos: Vector3,
+	local_scale: Vector3,
+	tilt_max: float,
+	cloud_material: ShaderMaterial
+) -> void:
 	var puff: MeshInstance3D = MeshInstance3D.new()
 	puff.mesh = _shared_mesh
-	puff.material_override = _shared_material
+	puff.material_override = cloud_material
 	puff.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	puff.position = local_pos
 	puff.scale = local_scale

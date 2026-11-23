@@ -259,10 +259,11 @@ func _init_shared_resources() -> void:
 
 	# GPU-instanced MultiMesh botanical ShaderMaterials (wind sway, root-to-tip gradient, upward soft normals, backlight)
 	_mat_grass_mm = _create_foliage_material(
-		0.095, 1.0, 0.52, 1.18,
-		Color(0.78, 0.94, 0.80), Color(1.06, 1.09, 0.86),
-		Color(0.38, 0.52, 0.22), 0.62, 0.45,
-		0.0, Color(0.0, 0.0, 0.0), 0.0
+		0.085, 0.95, 0.56, 1.24,
+		Color(0.78, 0.96, 0.76), Color(1.10, 1.14, 0.82),
+		Color(0.58, 0.76, 0.24), 0.74, 0.58,
+		0.0, Color(0.0, 0.0, 0.0), 0.0,
+		1.0, 0.12, 1.18, 0.18, Color(0.88, 0.98, 0.54)
 	)
 	_mat_flower_mm = _create_foliage_material(
 		0.078, 0.94, 0.55, 1.16,
@@ -344,14 +345,19 @@ func _create_foliage_material(
 	norm_up: float,
 	stem_mask: float,
 	emit_col: Color,
-	emit_str: float
+	emit_str: float,
+	meadow_daisy_mask: float = 0.0,
+	spec_v: float = 0.16,
+	backlight_str: float = 1.05,
+	velvet_rim: float = 0.12,
+	velvet_col: Color = Color(0.84, 0.96, 0.54)
 ) -> Material:
 	if _foliage_shader != null:
 		var mat: ShaderMaterial = ShaderMaterial.new()
 		mat.shader = _foliage_shader
 		mat.set_shader_parameter("wind_strength", wind_str)
 		mat.set_shader_parameter("wind_speed", wind_spd)
-		mat.set_shader_parameter("wind_gust_strength", 0.036)
+		mat.set_shader_parameter("wind_gust_strength", 0.032)
 		mat.set_shader_parameter("sway_root_power", 2.0)
 		mat.set_shader_parameter("use_vertex_y_fallback", 0.0)
 		mat.set_shader_parameter("base_shade", base_sh)
@@ -359,13 +365,16 @@ func _create_foliage_material(
 		mat.set_shader_parameter("base_tint", base_t)
 		mat.set_shader_parameter("tip_tint", tip_t)
 		mat.set_shader_parameter("backlight_color", backlight_col)
-		mat.set_shader_parameter("backlight_strength", 1.0)
+		mat.set_shader_parameter("backlight_strength", backlight_str)
 		mat.set_shader_parameter("roughness_val", rough_v)
-		mat.set_shader_parameter("specular_val", 0.28)
+		mat.set_shader_parameter("specular_val", spec_v)
 		mat.set_shader_parameter("normal_up_blend", norm_up)
+		mat.set_shader_parameter("velvet_rim_strength", velvet_rim)
+		mat.set_shader_parameter("velvet_rim_color", velvet_col)
 		mat.set_shader_parameter("emission_color", emit_col)
 		mat.set_shader_parameter("emission_strength", emit_str)
 		mat.set_shader_parameter("stem_mask_enabled", stem_mask)
+		mat.set_shader_parameter("meadow_daisy_mask_enabled", meadow_daisy_mask)
 		mat.set_shader_parameter("stem_base_color", Color("#28743A"))
 		mat.set_shader_parameter("stem_tip_color", Color("#58B85E"))
 		mat.set_shader_parameter("pollen_color", Color("#FFDC52"))
@@ -1248,13 +1257,18 @@ func _build_waterfall_mist_plumes() -> void:
 # ---------------------------------------------------------------------------
 
 func _populate_meadow_grass_and_flowerbeds(island_positions: Array[Vector3]) -> void:
+	# Subtle sunlit daylight variations so baked deep-emerald-to-lime-gold grass blades shimmer
+	# organically across rolling slopes while tiny white/periwinkle daisies stay pure & luminous!
 	var grass_palette: Array[Color] = [
-		Color("#2F8A47"), # Rich emerald
-		Color("#42A456"), # Sunlit meadow green
-		Color("#56BC64"), # Fresh spring grass
-		Color("#3A9650"), # Lush fern green
-		Color("#68C86E"), # Sun-kissed mint tip
+		Color(0.94, 1.00, 0.92), # Lush sunlit emerald-meadow
+		Color(1.00, 1.02, 0.95), # Pure sunlit daylight patch
+		Color(1.05, 1.04, 0.90), # Warm golden-sunlit hilltop
+		Color(0.90, 0.98, 0.93), # Cool velvet shaded meadow
+		Color(0.98, 1.04, 0.93), # Fresh bright spring carpet
 	]
+	# Cohesive soft hillside breeze yaw so adjacent grass tufts lean gracefully together like image_2.png
+	var meadow_wind_yaw: float = 0.28
+
 	# 4-Color Heavenly Flowerbed Palette: Sakura-Pink, Lavender, Sky-Blue Hydrangea, Creamy Jasmine & Buttercup
 	var flower_palette: Array[Color] = [
 		Color("#F98EB6"), # Blush sakura-pink rose
@@ -1267,13 +1281,13 @@ func _populate_meadow_grass_and_flowerbeds(island_positions: Array[Vector3]) -> 
 		Color("#FFE074"), # Sunlit golden buttercup
 	]
 
-	# A. Castle Island Lower Garden Meadows (y = 4.0) — ~520 lush botanical grass clumps + ~420 flower clusters
+	# A. Castle Island Lower Garden Meadows (y = 4.0) — dense velvety sunlit grass carpet + flowerbeds
 	var seed_id: int = 1000
-	for i: int in range(920):
+	for i: int in range(1520):
 		seed_id += 1
 		var side_sign: float = -1.0 if (i % 2 == 0) else 1.0
-		var gx: float = side_sign * lerpf(15.2, 51.5, _hash01(seed_id * 17 + 3))
-		var gz: float = lerpf(-247.5, -301.5, _hash01(seed_id * 29 + 7))
+		var gx: float = side_sign * lerpf(15.0, 52.0, _hash01(seed_id * 17 + 3))
+		var gz: float = lerpf(-247.2, -301.8, _hash01(seed_id * 29 + 7))
 
 		# Skip Rotunda & Panoramic Galleries elevated footprint (x = -37..+37, z = -256.5..-298.5)
 		if absf(gx) < 37.6 and gz < -256.2 and gz > -298.8:
@@ -1282,16 +1296,17 @@ func _populate_meadow_grass_and_flowerbeds(island_positions: Array[Vector3]) -> 
 		if _is_inside_any_castle_lake(gx, gz, 0.72):
 			continue
 
-		var yaw: float = _hash01(seed_id * 13) * TAU
-		var sc: float = 0.78 + _hash01(seed_id * 37) * 0.80
-		var g_basis_a: Basis = Basis(Vector3.UP, yaw).scaled(Vector3(sc, sc * (0.85 + _hash01(seed_id * 41) * 0.35), sc))
+		var yaw: float = meadow_wind_yaw + (_hash01(seed_id * 13) - 0.5) * 1.05
+		var sc: float = 1.02 + _hash01(seed_id * 37) * 0.52
+		var sy: float = sc * (0.82 + _hash01(seed_id * 41) * 0.34)
+		var g_basis_a: Basis = Basis(Vector3.UP, yaw).scaled(Vector3(sc, sy, sc))
 		_grass_xforms.append(Transform3D(g_basis_a, Vector3(gx, 4.0, gz)))
 		_grass_colors.append(grass_palette[seed_id % grass_palette.size()])
 
-		if _hash01(seed_id * 53 + 11) < 0.76:
+		if _hash01(seed_id * 53 + 11) < 0.48:
 			var f_off_x: float = (_hash01(seed_id * 61) - 0.5) * 0.65
 			var f_off_z: float = (_hash01(seed_id * 67) - 0.5) * 0.65
-			var f_sc: float = 0.78 + _hash01(seed_id * 71) * 0.76
+			var f_sc: float = 0.78 + _hash01(seed_id * 71) * 0.72
 			var f_basis: Basis = Basis(Vector3.UP, yaw + 0.9).scaled(Vector3(f_sc, f_sc, f_sc))
 			# Cluster flower colors gently by spatial zone so beds look intentionally planted
 			var zone_idx: int = int(absf(floorf(gx * 0.18) + floorf(gz * 0.16))) % 4
@@ -1299,12 +1314,12 @@ func _populate_meadow_grass_and_flowerbeds(island_positions: Array[Vector3]) -> 
 			_flower_xforms.append(Transform3D(f_basis, Vector3(gx + f_off_x, 4.02, gz + f_off_z)))
 			_flower_colors.append(flower_palette[col_idx])
 
-	# B. Dedicated Lush Lakeshore Rings around all 4 Castle Lakes & Pools (~215 botanical grass clumps + flowers)
+	# B. Dedicated Lush Lakeshore Rings around all 4 Castle Lakes & Pools
 	var lake_specs: Array[Dictionary] = [
-		{"cx": -44.0, "cz": -280.0, "rx": 7.0, "rz": 12.0, "count": 76},
-		{"cx": 44.0, "cz": -280.0, "rx": 7.0, "rz": 12.0, "count": 76},
-		{"cx": -24.0, "cz": -252.0, "rx": 5.5, "rz": 5.0, "count": 56},
-		{"cx": 24.0, "cz": -252.0, "rx": 5.5, "rz": 5.0, "count": 56},
+		{"cx": -44.0, "cz": -280.0, "rx": 7.0, "rz": 12.0, "count": 88},
+		{"cx": 44.0, "cz": -280.0, "rx": 7.0, "rz": 12.0, "count": 88},
+		{"cx": -24.0, "cz": -252.0, "rx": 5.5, "rz": 5.0, "count": 64},
+		{"cx": 24.0, "cz": -252.0, "rx": 5.5, "rz": 5.0, "count": 64},
 	]
 	for l_idx: int in range(lake_specs.size()):
 		var ls: Dictionary = lake_specs[l_idx]
@@ -1327,37 +1342,39 @@ func _populate_meadow_grass_and_flowerbeds(island_positions: Array[Vector3]) -> 
 			if absf(sx) < 37.5 and sz < -256.2 and sz > -298.8:
 				continue
 
-			var sc: float = 0.85 + _hash01(seed_id * 23) * 0.68
-			var g_basis: Basis = Basis(Vector3.UP, ang * 2.1).scaled(Vector3(sc, sc, sc))
+			var g_yaw: float = meadow_wind_yaw + (_hash01(seed_id * 17) - 0.5) * 0.95
+			var sc: float = 0.96 + _hash01(seed_id * 23) * 0.48
+			var g_basis: Basis = Basis(Vector3.UP, g_yaw).scaled(Vector3(sc, sc * 0.95, sc))
 			_grass_xforms.append(Transform3D(g_basis, Vector3(sx, 4.0, sz)))
 			_grass_colors.append(grass_palette[seed_id % grass_palette.size()])
 
-			var f_sc: float = 0.82 + _hash01(seed_id * 31) * 0.68
+			var f_sc: float = 0.80 + _hash01(seed_id * 31) * 0.64
 			var f_basis: Basis = Basis(Vector3.UP, ang * 1.4 + 0.5).scaled(Vector3(f_sc, f_sc, f_sc))
 			var shore_col_idx: int = (int(floorf(float(k) / 3.0)) + l_idx * 2) % flower_palette.size()
 			_flower_xforms.append(Transform3D(f_basis, Vector3(sx, 4.03, sz)))
 			_flower_colors.append(flower_palette[shore_col_idx])
 
 	# C. Castle Lower Arrival Apron (y = 0.0, flanking front staircase base)
-	for i: int in range(84):
+	for i: int in range(136):
 		seed_id += 1
 		var side_sign: float = -1.0 if (i % 2 == 0) else 1.0
-		var ax: float = side_sign * lerpf(16.2, 41.0, _hash01(seed_id * 17))
-		var az: float = lerpf(-240.5, -247.0, _hash01(seed_id * 23))
-		var sc: float = 0.80 + _hash01(seed_id * 31) * 0.70
-		var g_basis_c: Basis = Basis(Vector3.UP, _hash01(seed_id * 13) * TAU).scaled(Vector3(sc, sc, sc))
+		var ax: float = side_sign * lerpf(16.0, 41.2, _hash01(seed_id * 17))
+		var az: float = lerpf(-240.3, -247.2, _hash01(seed_id * 23))
+		var sc: float = 0.96 + _hash01(seed_id * 31) * 0.48
+		var a_yaw: float = meadow_wind_yaw + (_hash01(seed_id * 13) - 0.5) * 1.0
+		var g_basis_c: Basis = Basis(Vector3.UP, a_yaw).scaled(Vector3(sc, sc * 0.94, sc))
 		_grass_xforms.append(Transform3D(g_basis_c, Vector3(ax, 0.0, az)))
 		_grass_colors.append(grass_palette[seed_id % grass_palette.size()])
 		if i % 2 == 0:
-			var f_basis: Basis = Basis(Vector3.UP, _hash01(seed_id * 19) * TAU).scaled(Vector3(sc, sc, sc))
+			var f_basis: Basis = Basis(Vector3.UP, _hash01(seed_id * 19) * TAU).scaled(Vector3(sc * 0.85, sc * 0.85, sc * 0.85))
 			_flower_xforms.append(Transform3D(f_basis, Vector3(ax, 0.02, az)))
 			_flower_colors.append(flower_palette[seed_id % flower_palette.size()])
 
-	# D. Five Floating Temple Islands (outer perimeter meadows, skipping cardinal approach lanes)
+	# D. Five Floating Temple Islands (plush velvety meadow hills with tiny daisies, cardinal lanes clear)
 	for idx: int in range(island_positions.size()):
 		var center: Vector3 = island_positions[idx]
 		var rad_mult: float = 1.12 if idx == 2 else 1.0
-		var count_per_island: int = 64
+		var count_per_island: int = 160
 		for k: int in range(count_per_island):
 			seed_id += 1
 			var ang_deg: float = _hash01(seed_id * 17 + idx) * 360.0
@@ -1366,50 +1383,55 @@ func _populate_meadow_grass_and_flowerbeds(island_positions: Array[Vector3]) -> 
 			if mod90 < 12.0 or mod90 > 78.0:
 				continue
 			var ang: float = deg_to_rad(ang_deg)
-			var r_val: float = lerpf(5.45, 7.65, _hash01(seed_id * 29)) * rad_mult
+			var r_min: float = 5.55 if idx == 2 else 4.65
+			var r_val: float = lerpf(r_min, 7.72, sqrt(_hash01(seed_id * 29))) * rad_mult
 			var px: float = center.x + cos(ang) * r_val
 			var pz: float = center.z + sin(ang) * r_val
-			var sc: float = 0.72 + _hash01(seed_id * 37) * 0.64
-			var g_basis_d: Basis = Basis(Vector3.UP, ang * 2.0).scaled(Vector3(sc, sc, sc))
+			var sc: float = 0.92 + _hash01(seed_id * 37) * 0.48
+			var sy: float = sc * (0.84 + _hash01(seed_id * 41) * 0.30)
+			var d_yaw: float = meadow_wind_yaw + (_hash01(seed_id * 19) - 0.5) * 0.95
+			var g_basis_d: Basis = Basis(Vector3.UP, d_yaw).scaled(Vector3(sc, sy, sc))
 			_grass_xforms.append(Transform3D(g_basis_d, Vector3(px, center.y, pz)))
 			_grass_colors.append(grass_palette[seed_id % grass_palette.size()])
 
-			if _hash01(seed_id * 43) < 0.74:
-				var f_sc: float = 0.76 + _hash01(seed_id * 47) * 0.58
+			if _hash01(seed_id * 43) < 0.36:
+				var f_sc: float = 0.72 + _hash01(seed_id * 47) * 0.52
 				var f_basis: Basis = Basis(Vector3.UP, ang + 0.7).scaled(Vector3(f_sc, f_sc, f_sc))
 				_flower_xforms.append(Transform3D(f_basis, Vector3(px, center.y + 0.02, pz)))
 				_flower_colors.append(flower_palette[(seed_id + idx * 2) % flower_palette.size()])
 
-	# E. Starting Monolith Plaza Borders (x = +-5.8..+-7.6, z = 24.4..45.0, center walkway 100% clear)
-	for i: int in range(96):
+	# E. Starting Monolith Plaza Borders (x = +-5.75..+-7.68, z = 24.4..45.0, center walkway 100% clear)
+	for i: int in range(152):
 		seed_id += 1
 		var side_sign: float = -1.0 if (i % 2 == 0) else 1.0
-		var px: float = side_sign * lerpf(5.85, 7.65, _hash01(seed_id * 17))
+		var px: float = side_sign * lerpf(5.78, 7.68, _hash01(seed_id * 17))
 		var pz: float = lerpf(24.4, 45.0, _hash01(seed_id * 29))
-		var sc: float = 0.68 + _hash01(seed_id * 31) * 0.54
-		var g_basis_e: Basis = Basis(Vector3.UP, _hash01(seed_id * 13) * TAU).scaled(Vector3(sc, sc, sc))
+		var sc: float = 0.82 + _hash01(seed_id * 31) * 0.42
+		var e_yaw: float = meadow_wind_yaw + (_hash01(seed_id * 13) - 0.5) * 0.95
+		var g_basis_e: Basis = Basis(Vector3.UP, e_yaw).scaled(Vector3(sc, sc * 0.92, sc))
 		_grass_xforms.append(Transform3D(g_basis_e, Vector3(px, 0.0, pz)))
 		_grass_colors.append(grass_palette[seed_id % grass_palette.size()])
 
-		if _hash01(seed_id * 41) < 0.78:
-			var f_sc: float = 0.72 + _hash01(seed_id * 53) * 0.52
+		if _hash01(seed_id * 41) < 0.56:
+			var f_sc: float = 0.70 + _hash01(seed_id * 53) * 0.48
 			var f_basis: Basis = Basis(Vector3.UP, _hash01(seed_id * 19) * TAU).scaled(Vector3(f_sc, f_sc, f_sc))
 			_flower_xforms.append(Transform3D(f_basis, Vector3(px, 0.02, pz)))
 			_flower_colors.append(flower_palette[seed_id % flower_palette.size()])
 
 	# F. Twin Viaduct Ledges (x = +-51.2..+-54.0, y = 14.0, z = 10..-232)
-	for i: int in range(140):
+	for i: int in range(200):
 		seed_id += 1
 		var side_sign: float = -1.0 if (i % 2 == 0) else 1.0
 		var vx: float = side_sign * lerpf(51.2, 54.0, _hash01(seed_id * 17))
 		var vz: float = lerpf(10.0, -232.0, _hash01(seed_id * 29))
-		var sc: float = 0.78 + _hash01(seed_id * 37) * 0.64
-		var g_basis_f: Basis = Basis(Vector3.UP, _hash01(seed_id * 13) * TAU).scaled(Vector3(sc, sc, sc))
+		var sc: float = 0.90 + _hash01(seed_id * 37) * 0.48
+		var f_yaw: float = meadow_wind_yaw + (_hash01(seed_id * 13) - 0.5) * 1.0
+		var g_basis_f: Basis = Basis(Vector3.UP, f_yaw).scaled(Vector3(sc, sc * 0.94, sc))
 		_grass_xforms.append(Transform3D(g_basis_f, Vector3(vx, 14.0, vz)))
 		_grass_colors.append(grass_palette[seed_id % grass_palette.size()])
 
-		if _hash01(seed_id * 43) < 0.68:
-			var f_basis: Basis = Basis(Vector3.UP, _hash01(seed_id * 23) * TAU).scaled(Vector3(sc, sc, sc))
+		if _hash01(seed_id * 43) < 0.52:
+			var f_basis: Basis = Basis(Vector3.UP, _hash01(seed_id * 23) * TAU).scaled(Vector3(sc * 0.85, sc * 0.85, sc * 0.85))
 			_flower_xforms.append(Transform3D(f_basis, Vector3(vx, 14.02, vz)))
 			_flower_colors.append(flower_palette[seed_id % flower_palette.size()])
 
@@ -1685,7 +1707,8 @@ func _place_lush_bush(parent: Node3D, node_name: String, pos: Vector3, yaw_rad: 
 		prop = _create_fallback_lush_bush()
 
 	prop.name = node_name
-	prop.position = pos
+	# Embed base 2cm into ground/stone so sculpted bush skirt & bark roots sit firmly grounded
+	prop.position = Vector3(pos.x, pos.y - 0.02, pos.z)
 	prop.rotation = Vector3(0.0, yaw_rad, 0.0)
 	prop.scale = Vector3(scale_factor, scale_factor, scale_factor)
 	parent.add_child(prop)
@@ -1701,16 +1724,44 @@ func _get_cached_bush_material(
 	roughness_val: float,
 	enable_backlight: bool,
 	backlight_col: Color,
-	double_sided: bool
+	double_sided: bool,
+	use_vcol: bool = false
 ) -> StandardMaterial3D:
 	if _enhanced_glb_mats.has(cache_key):
 		return _enhanced_glb_mats[cache_key] as StandardMaterial3D
 	var mat: StandardMaterial3D = _create_botanical_material(albedo, roughness_val, 0.0, Color(0.0, 0.0, 0.0), 0.0)
+	if use_vcol:
+		mat.vertex_color_use_as_albedo = true
 	if enable_backlight:
 		mat.backlight_enabled = true
 		mat.backlight = backlight_col
 	if double_sided:
 		mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	_enhanced_glb_mats[cache_key] = mat
+	return mat
+
+
+func _get_cached_sculpted_bush_shader_mat(
+	cache_key: String,
+	base_sh: float,
+	tip_br: float,
+	base_t: Color,
+	tip_t: Color,
+	backlight_col: Color,
+	rough_v: float,
+	norm_up: float,
+	velvet_rim: float,
+	velvet_col: Color
+) -> Material:
+	if _enhanced_glb_mats.has(cache_key):
+		return _enhanced_glb_mats[cache_key] as Material
+	var mat: Material = _create_foliage_material(
+		0.024, 0.92, base_sh, tip_br,
+		base_t, tip_t, backlight_col,
+		rough_v, norm_up, 0.0,
+		Color(0.0, 0.0, 0.0), 0.0,
+		0.0, 0.16, 1.05, velvet_rim, velvet_col
+	)
 	_enhanced_glb_mats[cache_key] = mat
 	return mat
 
@@ -1726,7 +1777,30 @@ func _enhance_lush_bush_materials(node: Node) -> void:
 				if base_mat == null:
 					continue
 				var mat_name: String = base_mat.resource_name
-				if mat_name == "BushInnerFoliage":
+				if mat_name == "BushBarkTwigs":
+					var bark_mat: StandardMaterial3D = _get_cached_bush_material(
+						"bush_bark_twigs", Color(1.0, 1.0, 1.0), 0.88, false, Color(0.0, 0.0, 0.0), false, true
+					)
+					mesh_inst.set_surface_override_material(surf_idx, bark_mat)
+				elif mat_name == "BushSculptedLeaves":
+					var leaf_shader_mat: Material = _get_cached_sculpted_bush_shader_mat(
+						"bush_sculpted_leaves",
+						0.74, 1.16,
+						Color(0.90, 0.96, 0.88), Color(1.06, 1.08, 0.90),
+						Color(0.46, 0.68, 0.22),
+						0.58, 0.14, 0.10, Color(0.76, 0.94, 0.48)
+					)
+					mesh_inst.set_surface_override_material(surf_idx, leaf_shader_mat)
+				elif mat_name == "BushGardenBlossoms":
+					var blossom_shader_mat: Material = _get_cached_sculpted_bush_shader_mat(
+						"bush_garden_blossoms",
+						0.90, 1.12,
+						Color(0.98, 0.96, 0.97), Color(1.03, 1.02, 1.03),
+						Color(0.88, 0.68, 0.76),
+						0.50, 0.20, 0.08, Color(1.0, 0.94, 0.96)
+					)
+					mesh_inst.set_surface_override_material(surf_idx, blossom_shader_mat)
+				elif mat_name == "BushInnerFoliage":
 					var inner_mat: StandardMaterial3D = _get_cached_bush_material(
 						"bush_inner_foliage", Color("#1F5E34"), 0.78, false, Color(0.0, 0.0, 0.0), false
 					)
