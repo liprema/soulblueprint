@@ -11,6 +11,9 @@ const MAX_VOICES: int = 24
 ## D-Major celestial pentatonic scale: D5, E5, F#5, A5, D6
 const PENTATONIC_FREQS: Array[float] = [587.33, 659.25, 739.99, 880.00, 1174.66]
 
+## C-Major ascending celestial harp pentatonic scale for wind rings: C5..E6
+const WIND_RING_FREQS: Array[float] = [523.25, 587.33, 659.25, 783.99, 880.00, 1046.50, 1174.66, 1318.51]
+
 const VOICE_CHIME: int = 0
 const VOICE_PAD: int = 1
 const VOICE_FLAP: int = 2
@@ -35,6 +38,21 @@ var _delay_energy: float = 0.0
 var _frame_buffer: PackedVector2Array = PackedVector2Array()
 var _silence_buffer: PackedVector2Array = PackedVector2Array()
 var _noise_state: int = 2463534242
+
+# Continuous procedural flight wind bed state (soft 2-pole LPF airy breeze + subtle harmonic resonance)
+var _wind_target_level: float = 0.0
+var _wind_current_level: float = 0.0
+var _wind_speed_ratio: float = 0.0
+var _wind_speed_smooth: float = 0.0
+var _wind_lp1_l: float = 0.0
+var _wind_lp2_l: float = 0.0
+var _wind_hp_l: float = 0.0
+var _wind_lp1_r: float = 0.0
+var _wind_lp2_r: float = 0.0
+var _wind_hp_r: float = 0.0
+var _wind_lfo_phase: float = 0.0
+var _wind_tone_phase1: float = 0.0
+var _wind_tone_phase2: float = 0.0
 
 
 func _ready() -> void:
@@ -378,6 +396,178 @@ func play_mirror_awakening() -> void:
 	})
 
 
+## Updates continuous procedural flight wind intensity based on speed and flight state.
+func update_flight_wind(speed_ratio: float, is_flying: bool) -> void:
+	var clamped_ratio: float = clampf(speed_ratio, 0.0, 1.0)
+	_wind_speed_ratio = clamped_ratio
+	if not enabled:
+		_wind_target_level = 0.0
+		return
+	if is_flying:
+		# Soft baseline sky breeze while soaring, swelling smoothly with speed
+		var speed_curve: float = pow(clamped_ratio, 1.35)
+		_wind_target_level = clampf(0.18 + speed_curve * 0.82, 0.0, 1.0)
+	else:
+		# Hushed when resting; gentle airy whisper only during brisk ground sprints
+		if clamped_ratio <= 0.28:
+			_wind_target_level = 0.0
+		else:
+			var run_norm: float = clampf((clamped_ratio - 0.28) / 0.72, 0.0, 1.0)
+			_wind_target_level = run_norm * run_norm * 0.26
+
+
+## Ascending pentatonic celestial harp + crystalline overtone for wind rings (C5..E6).
+func play_wind_ring_note(ring_index: int) -> void:
+	if not enabled:
+		return
+	var note_idx: int = posmod(ring_index, WIND_RING_FREQS.size())
+	var freq: float = WIND_RING_FREQS[note_idx]
+	var pan: float = lerpf(-0.34, 0.34, float(note_idx) / float(WIND_RING_FREQS.size() - 1))
+
+	# Primary celestial harp pluck
+	_add_voice({
+		"type": VOICE_CHIME,
+		"freq": freq,
+		"freq_end": freq,
+		"phase": 0.0,
+		"phase2": 0.0,
+		"phase3": 0.0,
+		"age": 0.0,
+		"delay": 0.0,
+		"attack": 0.005,
+		"decay": 0.88,
+		"duration": 2.6,
+		"amp": 0.30,
+		"pan": pan,
+		"lp": 0.0,
+	})
+	# Sparkling crystalline octave overtone
+	_add_voice({
+		"type": VOICE_CHIME,
+		"freq": freq * 2.0,
+		"freq_end": freq * 2.0,
+		"phase": 0.0,
+		"phase2": 0.0,
+		"phase3": 0.0,
+		"age": 0.0,
+		"delay": 0.022,
+		"attack": 0.008,
+		"decay": 0.46,
+		"duration": 1.45,
+		"amp": 0.11,
+		"pan": -pan * 0.45,
+		"lp": 0.0,
+	})
+
+
+## Warm, rising airy shimmer chord when catching a golden thermal updraft.
+func play_updraft_whoosh() -> void:
+	if not enabled:
+		return
+	# Rising airy wind sweep (D4 -> D5)
+	_add_voice({
+		"type": VOICE_FLAP,
+		"freq": 293.66,
+		"freq_end": 587.33,
+		"phase": 0.0,
+		"phase2": 0.0,
+		"phase3": 0.0,
+		"age": 0.0,
+		"delay": 0.0,
+		"attack": 0.10,
+		"decay": 0.55,
+		"duration": 0.85,
+		"amp": 0.24,
+		"pan": -0.16,
+		"lp": 0.0,
+	})
+	# Secondary fifth airy lift (A4 -> A5)
+	_add_voice({
+		"type": VOICE_FLAP,
+		"freq": 440.00,
+		"freq_end": 880.00,
+		"phase": 0.0,
+		"phase2": 0.0,
+		"phase3": 0.0,
+		"age": 0.0,
+		"delay": 0.045,
+		"attack": 0.09,
+		"decay": 0.50,
+		"duration": 0.78,
+		"amp": 0.18,
+		"pan": 0.16,
+		"lp": 0.0,
+	})
+	# Warm golden harmonic shimmer chord (D5 + F#5 + A5)
+	var chord_freqs: Array[float] = [587.33, 739.99, 880.00]
+	var chord_pans: Array[float] = [-0.22, 0.0, 0.22]
+	for i in range(chord_freqs.size()):
+		_add_voice({
+			"type": VOICE_PAD,
+			"freq": chord_freqs[i],
+			"freq_end": chord_freqs[i],
+			"phase": 0.0,
+			"phase2": 0.0,
+			"phase3": 0.0,
+			"age": 0.0,
+			"delay": 0.03 + float(i) * 0.048,
+			"attack": 0.10,
+			"decay": 0.95,
+			"duration": 2.3,
+			"amp": 0.14,
+			"pan": chord_pans[i],
+			"lp": 0.0,
+		})
+
+
+## Ultra-soft, delicate high celesta tap for UI hover feedback.
+func play_ui_hover() -> void:
+	if not enabled:
+		return
+	_add_voice({
+		"type": VOICE_CHIME,
+		"freq": 1318.51, # E6 airy celesta tap
+		"freq_end": 1318.51,
+		"phase": 0.0,
+		"phase2": 0.0,
+		"phase3": 0.0,
+		"age": 0.0,
+		"delay": 0.0,
+		"attack": 0.006,
+		"decay": 0.14,
+		"duration": 0.42,
+		"amp": 0.065,
+		"pan": 0.0,
+		"lp": 0.0,
+	})
+
+
+## Warm crystalline pearlescent chime on UI button click.
+func play_ui_click() -> void:
+	if not enabled:
+		return
+	var notes: Array[float] = [783.99, 1174.66] # G5 -> D6 pearlescent fifth
+	var pans: Array[float] = [-0.10, 0.10]
+	var amps: Array[float] = [0.16, 0.13]
+	for i in range(notes.size()):
+		_add_voice({
+			"type": VOICE_CHIME,
+			"freq": notes[i],
+			"freq_end": notes[i],
+			"phase": 0.0,
+			"phase2": 0.0,
+			"phase3": 0.0,
+			"age": 0.0,
+			"delay": float(i) * 0.032,
+			"attack": 0.005,
+			"decay": 0.38,
+			"duration": 1.1,
+			"amp": amps[i],
+			"pan": pans[i],
+			"lp": 0.0,
+		})
+
+
 ## Enables or mutes procedural celestial audio output.
 func set_muted(muted: bool) -> void:
 	enabled = not muted
@@ -386,6 +576,16 @@ func set_muted(muted: bool) -> void:
 		_delay_l.fill(0.0)
 		_delay_r.fill(0.0)
 		_delay_energy = 0.0
+		_wind_target_level = 0.0
+		_wind_current_level = 0.0
+		_wind_speed_ratio = 0.0
+		_wind_speed_smooth = 0.0
+		_wind_lp1_l = 0.0
+		_wind_lp2_l = 0.0
+		_wind_hp_l = 0.0
+		_wind_lp1_r = 0.0
+		_wind_lp2_r = 0.0
+		_wind_hp_r = 0.0
 		if _player != null and _player.playing:
 			_player.stop()
 
@@ -402,8 +602,9 @@ func _fill_audio_buffer() -> void:
 	if frames_available <= 0:
 		return
 
-	# Fast-path: push silence when all voices and shimmer tails have decayed
-	if _voices.is_empty() and _delay_energy < 0.0002:
+	# Fast-path: push silence when all voices, wind bed, and shimmer tails have decayed
+	var wind_active: bool = _wind_current_level >= 0.0004 or _wind_target_level >= 0.0004
+	if _voices.is_empty() and _delay_energy < 0.0002 and not wind_active:
 		if _silence_buffer.size() != frames_available:
 			_silence_buffer.resize(frames_available)
 			_silence_buffer.fill(Vector2.ZERO)
@@ -419,6 +620,46 @@ func _fill_audio_buffer() -> void:
 	for i in range(frames_available):
 		var dry_l: float = 0.0
 		var dry_r: float = 0.0
+
+		# Continuous procedural flight wind bed (velvety 2-pole LPF breeze + subtle harmonic resonance)
+		if wind_active:
+			_wind_current_level += (_wind_target_level - _wind_current_level) * 0.00024
+			_wind_speed_smooth += (_wind_speed_ratio - _wind_speed_smooth) * 0.00022
+			if _wind_current_level > 0.0002:
+				var lp_alpha: float = lerpf(0.032, 0.086, _wind_speed_smooth)
+				var raw_l: float = _fast_noise()
+				var raw_r: float = _fast_noise()
+				_wind_lp1_l += (raw_l - _wind_lp1_l) * lp_alpha
+				_wind_lp2_l += (_wind_lp1_l - _wind_lp2_l) * lp_alpha
+				_wind_hp_l += (_wind_lp2_l - _wind_hp_l) * 0.004
+				var air_l: float = _wind_lp2_l - _wind_hp_l
+
+				_wind_lp1_r += (raw_r - _wind_lp1_r) * lp_alpha
+				_wind_lp2_r += (_wind_lp1_r - _wind_lp2_r) * lp_alpha
+				_wind_hp_r += (_wind_lp2_r - _wind_hp_r) * 0.004
+				var air_r: float = _wind_lp2_r - _wind_hp_r
+
+				# Gentle organic breathing LFO + whisper-soft D4/A4 breeze resonance
+				_wind_lfo_phase += TAU * (0.30 + _wind_speed_smooth * 0.22) * INV_SAMPLE_RATE
+				if _wind_lfo_phase > TAU:
+					_wind_lfo_phase -= TAU
+				var breath: float = 0.86 + 0.14 * sin(_wind_lfo_phase)
+
+				var tone_f1: float = lerpf(277.18, 329.63, _wind_speed_smooth)
+				var tone_f2: float = tone_f1 * 1.498
+				_wind_tone_phase1 += TAU * tone_f1 * INV_SAMPLE_RATE
+				_wind_tone_phase2 += TAU * tone_f2 * INV_SAMPLE_RATE
+				if _wind_tone_phase1 > TAU:
+					_wind_tone_phase1 -= TAU
+				if _wind_tone_phase2 > TAU:
+					_wind_tone_phase2 -= TAU
+
+				var breeze_harm_l: float = 0.045 * sin(_wind_tone_phase1) + 0.025 * sin(_wind_tone_phase2)
+				var breeze_harm_r: float = 0.045 * sin(_wind_tone_phase1 + 0.7) + 0.025 * sin(_wind_tone_phase2 + 1.1)
+
+				var wind_gain: float = _wind_current_level * breath * 0.24
+				dry_l += (air_l * 1.35 + breeze_harm_l) * wind_gain
+				dry_r += (air_r * 1.35 + breeze_harm_r) * wind_gain
 
 		for v_idx in range(voice_count):
 			var v: Dictionary = _voices[v_idx]

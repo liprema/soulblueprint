@@ -7,8 +7,16 @@ extends Node3D
 
 const STONE_LANTERN_SCENE: PackedScene = preload("res://scenes/interactables/stone_lantern_3d.tscn")
 const INTRO_VIDEO_PATH: String = "res://assets/videos/intro.ogv"
+const UPDRAFTS_SCRIPT_PATH: String = "res://scripts/akasha_updrafts_3d.gd"
 const START_PLAYER_POS: Vector3 = Vector3(0.0, 1.3, 36.0)
 const DAIS_RETURN_POS: Vector3 = Vector3(0.0, 9.4, -260.0)
+
+const DIALOGUE_CAM_FOV: float = 44.0
+const DIALOGUE_CAM_SMOOTH_RATE: float = 4.5
+const DIALOGUE_CAM_RETURN_DURATION: float = 0.45
+const DIALOGUE_CAM_IDLE: int = 0
+const DIALOGUE_CAM_ACTIVE: int = 1
+const DIALOGUE_CAM_RETURNING: int = 2
 
 @onready var architecture: Node3D = $AkashaArchitecture
 @onready var player: CharacterBody3D = $Player3D
@@ -31,6 +39,24 @@ var _garden_decorator: AkashaGardenDecorator = null
 var _castle_interactables: CastleInteractables3D = null
 var _infinite_vista: AkashaInfiniteVista = null
 var _akasha_npcs: AkashaNPCs3D = null
+var _updrafts: Node3D = null
+
+var _dialogue_camera: Camera3D = null
+var _dialogue_cam_state: int = DIALOGUE_CAM_IDLE
+var _dialogue_cam_time: float = 0.0
+var _dialogue_return_elapsed: float = 0.0
+var _dialogue_return_start_xform: Transform3D = Transform3D.IDENTITY
+var _dialogue_return_start_fov: float = DIALOGUE_CAM_FOV
+var _dialogue_target_pos: Vector3 = Vector3.ZERO
+var _dialogue_target_look: Vector3 = Vector3.ZERO
+var _dialogue_current_look: Vector3 = Vector3.ZERO
+var _dialogue_context_kind: String = ""
+var _dialogue_context_id: String = ""
+var _dialogue_context_node: Node3D = null
+var _dialogue_context_pos: Vector3 = Vector3.ZERO
+var _dialogue_context_eye_height: float = 2.0
+var _dialogue_context_distance: float = 6.0
+var _dialogue_side_sign: float = 1.0
 
 var _is_in_gameplay: bool = false
 var _is_transitioning: bool = false
@@ -46,6 +72,8 @@ func _ready() -> void:
 	_setup_castle_interactables()
 	_setup_infinite_vista()
 	_setup_akasha_npcs()
+	_setup_akasha_updrafts()
+	_setup_dialogue_camera()
 	_ensure_vista_camera_clip_planes()
 	_setup_atmospheric_dust_motes()
 	_setup_sakura_petals()
@@ -113,6 +141,41 @@ func _setup_akasha_npcs() -> void:
 	_akasha_npcs = AkashaNPCs3D.new()
 	_akasha_npcs.name = "AkashaNPCs3D"
 	add_child(_akasha_npcs)
+
+
+func _setup_akasha_updrafts() -> void:
+	if _updrafts != null and is_instance_valid(_updrafts):
+		_updrafts.queue_free()
+	_updrafts = null
+
+	if not ResourceLoader.exists(UPDRAFTS_SCRIPT_PATH):
+		return
+
+	var updrafts_script: Script = load(UPDRAFTS_SCRIPT_PATH) as Script
+	if updrafts_script == null:
+		return
+
+	var inst: Variant = updrafts_script.new()
+	if inst is Node3D:
+		_updrafts = inst as Node3D
+		_updrafts.name = "AkashaUpdrafts3D"
+		add_child(_updrafts)
+		if _updrafts.has_method("setup") and player != null:
+			_updrafts.call("setup", player, audio_manager)
+
+
+func _setup_dialogue_camera() -> void:
+	if _dialogue_camera != null and is_instance_valid(_dialogue_camera):
+		_dialogue_camera.queue_free()
+
+	_dialogue_camera = Camera3D.new()
+	_dialogue_camera.name = "DialogueCamera"
+	_dialogue_camera.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
+	_dialogue_camera.near = 0.2
+	_dialogue_camera.far = 1600.0
+	_dialogue_camera.fov = DIALOGUE_CAM_FOV
+	_dialogue_camera.current = false
+	add_child(_dialogue_camera)
 
 
 func _ensure_vista_camera_clip_planes() -> void:
@@ -393,6 +456,9 @@ func _apply_audio_setting() -> void:
 
 func _enter_main_menu_immediate() -> void:
 	_is_in_gameplay = false
+	_cancel_dialogue_camera()
+	if audio_manager != null and audio_manager.has_method("update_flight_wind"):
+		audio_manager.call("update_flight_wind", 0.0, false)
 	_set_player_control(false)
 	_set_player_camera_current(false)
 	if title_camera_rig and title_camera_rig.has_method("activate"):
@@ -561,10 +627,14 @@ func _set_player_control(enabled: bool) -> void:
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
 
+func _get_player_camera() -> Camera3D:
+	if player == null:
+		return null
+	return player.get_node_or_null("CameraRig/SpringArm3D/Camera3D") as Camera3D
+
+
 func _set_player_camera_current(is_current: bool) -> void:
-	if not player:
-		return
-	var cam: Camera3D = player.get_node_or_null("CameraRig/SpringArm3D/Camera3D") as Camera3D
+	var cam: Camera3D = _get_player_camera()
 	if cam != null:
 		cam.current = is_current
 
@@ -626,6 +696,8 @@ func _on_player_soul_call(origin: Vector3) -> void:
 		if mentors_responded:
 			var stage: String = SaveManager.prologue_stage if SaveManager != null else "exploring"
 			if stage == "exploring" or stage == "intro":
+				var mentor_pos: Vector3 = sanctuary_mentors.global_position
+				_set_dialogue_context("mentor", "first_contract", sanctuary_mentors, mentor_pos, 4.35, 6.8)
 				_start_dialogue_sequence("first_contract")
 				return
 
@@ -648,6 +720,23 @@ func _on_castle_relic_interacted(relic_id: String, dialogue_sequence_id: String)
 			chime_idx = _castle_interactables.get_chime_index_for_relic(relic_id)
 		audio_manager.call("play_lantern_chime", chime_idx)
 
+	var relic_pos: Vector3 = player.global_position + Vector3(0.0, 0.0, -4.0) if player != null else Vector3.ZERO
+	var relic_eye: float = 1.9
+	var relic_dist: float = 6.0
+	if relic_id == CastleInteractables3D.RELIC_FOUNTAIN:
+		relic_pos = CastleInteractables3D.FOUNTAIN_POS
+		relic_eye = 1.95
+		relic_dist = 6.2
+	elif relic_id == CastleInteractables3D.RELIC_BOOK:
+		relic_pos = CastleInteractables3D.BOOK_POS
+		relic_eye = 1.85
+		relic_dist = 5.5
+	elif relic_id == CastleInteractables3D.RELIC_ASTROLABE:
+		relic_pos = CastleInteractables3D.ASTROLABE_POS
+		relic_eye = 2.25
+		relic_dist = 6.6
+	_set_dialogue_context("relic", relic_id, null, relic_pos, relic_eye, relic_dist)
+
 	if not dialogue_sequence_id.is_empty():
 		_start_dialogue_sequence(dialogue_sequence_id)
 
@@ -658,6 +747,18 @@ func _on_akasha_npc_interacted(npc_id: String, dialogue_sequence_id: String) -> 
 
 	if audio_manager and audio_manager.has_method("play_lantern_chime"):
 		audio_manager.call("play_lantern_chime", posmod(npc_id.hash(), 5))
+
+	var npc_node: Node3D = null
+	var npc_pos: Vector3 = player.global_position + Vector3(0.0, 0.0, -4.0) if player != null else Vector3.ZERO
+	if _akasha_npcs != null and is_instance_valid(_akasha_npcs):
+		npc_node = _akasha_npcs.get_node_or_null("NPC_%s" % npc_id) as Node3D
+		if npc_node != null:
+			npc_pos = npc_node.global_position
+
+	var is_archangel: bool = npc_id.begins_with("archangel_")
+	var npc_eye: float = 2.65 if is_archangel else 0.95
+	var npc_dist: float = 6.4 if is_archangel else 5.0
+	_set_dialogue_context("npc", npc_id, npc_node, npc_pos, npc_eye, npc_dist)
 
 	if not dialogue_sequence_id.is_empty():
 		_start_dialogue_sequence(dialogue_sequence_id)
@@ -689,8 +790,223 @@ func _on_lantern_awakened(_lantern: Node, index: int) -> void:
 
 
 # ---------------------------------------------------------------------------
-# Dialogue Orchestration (Alatea & Mira)
+# Dialogue Orchestration & Cinematic Dialogue Camera
 # ---------------------------------------------------------------------------
+
+func _set_dialogue_context(
+	kind: String,
+	context_id: String,
+	context_node: Node3D,
+	world_pos: Vector3,
+	eye_height: float,
+	distance: float
+) -> void:
+	_dialogue_context_kind = kind
+	_dialogue_context_id = context_id
+	_dialogue_context_node = context_node
+	_dialogue_context_pos = world_pos
+	_dialogue_context_eye_height = eye_height
+	_dialogue_context_distance = distance
+
+	# Pick side sign matching the player camera's current side for an effortless glide
+	_dialogue_side_sign = 1.0
+	var player_cam: Camera3D = _get_player_camera()
+	if player != null and player_cam != null:
+		var to_player_flat: Vector3 = Vector3(
+			player.global_position.x - world_pos.x,
+			0.0,
+			player.global_position.z - world_pos.z
+		)
+		if to_player_flat.length_squared() > 0.04:
+			var front_dir: Vector3 = to_player_flat.normalized()
+			var right_dir: Vector3 = Vector3.UP.cross(front_dir).normalized()
+			var cam_offset: Vector3 = player_cam.global_position - world_pos
+			if cam_offset.dot(right_dir) < 0.0:
+				_dialogue_side_sign = -1.0
+
+
+func _resolve_dialogue_focus(speaker_id: String) -> Dictionary:
+	var normalized: String = speaker_id.strip_edges().to_lower()
+
+	if _dialogue_context_kind == "relic":
+		var nudge: float = 0.0
+		if normalized == "alatea":
+			nudge = -0.55
+		elif normalized == "mira" or normalized == "orion":
+			nudge = 0.55
+		return {
+			"base_pos": _dialogue_context_pos,
+			"eye_height": _dialogue_context_eye_height,
+			"distance": _dialogue_context_distance,
+			"speaker_nudge": nudge,
+		}
+
+	if _dialogue_context_kind == "npc":
+		var live_pos: Vector3 = _dialogue_context_pos
+		if _dialogue_context_node != null and is_instance_valid(_dialogue_context_node):
+			live_pos = _dialogue_context_node.global_position
+		return {
+			"base_pos": live_pos,
+			"eye_height": _dialogue_context_eye_height,
+			"distance": _dialogue_context_distance,
+			"speaker_nudge": 0.0,
+		}
+
+	# Mentors (Alatea & Mira) or fallback speaker focus
+	if sanctuary_mentors != null and is_instance_valid(sanctuary_mentors):
+		if normalized == "alatea":
+			var alatea_node: Node3D = sanctuary_mentors.get_node_or_null("Alatea") as Node3D
+			if alatea_node != null:
+				return {
+					"base_pos": alatea_node.global_position,
+					"eye_height": 4.35,
+					"distance": 6.8,
+					"speaker_nudge": -0.45,
+				}
+		elif normalized == "mira":
+			var mira_node: Node3D = sanctuary_mentors.get_node_or_null("Mira") as Node3D
+			if mira_node != null:
+				return {
+					"base_pos": mira_node.global_position,
+					"eye_height": 4.35,
+					"distance": 6.8,
+					"speaker_nudge": 0.45,
+				}
+		return {
+			"base_pos": sanctuary_mentors.global_position,
+			"eye_height": 4.2,
+			"distance": 7.0,
+			"speaker_nudge": 0.0,
+		}
+
+	var fallback_pos: Vector3 = player.global_position + Vector3(0.0, 0.0, -5.0) if player != null else Vector3.ZERO
+	return {
+		"base_pos": fallback_pos,
+		"eye_height": 1.6,
+		"distance": 5.5,
+		"speaker_nudge": 0.0,
+	}
+
+
+func _compute_dialogue_camera_pose(speaker_id: String) -> void:
+	var focus: Dictionary = _resolve_dialogue_focus(speaker_id)
+	var base_pos: Vector3 = focus.get("base_pos", Vector3.ZERO) as Vector3
+	var eye_height: float = float(focus.get("eye_height", 2.0))
+	var dist: float = float(focus.get("distance", 6.0))
+	var speaker_nudge: float = float(focus.get("speaker_nudge", 0.0))
+
+	var player_pos: Vector3 = player.global_position if player != null else base_pos + Vector3(0.0, 0.0, 6.0)
+	var to_player_flat: Vector3 = Vector3(player_pos.x - base_pos.x, 0.0, player_pos.z - base_pos.z)
+	var front_dir: Vector3 = Vector3(0.0, 0.0, 1.0)
+	if to_player_flat.length_squared() > 0.04:
+		front_dir = to_player_flat.normalized()
+
+	var right_dir: Vector3 = Vector3.UP.cross(front_dir).normalized()
+	var side_offset: float = clampf(dist * 0.30, 1.35, 2.2) * _dialogue_side_sign + speaker_nudge
+	var target_eye_y: float = base_pos.y + eye_height
+	var floor_guard_y: float = minf(player_pos.y, base_pos.y) + 1.25
+	var cam_y: float = maxf(lerpf(player_pos.y + 1.35, target_eye_y, 0.68), floor_guard_y)
+
+	_dialogue_target_pos = Vector3(base_pos.x, 0.0, base_pos.z) + front_dir * dist + right_dir * side_offset + Vector3(0.0, cam_y, 0.0)
+
+	var speaker_focus: Vector3 = Vector3(base_pos.x, target_eye_y, base_pos.z)
+	if player != null and player_pos.distance_to(base_pos) <= 14.0:
+		var spark_focus: Vector3 = player_pos + Vector3(0.0, 1.05, 0.0)
+		_dialogue_target_look = speaker_focus.lerp(spark_focus, 0.14)
+	else:
+		_dialogue_target_look = speaker_focus
+
+
+func _begin_dialogue_camera() -> void:
+	if _dialogue_camera == null or not is_instance_valid(_dialogue_camera):
+		return
+	var player_cam: Camera3D = _get_player_camera()
+	if player_cam == null:
+		return
+
+	if _dialogue_cam_state == DIALOGUE_CAM_IDLE:
+		_dialogue_camera.global_transform = player_cam.global_transform
+		_dialogue_camera.fov = player_cam.fov
+		_dialogue_current_look = player_cam.global_position - player_cam.global_transform.basis.z * 6.0
+
+	_dialogue_cam_time = 0.0
+	_dialogue_cam_state = DIALOGUE_CAM_ACTIVE
+	_dialogue_camera.current = true
+
+
+func _end_dialogue_camera() -> void:
+	if _dialogue_camera == null or not is_instance_valid(_dialogue_camera):
+		_dialogue_cam_state = DIALOGUE_CAM_IDLE
+		return
+	if _dialogue_cam_state != DIALOGUE_CAM_ACTIVE:
+		return
+
+	var player_cam: Camera3D = _get_player_camera()
+	if player_cam == null:
+		_cancel_dialogue_camera()
+		return
+
+	_dialogue_return_start_xform = _dialogue_camera.global_transform
+	_dialogue_return_start_fov = _dialogue_camera.fov
+	_dialogue_return_elapsed = 0.0
+	_dialogue_cam_state = DIALOGUE_CAM_RETURNING
+
+
+func _cancel_dialogue_camera() -> void:
+	_dialogue_cam_state = DIALOGUE_CAM_IDLE
+	_dialogue_context_kind = ""
+	_dialogue_context_id = ""
+	_dialogue_context_node = null
+	if _dialogue_camera != null and is_instance_valid(_dialogue_camera):
+		_dialogue_camera.current = false
+
+
+func _update_dialogue_camera(delta: float) -> void:
+	if _dialogue_cam_state == DIALOGUE_CAM_IDLE:
+		return
+	if _dialogue_camera == null or not is_instance_valid(_dialogue_camera):
+		_dialogue_cam_state = DIALOGUE_CAM_IDLE
+		return
+
+	if _dialogue_cam_state == DIALOGUE_CAM_ACTIVE:
+		_dialogue_cam_time += delta
+		var smooth_w: float = 1.0 - exp(-DIALOGUE_CAM_SMOOTH_RATE * delta)
+		var drift: Vector3 = Vector3(
+			sin(_dialogue_cam_time * 0.72) * 0.08,
+			sin(_dialogue_cam_time * 0.54 + 1.1) * 0.06,
+			cos(_dialogue_cam_time * 0.61 + 0.4) * 0.05
+		)
+		_dialogue_camera.global_position = _dialogue_camera.global_position.lerp(_dialogue_target_pos + drift, smooth_w)
+		_dialogue_current_look = _dialogue_current_look.lerp(_dialogue_target_look, smooth_w)
+		_dialogue_camera.fov = lerpf(_dialogue_camera.fov, DIALOGUE_CAM_FOV, smooth_w)
+
+		var to_look: Vector3 = _dialogue_current_look - _dialogue_camera.global_position
+		if to_look.length_squared() > 0.01 and absf(to_look.normalized().dot(Vector3.UP)) < 0.995:
+			_dialogue_camera.look_at(_dialogue_current_look, Vector3.UP)
+
+	elif _dialogue_cam_state == DIALOGUE_CAM_RETURNING:
+		var player_cam: Camera3D = _get_player_camera()
+		if player_cam == null:
+			_cancel_dialogue_camera()
+			return
+
+		_dialogue_return_elapsed += delta
+		var raw_t: float = clampf(_dialogue_return_elapsed / DIALOGUE_CAM_RETURN_DURATION, 0.0, 1.0)
+		var smooth_t: float = raw_t * raw_t * (3.0 - 2.0 * raw_t)
+
+		var start_q: Quaternion = _dialogue_return_start_xform.basis.get_rotation_quaternion()
+		var target_q: Quaternion = player_cam.global_transform.basis.get_rotation_quaternion()
+		var blended_q: Quaternion = start_q.slerp(target_q, smooth_t)
+		var blended_pos: Vector3 = _dialogue_return_start_xform.origin.lerp(player_cam.global_position, smooth_t)
+		var rot_basis: Basis = Basis(blended_q)
+		_dialogue_camera.global_transform = Transform3D(rot_basis, blended_pos)
+		_dialogue_camera.fov = lerpf(_dialogue_return_start_fov, player_cam.fov, smooth_t)
+
+		if raw_t >= 1.0:
+			_dialogue_cam_state = DIALOGUE_CAM_IDLE
+			_dialogue_camera.current = false
+			player_cam.current = true
+
 
 func _start_dialogue_sequence(sequence_id: String) -> void:
 	if not dialogue_manager or not dialogue_manager.has_method("start_sequence"):
@@ -703,6 +1019,8 @@ func _start_dialogue_sequence(sequence_id: String) -> void:
 func _on_dialogue_started(_sequence_id: String) -> void:
 	_set_player_control(false)
 	_update_prompt("")
+	_compute_dialogue_camera_pose("")
+	_begin_dialogue_camera()
 
 
 func _on_dialogue_line_presented(
@@ -712,6 +1030,7 @@ func _on_dialogue_line_presented(
 	text: String,
 	choices: Array
 ) -> void:
+	_compute_dialogue_camera_pose(speaker_id)
 	if sanctuary_mentors and sanctuary_mentors.has_method("highlight_speaker"):
 		sanctuary_mentors.call("highlight_speaker", speaker_id)
 	if audio_manager and audio_manager.has_method("play_mentor_chord"):
@@ -749,6 +1068,10 @@ func _on_dialogue_ended(sequence_id: String) -> void:
 		if earth_mirror and earth_mirror.has_method("set_ready_for_call"):
 			earth_mirror.call("set_ready_for_call")
 
+	_end_dialogue_camera()
+	_dialogue_context_kind = ""
+	_dialogue_context_id = ""
+	_dialogue_context_node = null
 	_set_player_control(true)
 
 
@@ -772,6 +1095,7 @@ func _on_player_entered_portal() -> void:
 func _trigger_prologue_completion() -> void:
 	_epilogue_triggered = true
 	_is_transitioning = true
+	_cancel_dialogue_camera()
 	_set_player_control(false)
 	_update_prompt("")
 
@@ -871,10 +1195,22 @@ func _process(delta: float) -> void:
 		if _akasha_npcs != null and is_instance_valid(_akasha_npcs):
 			_akasha_npcs.update_player_position(player.global_position)
 
+	_update_dialogue_camera(delta)
+
+	var is_talking: bool = dialogue_manager != null and dialogue_manager.has_method("is_active") and bool(dialogue_manager.call("is_active"))
+
+	if audio_manager != null and audio_manager.has_method("update_flight_wind"):
+		if _is_in_gameplay and not _is_transitioning and not is_talking and player != null:
+			var is_flying_now: bool = bool(player.get("is_flying"))
+			var player_speed: float = player.velocity.length()
+			var speed_ratio: float = clampf(player_speed / 24.0, 0.0, 1.0)
+			audio_manager.call("update_flight_wind", speed_ratio, is_flying_now)
+		else:
+			audio_manager.call("update_flight_wind", 0.0, false)
+
 	if not _is_in_gameplay or _is_transitioning or not player:
 		return
 
-	var is_talking: bool = dialogue_manager != null and dialogue_manager.has_method("is_active") and bool(dialogue_manager.call("is_active"))
 	if is_talking:
 		return
 
@@ -891,6 +1227,8 @@ func _process(delta: float) -> void:
 	# 1. Warm arrival greeting when approaching the Cathedral grand stairs
 	if not _arrival_greeting_shown and stage == "exploring" and p_pos.z < -210.0:
 		_arrival_greeting_shown = true
+		var arrival_pos: Vector3 = sanctuary_mentors.global_position if sanctuary_mentors != null else p_pos + Vector3(0.0, 0.0, -8.0)
+		_set_dialogue_context("mentor", "cathedral_arrival", sanctuary_mentors, arrival_pos, 4.35, 6.8)
 		_start_dialogue_sequence("cathedral_arrival")
 		return
 

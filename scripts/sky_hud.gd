@@ -1,15 +1,22 @@
 class_name SkyHUD
 extends CanvasLayer
 
-## Ultra-minimalist Sky: Children of the Light HUD & Art Deco Mentor Dialogue
+## Luminous light fairytale Baroque HUD & Mentor Dialogue
 ## for SoulBlueprint (Godot 4.3).
+## Frosted cloud-pearl panels, antique-gold filigree, and sapphire-ink typography.
 
 signal dialogue_advance_requested
 signal dialogue_choice_selected(choice_index: int)
 
-const COLOR_GOLD := Color(0.964706, 0.827451, 0.419608, 1.0) # #F6D36B
-const COLOR_IVORY := Color(1.0, 0.964706, 0.8, 1.0) # #FFF6CC
-const COLOR_INDIGO := Color(0.027451, 0.078431, 0.180392, 0.86) # #07142E
+const COLOR_GOLD := Color(0.87451, 0.72549, 0.376471, 1.0) # #DFB960 antique gold
+const COLOR_GOLD_BRIGHT := Color(0.909804, 0.768627, 0.407843, 1.0) # #E8C468 bright gold
+const COLOR_BRONZE_GOLD := Color(0.619608, 0.454902, 0.156863, 1.0) # #9E7428 antique bronze-gold
+const COLOR_AZURE := Color(0.141176, 0.345098, 0.65098, 1.0) # #2458A6 royal azure
+const COLOR_SAPPHIRE := Color(0.101961, 0.180392, 0.321569, 1.0) # #1A2E52 sapphire ink
+const COLOR_PEARL := Color(0.975, 0.985, 1.0, 0.88) # frosted cloud-pearl card
+const COLOR_PEARL_PILL := Color(0.985, 0.99, 1.0, 0.78) # subtle HUD pill
+const COLOR_IVORY := Color(1.0, 0.992, 0.965, 1.0) # warm sunlit pearl-ivory
+const COLOR_SHADOW := Color(0.16, 0.28, 0.52, 0.16) # soft luminous drop shadow
 const PIP_COUNT := 5
 
 @export var auto_show_prologue: bool = true
@@ -29,6 +36,7 @@ const PIP_COUNT := 5
 @onready var _speaker_label: Label = $RootControl/DialoguePanel/Margin/VBox/SpeakerLabel
 @onready var _dialogue_divider: Control = $RootControl/DialoguePanel/Margin/VBox/DialogueDivider
 @onready var _dialogue_text: Label = $RootControl/DialoguePanel/Margin/VBox/DialogueText
+@onready var _controls_hint_pill: PanelContainer = $RootControl/ControlHintsPill
 @onready var _flight_hint: Label = $RootControl/FlightHint
 
 var _choices_container: VBoxContainer
@@ -48,7 +56,7 @@ var _flight_hint_dismissed: bool = false
 
 var _dialogue_active: bool = false
 var _is_typewriting: bool = false
-var _dialogue_accent: Color = COLOR_GOLD
+var _dialogue_accent: Color = COLOR_AZURE
 var _current_choices: Array = []
 var _interaction_visible: bool = false
 
@@ -80,11 +88,14 @@ func _ready() -> void:
 	_chapter_container.visible = false
 	_chapter_container.modulate.a = 0.0
 
-	# Subtle flight hint starts gently visible
-	_flight_hint.modulate.a = 0.0
-	var hint_in: Tween = create_tween()
-	hint_in.tween_interval(1.2)
-	hint_in.tween_property(_flight_hint, "modulate:a", 1.0, 1.0).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	# Subtle bottom-left control hints pill fades in gently during gameplay
+	_flight_hint.visible = false
+	_controls_hint_pill.visible = true
+	_controls_hint_pill.modulate.a = 0.0
+	_hint_tween = create_tween()
+	_hint_tween.tween_interval(1.0)
+	_hint_tween.tween_property(_controls_hint_pill, "modulate:a", 0.92, 0.9) \
+		.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 
 	if auto_show_prologue:
 		show_chapter_title(default_subtitle, default_title)
@@ -103,7 +114,7 @@ func _process(delta: float) -> void:
 	_wing_emblem.queue_redraw()
 
 	if _continue_label != null and _continue_label.visible:
-		_continue_label.modulate.a = lerpf(0.52, 0.96, 0.5 + 0.5 * sin(_time * 3.2))
+		_continue_label.modulate.a = lerpf(0.55, 1.0, 0.5 + 0.5 * sin(_time * 3.2))
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -179,10 +190,10 @@ func show_chapter_title(subtitle: String, title: String, hold_duration: float = 
 	_chapter_tween.tween_callback(func() -> void: _chapter_container.visible = false)
 
 
-## Shows the Art Deco mentor dialogue panel at bottom-center with smooth typewriter reveal.
+## Shows the Baroque pearl-gold mentor dialogue panel at bottom-center with smooth typewriter reveal.
 ## Preserved for backward compatibility with single-line dialogue callers.
 func show_dialogue(speaker: String, line: String) -> void:
-	show_dialogue_step(speaker, line, COLOR_GOLD, [])
+	show_dialogue_step(speaker, line, COLOR_AZURE, [])
 
 
 ## Shows a multi-step mentor dialogue line with speaker accent color and optional Spark response choices.
@@ -195,8 +206,10 @@ func show_dialogue_step(speaker: String, line: String, accent_color: Color, choi
 		_choices_tween.kill()
 
 	_dialogue_active = true
-	_dialogue_accent = accent_color
+	_dialogue_accent = _adapt_accent_for_light_panel(accent_color)
 	_current_choices = choices.duplicate()
+
+	_set_controls_hint_visible(false)
 
 	_speaker_label.text = speaker
 	_speaker_label.add_theme_color_override("font_color", _dialogue_accent)
@@ -209,11 +222,11 @@ func show_dialogue_step(speaker: String, line: String, accent_color: Color, choi
 	_continue_label.visible = false
 
 	# Reset panel frame to compact baseline so it expands cleanly upward if choices appear
-	_dialogue_panel.offset_left = -310.0
-	_dialogue_panel.offset_right = 310.0
-	_dialogue_panel.offset_top = -148.0
+	_dialogue_panel.offset_left = -320.0
+	_dialogue_panel.offset_right = 320.0
+	_dialogue_panel.offset_top = -152.0
 	_dialogue_panel.offset_bottom = -28.0
-	_dialogue_panel.size = Vector2(620.0, 120.0)
+	_dialogue_panel.size = Vector2(640.0, 124.0)
 
 	_dialogue_panel.visible = true
 	_dialogue_panel.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -250,6 +263,9 @@ func hide_dialogue() -> void:
 	_is_typewriting = false
 	_current_choices.clear()
 	_dialogue_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	if _root_control != null and _root_control.visible:
+		_set_controls_hint_visible(true)
 
 	if not _dialogue_panel.visible:
 		return
@@ -300,7 +316,7 @@ func hide_interaction_prompt() -> void:
 	_interaction_tween.tween_callback(func() -> void: _interaction_panel.visible = false)
 
 
-## Shows the minimalist top-right lantern progress badge, then settles to subtle 0.35 opacity.
+## Shows the minimalist top-right lantern progress badge, then settles to subtle translucent opacity.
 func show_lantern_progress(awakened: int, total: int) -> void:
 	if _lantern_panel == null or _lantern_label == null:
 		return
@@ -315,7 +331,7 @@ func show_lantern_progress(awakened: int, total: int) -> void:
 	_lantern_tween.tween_property(_lantern_panel, "modulate:a", 1.0, 0.3) \
 		.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 	_lantern_tween.tween_interval(3.5)
-	_lantern_tween.tween_property(_lantern_panel, "modulate:a", 0.35, 0.9) \
+	_lantern_tween.tween_property(_lantern_panel, "modulate:a", 0.58, 0.9) \
 		.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 
 
@@ -323,21 +339,28 @@ func show_lantern_progress(awakened: int, total: int) -> void:
 func set_hud_visible(visible_state: bool) -> void:
 	if _root_control != null:
 		_root_control.visible = visible_state
+	if visible_state and not _dialogue_active:
+		_set_controls_hint_visible(true)
+	elif not visible_state:
+		_set_controls_hint_visible(false)
 
 
-## Explicitly dismisses the bottom-left flight hint once the player begins flying.
+## Gently softens the bottom-left control hints pill once the player begins flying,
+## keeping it airy and unobtrusive during gameplay.
 func hide_flight_hint() -> void:
 	if _flight_hint_dismissed:
 		return
 	_flight_hint_dismissed = true
 
+	if _dialogue_active or _controls_hint_pill == null or not _root_control.visible:
+		return
+
 	if _hint_tween and _hint_tween.is_valid():
 		_hint_tween.kill()
 
 	_hint_tween = create_tween()
-	_hint_tween.tween_property(_flight_hint, "modulate:a", 0.0, 0.85) \
-		.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
-	_hint_tween.tween_callback(func() -> void: _flight_hint.visible = false)
+	_hint_tween.tween_property(_controls_hint_pill, "modulate:a", 0.72, 0.85) \
+		.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 
 
 # ---------------------------------------------------------------------------
@@ -361,7 +384,7 @@ func _build_extended_ui() -> void:
 	_continue_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_continue_label.text = "✦  [Space / Клик] Продолжить"
 	_continue_label.add_theme_font_size_override("font_size", 12)
-	_continue_label.add_theme_color_override("font_color", Color(COLOR_GOLD.r, COLOR_GOLD.g, COLOR_GOLD.b, 0.85))
+	_continue_label.add_theme_color_override("font_color", COLOR_BRONZE_GOLD)
 	_dialogue_vbox.add_child(_continue_label)
 
 	# Contextual interaction prompt centered above bottom edge
@@ -371,26 +394,29 @@ func _build_extended_ui() -> void:
 	_interaction_panel.modulate.a = 0.0
 	_interaction_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_interaction_panel.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
-	_interaction_panel.offset_left = -230.0
-	_interaction_panel.offset_right = 230.0
-	_interaction_panel.offset_top = -104.0
+	_interaction_panel.offset_left = -240.0
+	_interaction_panel.offset_right = 240.0
+	_interaction_panel.offset_top = -108.0
 	_interaction_panel.offset_bottom = -64.0
 	_interaction_panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	_interaction_panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
 
 	var prompt_style: StyleBoxFlat = StyleBoxFlat.new()
-	prompt_style.bg_color = Color(COLOR_INDIGO.r, COLOR_INDIGO.g, COLOR_INDIGO.b, 0.78)
-	prompt_style.border_width_left = 1
-	prompt_style.border_width_top = 1
-	prompt_style.border_width_right = 1
-	prompt_style.border_width_bottom = 1
-	prompt_style.border_color = Color(COLOR_GOLD.r, COLOR_GOLD.g, COLOR_GOLD.b, 0.55)
-	prompt_style.corner_radius_top_left = 3
-	prompt_style.corner_radius_top_right = 3
-	prompt_style.corner_radius_bottom_right = 3
-	prompt_style.corner_radius_bottom_left = 3
-	prompt_style.content_margin_left = 18.0
-	prompt_style.content_margin_right = 18.0
+	prompt_style.bg_color = Color(0.985, 0.99, 1.0, 0.84)
+	prompt_style.border_width_left = 2
+	prompt_style.border_width_top = 2
+	prompt_style.border_width_right = 2
+	prompt_style.border_width_bottom = 2
+	prompt_style.border_color = Color(COLOR_GOLD.r, COLOR_GOLD.g, COLOR_GOLD.b, 0.9)
+	prompt_style.corner_radius_top_left = 18
+	prompt_style.corner_radius_top_right = 18
+	prompt_style.corner_radius_bottom_right = 18
+	prompt_style.corner_radius_bottom_left = 18
+	prompt_style.shadow_color = COLOR_SHADOW
+	prompt_style.shadow_size = 12
+	prompt_style.shadow_offset = Vector2(0.0, 4.0)
+	prompt_style.content_margin_left = 20.0
+	prompt_style.content_margin_right = 20.0
 	prompt_style.content_margin_top = 8.0
 	prompt_style.content_margin_bottom = 8.0
 	_interaction_panel.add_theme_stylebox_override("panel", prompt_style)
@@ -401,7 +427,7 @@ func _build_extended_ui() -> void:
 	_interaction_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_interaction_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_interaction_label.add_theme_font_size_override("font_size", 14)
-	_interaction_label.add_theme_color_override("font_color", COLOR_IVORY)
+	_interaction_label.add_theme_color_override("font_color", COLOR_SAPPHIRE)
 	_interaction_panel.add_child(_interaction_label)
 	_root_control.add_child(_interaction_panel)
 
@@ -412,26 +438,29 @@ func _build_extended_ui() -> void:
 	_lantern_panel.modulate.a = 0.0
 	_lantern_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_lantern_panel.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	_lantern_panel.offset_left = -126.0
+	_lantern_panel.offset_left = -132.0
 	_lantern_panel.offset_right = -22.0
 	_lantern_panel.offset_top = 20.0
-	_lantern_panel.offset_bottom = 52.0
+	_lantern_panel.offset_bottom = 54.0
 	_lantern_panel.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	_lantern_panel.grow_vertical = Control.GROW_DIRECTION_END
 
 	var lantern_style: StyleBoxFlat = StyleBoxFlat.new()
-	lantern_style.bg_color = Color(COLOR_INDIGO.r, COLOR_INDIGO.g, COLOR_INDIGO.b, 0.68)
-	lantern_style.border_width_left = 1
-	lantern_style.border_width_top = 1
-	lantern_style.border_width_right = 1
-	lantern_style.border_width_bottom = 1
-	lantern_style.border_color = Color(COLOR_GOLD.r, COLOR_GOLD.g, COLOR_GOLD.b, 0.48)
-	lantern_style.corner_radius_top_left = 3
-	lantern_style.corner_radius_top_right = 3
-	lantern_style.corner_radius_bottom_right = 3
-	lantern_style.corner_radius_bottom_left = 3
-	lantern_style.content_margin_left = 12.0
-	lantern_style.content_margin_right = 12.0
+	lantern_style.bg_color = COLOR_PEARL_PILL
+	lantern_style.border_width_left = 2
+	lantern_style.border_width_top = 2
+	lantern_style.border_width_right = 2
+	lantern_style.border_width_bottom = 2
+	lantern_style.border_color = Color(COLOR_GOLD.r, COLOR_GOLD.g, COLOR_GOLD.b, 0.85)
+	lantern_style.corner_radius_top_left = 16
+	lantern_style.corner_radius_top_right = 16
+	lantern_style.corner_radius_bottom_right = 16
+	lantern_style.corner_radius_bottom_left = 16
+	lantern_style.shadow_color = COLOR_SHADOW
+	lantern_style.shadow_size = 10
+	lantern_style.shadow_offset = Vector2(0.0, 3.0)
+	lantern_style.content_margin_left = 14.0
+	lantern_style.content_margin_right = 14.0
 	lantern_style.content_margin_top = 5.0
 	lantern_style.content_margin_bottom = 5.0
 	_lantern_panel.add_theme_stylebox_override("panel", lantern_style)
@@ -442,9 +471,46 @@ func _build_extended_ui() -> void:
 	_lantern_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_lantern_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_lantern_label.add_theme_font_size_override("font_size", 14)
-	_lantern_label.add_theme_color_override("font_color", COLOR_GOLD)
+	_lantern_label.add_theme_color_override("font_color", COLOR_BRONZE_GOLD)
 	_lantern_panel.add_child(_lantern_label)
 	_root_control.add_child(_lantern_panel)
+
+
+func _set_controls_hint_visible(should_show: bool) -> void:
+	if _controls_hint_pill == null:
+		return
+	if _hint_tween and _hint_tween.is_valid():
+		_hint_tween.kill()
+
+	if should_show:
+		var target_alpha: float = 0.72 if _flight_hint_dismissed else 0.92
+		_controls_hint_pill.visible = true
+		_hint_tween = create_tween()
+		_hint_tween.tween_property(_controls_hint_pill, "modulate:a", target_alpha, 0.35) \
+			.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	else:
+		if not _controls_hint_pill.visible:
+			return
+		_hint_tween = create_tween()
+		_hint_tween.tween_property(_controls_hint_pill, "modulate:a", 0.0, 0.25) \
+			.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+		_hint_tween.tween_callback(func() -> void: _controls_hint_pill.visible = false)
+
+
+func _adapt_accent_for_light_panel(raw_color: Color) -> Color:
+	# Preserve speaker hue identity while ensuring high contrast on the frosted pearl panel.
+	var lum: float = 0.299 * raw_color.r + 0.587 * raw_color.g + 0.114 * raw_color.b
+	if lum <= 0.54:
+		return Color(raw_color.r, raw_color.g, raw_color.b, 1.0)
+	if raw_color.s < 0.18:
+		return COLOR_AZURE
+	var adapted: Color = Color.from_hsv(
+		raw_color.h,
+		clampf(maxf(raw_color.s, 0.58), 0.0, 0.85),
+		clampf(raw_color.v * 0.56, 0.36, 0.58),
+		1.0
+	)
+	return adapted
 
 
 func _rebuild_choice_buttons(choices: Array) -> void:
@@ -455,16 +521,22 @@ func _rebuild_choice_buttons(choices: Array) -> void:
 		return
 
 	var normal_style: StyleBoxFlat = _make_choice_style(
-		Color(0.043137, 0.109804, 0.239216, 0.80),
-		Color(COLOR_GOLD.r, COLOR_GOLD.g, COLOR_GOLD.b, 0.45)
+		Color(0.985, 0.992, 1.0, 0.92),
+		Color(COLOR_GOLD.r, COLOR_GOLD.g, COLOR_GOLD.b, 0.85),
+		Color(0.16, 0.28, 0.52, 0.10),
+		8
 	)
 	var hover_style: StyleBoxFlat = _make_choice_style(
-		Color(0.137255, 0.207843, 0.341176, 0.94),
-		COLOR_GOLD
+		Color(0.92, 0.96, 1.0, 0.96),
+		COLOR_GOLD_BRIGHT,
+		Color(COLOR_GOLD.r, COLOR_GOLD.g, COLOR_GOLD.b, 0.24),
+		12
 	)
 	var pressed_style: StyleBoxFlat = _make_choice_style(
-		Color(0.196078, 0.262745, 0.376471, 0.96),
-		COLOR_IVORY
+		Color(0.87, 0.93, 0.99, 0.98),
+		Color(0.788235, 0.619608, 0.266667, 1.0),
+		Color(0.16, 0.28, 0.52, 0.12),
+		6
 	)
 
 	for i in range(choices.size()):
@@ -480,35 +552,40 @@ func _rebuild_choice_buttons(choices: Array) -> void:
 		btn.text = "[%d]  %s" % [i + 1, choice_text]
 		btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		btn.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		btn.custom_minimum_size = Vector2(0.0, 36.0)
+		btn.custom_minimum_size = Vector2(0.0, 38.0)
 		btn.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 		btn.add_theme_font_size_override("font_size", 14)
-		btn.add_theme_color_override("font_color", COLOR_IVORY)
-		btn.add_theme_color_override("font_hover_color", COLOR_GOLD)
-		btn.add_theme_color_override("font_focus_color", COLOR_GOLD)
-		btn.add_theme_color_override("font_pressed_color", COLOR_IVORY)
+		btn.add_theme_color_override("font_color", COLOR_SAPPHIRE)
+		btn.add_theme_color_override("font_hover_color", COLOR_AZURE)
+		btn.add_theme_color_override("font_focus_color", COLOR_AZURE)
+		btn.add_theme_color_override("font_pressed_color", COLOR_BRONZE_GOLD)
 		btn.add_theme_stylebox_override("normal", normal_style)
 		btn.add_theme_stylebox_override("hover", hover_style)
 		btn.add_theme_stylebox_override("focus", hover_style)
 		btn.add_theme_stylebox_override("pressed", pressed_style)
+		btn.mouse_entered.connect(_on_choice_button_hover)
+		btn.focus_entered.connect(_on_choice_button_hover)
 		btn.pressed.connect(_on_choice_button_pressed.bind(i))
 		_choices_container.add_child(btn)
 
 
-func _make_choice_style(bg_col: Color, border_col: Color) -> StyleBoxFlat:
+func _make_choice_style(bg_col: Color, border_col: Color, shadow_col: Color, shadow_sz: int) -> StyleBoxFlat:
 	var style: StyleBoxFlat = StyleBoxFlat.new()
 	style.bg_color = bg_col
-	style.border_width_left = 1
-	style.border_width_top = 1
-	style.border_width_right = 1
-	style.border_width_bottom = 1
+	style.border_width_left = 2
+	style.border_width_top = 2
+	style.border_width_right = 2
+	style.border_width_bottom = 2
 	style.border_color = border_col
-	style.corner_radius_top_left = 2
-	style.corner_radius_top_right = 2
-	style.corner_radius_bottom_right = 2
-	style.corner_radius_bottom_left = 2
-	style.content_margin_left = 14.0
-	style.content_margin_right = 14.0
+	style.corner_radius_top_left = 16
+	style.corner_radius_top_right = 16
+	style.corner_radius_bottom_right = 16
+	style.corner_radius_bottom_left = 16
+	style.shadow_color = shadow_col
+	style.shadow_size = shadow_sz
+	style.shadow_offset = Vector2(0.0, 2.0)
+	style.content_margin_left = 16.0
+	style.content_margin_right = 16.0
 	style.content_margin_top = 8.0
 	style.content_margin_bottom = 8.0
 	return style
@@ -549,6 +626,7 @@ func _handle_dialogue_continue_input() -> void:
 		_complete_typewriter()
 		return
 	if _current_choices.is_empty():
+		_play_ui_audio("play_ui_click")
 		dialogue_advance_requested.emit()
 
 
@@ -568,16 +646,33 @@ func _on_dialogue_panel_resized() -> void:
 		_dialogue_divider.queue_redraw()
 
 
+func _on_choice_button_hover() -> void:
+	if not _dialogue_active:
+		return
+	_play_ui_audio("play_ui_hover")
+
+
 func _on_choice_button_pressed(choice_index: int) -> void:
 	if not _dialogue_active:
 		return
 	if choice_index < 0 or choice_index >= _current_choices.size():
 		return
+	_play_ui_audio("play_ui_click")
 	dialogue_choice_selected.emit(choice_index)
 
 
+func _play_ui_audio(method_name: String) -> void:
+	var audio_node: Node = get_node_or_null("/root/AkashaAudioManager")
+	if audio_node == null and get_parent() != null:
+		audio_node = get_parent().get_node_or_null("AkashaAudioManager")
+	if audio_node == null and get_tree() != null:
+		audio_node = get_tree().get_first_node_in_group("akasha_audio")
+	if audio_node != null and audio_node.has_method(method_name):
+		audio_node.call(method_name)
+
+
 # ---------------------------------------------------------------------------
-# Custom Vector Art Drawing (Sky Emblem & Art Deco Filigree)
+# Custom Vector Art Drawing (Luminous Pearl-Gold Wing Emblem & Baroque Filigree)
 # ---------------------------------------------------------------------------
 
 func _draw_wing_emblem() -> void:
@@ -588,16 +683,16 @@ func _draw_wing_emblem() -> void:
 	var pulse: float = 0.5 + 0.5 * sin(_time * 2.4)
 	var glow_boost: float = (0.35 + 0.65 * energy_ratio) + _recharge_flash * 0.45
 
-	# Soft celestial halo behind the winged star
-	var halo_outer := Color(COLOR_GOLD.r, COLOR_GOLD.g, COLOR_GOLD.b, clampf(0.10 * glow_boost + 0.04 * pulse, 0.0, 0.35))
-	var halo_inner := Color(COLOR_IVORY.r, COLOR_IVORY.g, COLOR_IVORY.b, clampf(0.16 * glow_boost + 0.05 * pulse, 0.0, 0.45))
-	_wing_emblem.draw_circle(star_center, 24.0 + pulse * 2.0, halo_outer)
-	_wing_emblem.draw_circle(star_center, 12.0 + pulse * 1.0, halo_inner)
+	# Soft sunlit pearl-gold aura behind the winged star
+	var halo_outer := Color(COLOR_PEARL.r, COLOR_PEARL.g, COLOR_PEARL.b, clampf(0.20 * glow_boost + 0.06 * pulse, 0.0, 0.45))
+	var halo_inner := Color(COLOR_GOLD_BRIGHT.r, COLOR_GOLD_BRIGHT.g, COLOR_GOLD_BRIGHT.b, clampf(0.18 * glow_boost + 0.05 * pulse, 0.0, 0.42))
+	_wing_emblem.draw_circle(star_center, 25.0 + pulse * 2.0, halo_outer)
+	_wing_emblem.draw_circle(star_center, 13.0 + pulse * 1.0, halo_inner)
 
-	# Symmetrical stylized golden wings (3 feathered blades each side)
-	var wing_fill := COLOR_GOLD.lerp(COLOR_IVORY, 0.25 * energy_ratio + 0.35 * _recharge_flash)
-	wing_fill.a = lerpf(0.32, 0.94, energy_ratio)
-	var wing_edge := Color(COLOR_IVORY.r, COLOR_IVORY.g, COLOR_IVORY.b, lerpf(0.22, 0.85, energy_ratio))
+	# Symmetrical stylized pearl-and-gold wings (3 feathered blades each side)
+	var wing_fill := COLOR_GOLD_BRIGHT.lerp(COLOR_IVORY, 0.35 * energy_ratio + 0.35 * _recharge_flash)
+	wing_fill.a = lerpf(0.42, 0.96, energy_ratio)
+	var wing_edge := Color(COLOR_BRONZE_GOLD.r, COLOR_BRONZE_GOLD.g, COLOR_BRONZE_GOLD.b, lerpf(0.32, 0.82, energy_ratio))
 
 	for side: float in [-1.0, 1.0]:
 		# Upper primary wing feather
@@ -609,7 +704,7 @@ func _draw_wing_emblem() -> void:
 			star_center + Vector2(side * 12.0, 2.5),
 		])
 		_wing_emblem.draw_colored_polygon(feather_top, wing_fill)
-		_wing_emblem.draw_polyline(feather_top, wing_edge, 1.0, true)
+		_wing_emblem.draw_polyline(feather_top, wing_edge, 1.2, true)
 
 		# Middle wing feather
 		var feather_mid := PackedVector2Array([
@@ -620,7 +715,7 @@ func _draw_wing_emblem() -> void:
 			star_center + Vector2(side * 11.0, 5.5),
 		])
 		var mid_col := wing_fill
-		mid_col.a *= 0.85
+		mid_col.a *= 0.88
 		_wing_emblem.draw_colored_polygon(feather_mid, mid_col)
 
 		# Lower accent feather
@@ -631,29 +726,32 @@ func _draw_wing_emblem() -> void:
 			star_center + Vector2(side * 15.0, 9.5),
 		])
 		var low_col := wing_fill
-		low_col.a *= 0.68
+		low_col.a *= 0.72
 		_wing_emblem.draw_colored_polygon(feather_low, low_col)
 
-	# Central 4-point celestial star
-	var star_outer := _make_four_point_star(star_center, 11.5 + _recharge_flash * 1.5, 3.2)
-	var star_inner := _make_four_point_star(star_center, 6.5, 2.0)
-	var star_col := COLOR_GOLD.lerp(COLOR_IVORY, 0.45 * energy_ratio + 0.4 * _recharge_flash)
-	star_col.a = lerpf(0.45, 1.0, energy_ratio)
+	# Central 4-point celestial star with antique-gold rim and pearl core
+	var star_rim := _make_four_point_star(star_center, 12.6 + _recharge_flash * 1.5, 3.6)
+	var star_outer := _make_four_point_star(star_center, 11.0 + _recharge_flash * 1.4, 3.0)
+	var star_inner := _make_four_point_star(star_center, 6.2, 1.9)
+	var rim_col := Color(COLOR_BRONZE_GOLD.r, COLOR_BRONZE_GOLD.g, COLOR_BRONZE_GOLD.b, lerpf(0.35, 0.82, energy_ratio))
+	var star_col := COLOR_GOLD_BRIGHT.lerp(COLOR_IVORY, 0.45 * energy_ratio + 0.4 * _recharge_flash)
+	star_col.a = lerpf(0.55, 1.0, energy_ratio)
+	_wing_emblem.draw_colored_polygon(star_rim, rim_col)
 	_wing_emblem.draw_colored_polygon(star_outer, star_col)
-	_wing_emblem.draw_colored_polygon(star_inner, Color(COLOR_IVORY.r, COLOR_IVORY.g, COLOR_IVORY.b, lerpf(0.45, 1.0, energy_ratio)))
+	_wing_emblem.draw_colored_polygon(star_inner, Color(COLOR_IVORY.r, COLOR_IVORY.g, COLOR_IVORY.b, lerpf(0.55, 1.0, energy_ratio)))
 
 	# 5 Golden Diamond Pips below the winged star
 	var pip_y: float = 56.0
 	var pip_spacing: float = 24.0
 	var start_x: float = cx - pip_spacing * float(PIP_COUNT - 1) * 0.5
 
-	# Delicate connecting hairline behind pips
-	var line_col := Color(COLOR_GOLD.r, COLOR_GOLD.g, COLOR_GOLD.b, 0.25)
+	# Delicate antique-gold connecting hairline behind pips
+	var line_col := Color(COLOR_GOLD.r, COLOR_GOLD.g, COLOR_GOLD.b, 0.48)
 	_wing_emblem.draw_line(
 		Vector2(start_x - 10.0, pip_y),
 		Vector2(start_x + pip_spacing * float(PIP_COUNT - 1) + 10.0, pip_y),
 		line_col,
-		1.0,
+		1.2,
 		true
 	)
 
@@ -661,24 +759,24 @@ func _draw_wing_emblem() -> void:
 		var pip_pos := Vector2(start_x + float(i) * pip_spacing, pip_y)
 		var fill: float = clampf(_displayed_pips - float(i), 0.0, 1.0)
 
-		# Outer diamond socket
-		var socket_pts := _make_diamond(pip_pos, 6.5, 8.2)
-		var socket_fill := Color(COLOR_INDIGO.r, COLOR_INDIGO.g, COLOR_INDIGO.b, 0.55)
+		# Frosted cloud-pearl diamond socket with antique-gold border
+		var socket_pts := _make_diamond(pip_pos, 6.8, 8.5)
+		var socket_fill := Color(0.975, 0.988, 1.0, 0.78)
 		_wing_emblem.draw_colored_polygon(socket_pts, socket_fill)
 
-		var border_col := Color(COLOR_GOLD.r, COLOR_GOLD.g, COLOR_GOLD.b, lerpf(0.30, 0.95, fill))
+		var border_col := Color(COLOR_GOLD.r, COLOR_GOLD.g, COLOR_GOLD.b, lerpf(0.52, 0.98, fill))
 		var closed_socket := socket_pts.duplicate()
 		closed_socket.append(socket_pts[0])
-		_wing_emblem.draw_polyline(closed_socket, border_col, 1.2, true)
+		_wing_emblem.draw_polyline(closed_socket, border_col, 1.5, true)
 
-		# Lit diamond core with smooth glow transition
+		# Lit golden-pearl diamond core with smooth glow transition
 		if fill > 0.01:
-			var pip_glow := Color(COLOR_GOLD.r, COLOR_GOLD.g, COLOR_GOLD.b, 0.22 * fill + 0.08 * pulse * fill)
+			var pip_glow := Color(COLOR_GOLD_BRIGHT.r, COLOR_GOLD_BRIGHT.g, COLOR_GOLD_BRIGHT.b, 0.24 * fill + 0.08 * pulse * fill)
 			_wing_emblem.draw_circle(pip_pos, 10.5 * fill, pip_glow)
 
 			var core_scale: float = lerpf(0.35, 1.0, fill)
 			var gold_diamond := _make_diamond(pip_pos, 5.2 * core_scale, 6.6 * core_scale)
-			var gold_col := COLOR_GOLD.lerp(COLOR_IVORY, 0.35 * fill + 0.3 * _recharge_flash)
+			var gold_col := COLOR_GOLD_BRIGHT.lerp(COLOR_IVORY, 0.25 * fill + 0.3 * _recharge_flash)
 			gold_col.a = fill
 			_wing_emblem.draw_colored_polygon(gold_diamond, gold_col)
 
@@ -690,75 +788,64 @@ func _draw_chapter_divider() -> void:
 	var size: Vector2 = _chapter_divider.size
 	var cy: float = size.y * 0.5
 	var cx: float = size.x * 0.5
-	var half_w: float = minf(size.x * 0.46, 175.0)
+	var half_w: float = minf(size.x * 0.46, 180.0)
 
-	# Segmented tapering golden hairline
+	# Segmented tapering antique-gold hairline
 	var segments: int = 12
 	for s in range(segments):
 		var t0: float = float(s) / float(segments)
 		var t1: float = float(s + 1) / float(segments)
-		var alpha: float = (1.0 - (t0 + t1) * 0.5) * 0.85
+		var alpha: float = (1.0 - (t0 + t1) * 0.5) * 0.9
 		var seg_col := Color(COLOR_GOLD.r, COLOR_GOLD.g, COLOR_GOLD.b, alpha)
-		var x0_r: float = cx + 8.0 + t0 * (half_w - 8.0)
-		var x1_r: float = cx + 8.0 + t1 * (half_w - 8.0)
-		var x0_l: float = cx - 8.0 - t0 * (half_w - 8.0)
-		var x1_l: float = cx - 8.0 - t1 * (half_w - 8.0)
-		_chapter_divider.draw_line(Vector2(x0_r, cy), Vector2(x1_r, cy), seg_col, 1.2, true)
-		_chapter_divider.draw_line(Vector2(x0_l, cy), Vector2(x1_l, cy), seg_col, 1.2, true)
+		var x0_r: float = cx + 9.0 + t0 * (half_w - 9.0)
+		var x1_r: float = cx + 9.0 + t1 * (half_w - 9.0)
+		var x0_l: float = cx - 9.0 - t0 * (half_w - 9.0)
+		var x1_l: float = cx - 9.0 - t1 * (half_w - 9.0)
+		_chapter_divider.draw_line(Vector2(x0_r, cy), Vector2(x1_r, cy), seg_col, 1.5, true)
+		_chapter_divider.draw_line(Vector2(x0_l, cy), Vector2(x1_l, cy), seg_col, 1.5, true)
 
-	# Center Art Deco diamond ornament
-	var center_diamond := _make_diamond(Vector2(cx, cy), 4.5, 4.5)
+	# Center Baroque antique-gold & pearl diamond ornament
+	var outer_diamond := _make_diamond(Vector2(cx, cy), 5.6, 5.6)
+	_chapter_divider.draw_colored_polygon(outer_diamond, COLOR_GOLD_BRIGHT)
+	var center_diamond := _make_diamond(Vector2(cx, cy), 2.8, 2.8)
 	_chapter_divider.draw_colored_polygon(center_diamond, COLOR_IVORY)
 
 
 func _draw_dialogue_divider() -> void:
 	var size: Vector2 = _dialogue_divider.size
 	var cy: float = size.y * 0.5
-	var col: Color = Color(_dialogue_accent.r, _dialogue_accent.g, _dialogue_accent.b, 0.42)
-	_dialogue_divider.draw_line(Vector2(0.0, cy), Vector2(size.x * 0.45, cy), col, 1.0, true)
-	var tip: PackedVector2Array = _make_diamond(Vector2(size.x * 0.45 + 4.0, cy), 2.5, 2.5)
-	_dialogue_divider.draw_colored_polygon(tip, Color(_dialogue_accent.r, _dialogue_accent.g, _dialogue_accent.b, 0.78))
+	var line_end: float = size.x * 0.46
+	var col: Color = Color(COLOR_GOLD.r, COLOR_GOLD.g, COLOR_GOLD.b, 0.72)
+	_dialogue_divider.draw_line(Vector2(0.0, cy), Vector2(line_end, cy), col, 1.3, true)
+	var tip: PackedVector2Array = _make_diamond(Vector2(line_end + 5.0, cy), 3.2, 3.2)
+	_dialogue_divider.draw_colored_polygon(tip, COLOR_GOLD_BRIGHT)
+	var tip_core: PackedVector2Array = _make_diamond(Vector2(line_end + 5.0, cy), 1.4, 1.4)
+	_dialogue_divider.draw_colored_polygon(tip_core, COLOR_IVORY)
 
 
 func _draw_dialogue_overlay() -> void:
 	var rect_size: Vector2 = _dialogue_overlay.size
-	if rect_size.x < 24.0 or rect_size.y < 24.0:
+	if rect_size.x < 48.0 or rect_size.y < 36.0:
 		return
 
-	var inset: float = 6.0
-	var corner_len: float = 14.0
-	var line_col := Color(COLOR_GOLD.r, COLOR_GOLD.g, COLOR_GOLD.b, 0.55)
-
-	# Four inner Art Deco corner brackets
-	# Top-left
-	_dialogue_overlay.draw_polyline(PackedVector2Array([
-		Vector2(inset, inset + corner_len),
+	# Subtle antique-gold inner filigree accents tucked neatly inside the 20px rounded corners
+	var inset: float = 12.0
+	var dot_col := Color(COLOR_GOLD.r, COLOR_GOLD.g, COLOR_GOLD.b, 0.62)
+	var corners: Array[Vector2] = [
 		Vector2(inset, inset),
-		Vector2(inset + corner_len, inset),
-	]), line_col, 1.2, true)
-	# Top-right
-	_dialogue_overlay.draw_polyline(PackedVector2Array([
-		Vector2(rect_size.x - inset - corner_len, inset),
 		Vector2(rect_size.x - inset, inset),
-		Vector2(rect_size.x - inset, inset + corner_len),
-	]), line_col, 1.2, true)
-	# Bottom-left
-	_dialogue_overlay.draw_polyline(PackedVector2Array([
-		Vector2(inset, rect_size.y - inset - corner_len),
 		Vector2(inset, rect_size.y - inset),
-		Vector2(inset + corner_len, rect_size.y - inset),
-	]), line_col, 1.2, true)
-	# Bottom-right
-	_dialogue_overlay.draw_polyline(PackedVector2Array([
-		Vector2(rect_size.x - inset - corner_len, rect_size.y - inset),
 		Vector2(rect_size.x - inset, rect_size.y - inset),
-		Vector2(rect_size.x - inset, rect_size.y - inset - corner_len),
-	]), line_col, 1.2, true)
+	]
+	for corner: Vector2 in corners:
+		_dialogue_overlay.draw_colored_polygon(_make_diamond(corner, 2.8, 2.8), dot_col)
 
-	# Top-center Art Deco diamond crest
-	var crest_pos := Vector2(rect_size.x * 0.5, 1.0)
-	var crest := _make_diamond(crest_pos, 5.0, 5.0)
-	_dialogue_overlay.draw_colored_polygon(crest, COLOR_GOLD)
+	# Top-center Baroque gold & pearl diamond crest
+	var crest_pos := Vector2(rect_size.x * 0.5, 1.5)
+	var crest_rim := _make_diamond(crest_pos, 6.2, 6.2)
+	_dialogue_overlay.draw_colored_polygon(crest_rim, COLOR_BRONZE_GOLD)
+	var crest := _make_diamond(crest_pos, 4.8, 4.8)
+	_dialogue_overlay.draw_colored_polygon(crest, COLOR_GOLD_BRIGHT)
 	var crest_core := _make_diamond(crest_pos, 2.2, 2.2)
 	_dialogue_overlay.draw_colored_polygon(crest_core, COLOR_IVORY)
 
