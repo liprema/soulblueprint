@@ -59,7 +59,7 @@ func _spawn_all_npcs() -> void:
 	_spawn_baby_spirit(
 		"spirit_plaza",
 		"Искра Рассвета",
-		Vector3(-4.2, 0.8, 30.5),
+		Vector3(-4.2, 0.65, 30.5),
 		Color("#E84D8A"),
 		Color("#8A1B4E"),
 		Color("#F2629C"),
@@ -75,7 +75,7 @@ func _spawn_all_npcs() -> void:
 	_spawn_baby_spirit(
 		"spirit_central_island",
 		"Искра Тишины",
-		Vector3(4.2, 7.3, -104.5),
+		Vector3(4.2, 7.15, -104.5),
 		Color("#1EC896"),
 		Color("#0B624B"),
 		Color("#34DCAA"),
@@ -88,42 +88,45 @@ func _spawn_all_npcs() -> void:
 		1.7
 	)
 
+	# Grounded over verified CastleIslandGrass West-South Meadow (Y_grass = 0.81 at (-30, -248))
 	_spawn_baby_spirit(
 		"spirit_west_lake",
 		"Искра Росы",
-		Vector3(-35.5, 4.9, -274.0),
+		Vector3(-30.0, 1.45, -248.0),
 		Color("#E6A224"),
 		Color("#8C520A"),
 		Color("#F5B83B"),
 		Color("#FFD26B"),
 		Color("#B86E10"),
 		"npc_lake_spirit",
-		-0.85,
+		-0.55,
 		0.48,
 		1.0,
 		2.9
 	)
 
+	# Grounded over verified CastleIslandGrass East-South Meadow knoll (Y_grass = 2.03 at (+30, -248))
 	_spawn_baby_spirit(
 		"spirit_east_lake",
 		"Искра Звёзд",
-		Vector3(35.5, 4.9, -274.0),
+		Vector3(30.0, 2.65, -248.0),
 		Color("#8E54E8"),
 		Color("#461C8F"),
 		Color("#A672F5"),
 		Color("#C49EFF"),
 		Color("#5E2AB8"),
 		"npc_lake_spirit",
-		0.85,
+		0.55,
 		0.46,
 		0.97,
 		4.1
 	)
 
+	# Grounded over the Baroque Palace North Cloud Terrace (Y = 8.0, clear of Kronos Astrolabe at (0, 8, -304))
 	_spawn_baby_spirit(
 		"spirit_balcony",
 		"Искра Облаков",
-		Vector3(-31.0, 8.9, -284.0),
+		Vector3(-7.5, 8.65, -302.0),
 		Color("#2F8EF0"),
 		Color("#144894"),
 		Color("#4CA6FF"),
@@ -136,14 +139,15 @@ func _spawn_all_npcs() -> void:
 		5.3
 	)
 
-	# 6-7: Two Majestic Six-Winged Seraph Archangels guarding the Castle Sanctuary
+	# 6-7: Two Majestic Six-Winged Seraph Archangels firmly grounded on the Baroque Palace
+	# Formal Arrival Court marble (Y = 0.06, X[-13.5..+13.5], Z[-244..-228]); GLB feet sit at local Y = +0.18
 	_spawn_seraph_archangel(
 		"archangel_solaris",
 		"Архангел Соларис · Хранитель Свитков",
-		Vector3(14.5, 8.0, -271.0),
+		Vector3(9.2, -0.12, -236.0),
 		_solaris_packed,
 		"npc_chronicler_rotunda",
-		-0.68,
+		-0.52,
 		0.8,
 		Color("#FFE096")
 	)
@@ -151,10 +155,10 @@ func _spawn_all_npcs() -> void:
 	_spawn_seraph_archangel(
 		"archangel_aether",
 		"Архангел Эфир · Созерцатель Горизонта",
-		Vector3(-14.5, 8.0, -271.0),
+		Vector3(-9.2, -0.12, -236.0),
 		_aether_packed,
 		"npc_sky_watcher",
-		0.68,
+		0.52,
 		2.6,
 		Color("#CFE4FF")
 	)
@@ -692,7 +696,7 @@ func _spawn_seraph_archangel(
 		"orbit_radius": 0.0,
 		"orbit_speed": 0.0,
 		"bob_speed": 0.92,
-		"bob_amp": 0.14,
+		"bob_amp": 0.0,
 		"phase": phase,
 		"light": light,
 		"base_light_color": light.light_color,

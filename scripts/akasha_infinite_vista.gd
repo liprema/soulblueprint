@@ -1,14 +1,13 @@
 class_name AkashaInfiniteVista
 extends Node3D
 
-## Infinite 360-degree Celestial Archipelago vista surrounding the playable Akasha Prologue valley.
-## Populates 120 distant floating sky-islands across 3 elevation layers (Deep Lower Archipelago,
-## Mid-Horizon Panorama Ring, Soaring High Celestial Citadels) using 4 distinct sculptural island
-## archetypes (Natural Arch Cliff, Stepped Terraced Mesa, Asymmetric Twin-Peak Sanctuary, and
-## Sweeping Wind-Carved Crescent Crag), accented with fairytale spire towers, classical archways,
-## emerald & sakura tree crowns, cascading turquoise waterfalls, and 20 subtle distant rock shards.
-## Strictly excludes the playable valley volume and runs at 60 FPS on macOS Retina using
-## GPU-instanced MultiMeshInstance3D batches with zero shadow casting.
+## Serene, museum-grade Celestial Horizon surrounding the playable Akasha Prologue valley.
+## Populates 20 widely-spaced, far-distant sanctuaries low along the mist horizon
+## (Y in [-38, +14], distance 340..760 m) using 4 sculptural island archetypes,
+## strictly keeping the upper sky and the sacred framing corridor directly behind
+## the Baroque Palace (z < -276, |x| < 160) completely unobstructed.
+## All distant silhouettes are softly veiled in periwinkle-azure atmospheric mist
+## and rendered via GPU-instanced MultiMeshInstance3D batches with zero shadow casting.
 
 const VALLEY_CENTER: Vector3 = Vector3(0.0, 10.0, -135.0)
 
@@ -19,23 +18,27 @@ const EXCLUSION_MAX_Z: float = 115.0
 const EXCLUSION_MIN_Y: float = -34.0
 const EXCLUSION_MAX_Y: float = 102.0
 
+# Sacred unobstructed sky corridor behind the Baroque Palace dome (-Z vista)
+const PALACE_CORRIDOR_MAX_Z: float = -276.0
+const PALACE_CORRIDOR_HALF_X: float = 160.0
+
 const ARCHETYPE_ARCH_CLIFF: int = 0
 const ARCHETYPE_TERRACED_MESA: int = 1
 const ARCHETYPE_TWIN_PEAK: int = 2
 const ARCHETYPE_CRESCENT_CRAG: int = 3
 const ARCHETYPE_COUNT: int = 4
 
-const LOW_ISLAND_COUNT: int = 32
-const MID_ISLAND_COUNT: int = 54
-const HIGH_ISLAND_COUNT: int = 34
+const LOW_ISLAND_COUNT: int = 8
+const MID_ISLAND_COUNT: int = 12
+const HIGH_ISLAND_COUNT: int = 0
 
-const TARGET_TOWER_COUNT: int = 44
-const TARGET_ARCH_COUNT: int = 24
-const TARGET_TREE_COUNT: int = 240
-const TARGET_WATERFALL_COUNT: int = 32
-const TARGET_SHARD_COUNT: int = 20
+const TARGET_TOWER_COUNT: int = 6
+const TARGET_ARCH_COUNT: int = 3
+const TARGET_TREE_COUNT: int = 32
+const TARGET_WATERFALL_COUNT: int = 4
+const TARGET_SHARD_COUNT: int = 0
 
-const SKY_HAZE_COLOR: Color = Color(0.78, 0.88, 0.98, 1.0)
+const SKY_HAZE_COLOR: Color = Color(0.74, 0.84, 0.98, 1.0)
 const VISTA_CUSTOM_AABB: AABB = AABB(Vector3(-960.0, -280.0, -1100.0), Vector3(1920.0, 640.0, 1920.0))
 
 var _layer_low: Node3D = null
@@ -73,13 +76,13 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	_elapsed_time += delta
 
-	# Gentle, dreamy slow vertical bob on only 3 parent nodes (zero per-frame MultiMesh overhead)
+	# Gentle, dreamy slow vertical bob on parent layer nodes (zero per-frame MultiMesh overhead)
 	if _layer_low != null:
-		_layer_low.position.y = sin(_elapsed_time * 0.17) * 1.15
+		_layer_low.position.y = sin(_elapsed_time * 0.14) * 0.75
 	if _layer_mid != null:
-		_layer_mid.position.y = sin(_elapsed_time * 0.21 + 2.094) * 0.85
+		_layer_mid.position.y = sin(_elapsed_time * 0.17 + 2.094) * 0.55
 	if _layer_high != null:
-		_layer_high.position.y = sin(_elapsed_time * 0.14 + 4.188) * 1.45
+		_layer_high.position.y = sin(_elapsed_time * 0.12 + 4.188) * 0.65
 
 
 # ---------------------------------------------------------------------------
@@ -106,14 +109,13 @@ func _populate_archipelago() -> void:
 
 	var islands: Array[Dictionary] = []
 
-	# 1. Deep Lower Archipelago (y = -112..-38, 32 islands, distances 150m..680m)
-	_generate_layer_islands(rng, islands, 0, LOW_ISLAND_COUNT, -112.0, -38.0, 150.0, 680.0)
+	# 1. Lower Mist-Horizon Sanctuaries (y = -38..-16, 8 majestic islands, distances 360m..740m)
+	_generate_layer_islands(rng, islands, 0, LOW_ISLAND_COUNT, -38.0, -16.0, 360.0, 740.0)
 
-	# 2. Mid-Horizon Panorama Ring (y = -24..+56, 54 islands, distances 152m..780m)
-	_generate_layer_islands(rng, islands, 1, MID_ISLAND_COUNT, -24.0, 56.0, 152.0, 780.0)
+	# 2. Far Horizon Panorama Sanctuaries (y = -14..+14, 12 majestic islands, distances 340m..760m)
+	_generate_layer_islands(rng, islands, 1, MID_ISLAND_COUNT, -14.0, 14.0, 340.0, 760.0)
 
-	# 3. Soaring High Celestial Citadels (y = +72..+200, 34 islands, distances 170m..760m)
-	_generate_layer_islands(rng, islands, 2, HIGH_ISLAND_COUNT, 72.0, 200.0, 170.0, 760.0)
+	# 3. High Sky Layer intentionally empty (HIGH_ISLAND_COUNT = 0) so the upper sky stays pure & serene
 
 	# Prepare 3 per-layer bucket maps for 4 rock + 4 meadow archetypes + 5 prop categories
 	var buckets: Array[Dictionary] = []
@@ -470,6 +472,9 @@ func _generate_layer_islands(
 	min_dist: float,
 	max_dist: float
 ) -> void:
+	if count <= 0:
+		return
+
 	var archetype_counts: Array[int] = [0, 0, 0, 0]
 
 	for idx: int in range(count):
@@ -477,24 +482,22 @@ func _generate_layer_islands(
 		var sector_span: float = TAU / float(count)
 
 		var placed: bool = false
-		for attempt: int in range(44):
-			var angle: float = sector_base + rng.randf_range(0.08, 0.92) * sector_span
-			if attempt >= 18:
+		for attempt: int in range(64):
+			var angle: float = sector_base + rng.randf_range(0.10, 0.90) * sector_span
+			if attempt >= 22:
 				angle = rng.randf_range(0.0, TAU)
 
-			var band_t: float = clampf((float(idx % 5) + rng.randf_range(0.05, 0.95)) * 0.2, 0.0, 1.0)
-			if attempt >= 12:
+			var band_t: float = clampf((float(idx % 4) + rng.randf_range(0.08, 0.92)) * 0.25, 0.0, 1.0)
+			if attempt >= 16:
 				band_t = rng.randf()
-			var dist: float = lerpf(min_dist, max_dist, pow(band_t, 0.92))
+			var dist: float = lerpf(min_dist, max_dist, pow(band_t, 0.90))
 
 			var x_pos: float = VALLEY_CENTER.x + cos(angle) * dist
-			var z_pos: float = VALLEY_CENTER.z + sin(angle) * dist * 1.12
+			var z_pos: float = VALLEY_CENTER.z + sin(angle) * dist * 1.08
 			var y_pos: float = rng.randf_range(min_y, max_y)
 
 			var dist_norm: float = clampf((dist - min_dist) / maxf(max_dist - min_dist, 1.0), 0.0, 1.0)
-			var radius: float = lerpf(14.0, 46.0, dist_norm) * rng.randf_range(0.78, 1.28)
-			if layer_idx == 2:
-				radius *= rng.randf_range(0.86, 1.16)
+			var radius: float = lerpf(26.0, 52.0, dist_norm) * rng.randf_range(0.84, 1.20)
 
 			var pos: Vector3 = Vector3(x_pos, y_pos, z_pos)
 			var archetype: int = _pick_diverse_archetype(pos, islands, archetype_counts, rng)
@@ -511,14 +514,12 @@ func _generate_layer_islands(
 			for existing: Dictionary in islands:
 				var e_pos: Vector3 = existing["pos"]
 				var e_rad: float = float(existing["horiz_r"])
-				var min_gap: float = (max_horiz_r + e_rad) * 1.16 + 16.0
-				var dy: float = absf(pos.y - e_pos.y)
-				if dy < (isl_scale.y + float(existing["scale_y"])) * 1.15:
-					var dx: float = pos.x - e_pos.x
-					var dz: float = pos.z - e_pos.z
-					if (dx * dx + dz * dz) < (min_gap * min_gap):
-						too_close = true
-						break
+				var min_gap: float = (max_horiz_r + e_rad) * 1.85 + 52.0
+				var dx: float = pos.x - e_pos.x
+				var dz: float = pos.z - e_pos.z
+				if (dx * dx + dz * dz) < (min_gap * min_gap):
+					too_close = true
+					break
 			if too_close:
 				continue
 
@@ -541,31 +542,36 @@ func _generate_layer_islands(
 			break
 
 		if not placed:
-			var fb_angle: float = sector_base + sector_span * 0.5
-			var fb_dist: float = lerpf(max_dist * 0.65, max_dist, rng.randf())
-			var fb_pos: Vector3 = Vector3(
-				VALLEY_CENTER.x + cos(fb_angle) * fb_dist,
-				rng.randf_range(min_y, max_y),
-				VALLEY_CENTER.z + sin(fb_angle) * fb_dist * 1.15
-			)
-			var fb_radius: float = rng.randf_range(22.0, 38.0)
-			var fb_archetype: int = _pick_diverse_archetype(fb_pos, islands, archetype_counts, rng)
-			var fb_scale: Vector3 = _compute_archetype_scale(fb_archetype, fb_radius, rng)
-			var fb_xform: Transform3D = _build_island_transform(fb_pos, fb_scale, rng)
-			archetype_counts[fb_archetype] += 1
-			islands.append({
-				"pos": fb_pos,
-				"radius": fb_radius,
-				"horiz_r": maxf(fb_scale.x, fb_scale.z) * 1.16,
-				"scale_y": fb_scale.y,
-				"archetype": fb_archetype,
-				"xform": fb_xform,
-				"layer": layer_idx,
-				"dist": fb_pos.distance_to(VALLEY_CENTER),
-				"tower_affinity": rng.randf_range(-10.0, 14.0) + (8.0 if layer_idx >= 1 else 0.0),
-				"has_tower": false,
-				"has_arch": false,
-			})
+			for fb_try: int in range(20):
+				var fb_angle: float = rng.randf_range(0.0, TAU)
+				var fb_dist: float = lerpf(min_dist + 60.0, max_dist, rng.randf())
+				var fb_pos: Vector3 = Vector3(
+					VALLEY_CENTER.x + cos(fb_angle) * fb_dist,
+					rng.randf_range(min_y, max_y),
+					VALLEY_CENTER.z + sin(fb_angle) * fb_dist * 1.08
+				)
+				var fb_radius: float = rng.randf_range(28.0, 44.0)
+				var fb_archetype: int = _pick_diverse_archetype(fb_pos, islands, archetype_counts, rng)
+				var fb_scale: Vector3 = _compute_archetype_scale(fb_archetype, fb_radius, rng)
+				var fb_horiz_r: float = maxf(fb_scale.x, fb_scale.z) * 1.16
+				if not _is_clear_of_playable_zone(fb_pos, fb_horiz_r, fb_scale.y * 0.72 + 14.0, fb_scale.y * 1.45):
+					continue
+				var fb_xform: Transform3D = _build_island_transform(fb_pos, fb_scale, rng)
+				archetype_counts[fb_archetype] += 1
+				islands.append({
+					"pos": fb_pos,
+					"radius": fb_radius,
+					"horiz_r": fb_horiz_r,
+					"scale_y": fb_scale.y,
+					"archetype": fb_archetype,
+					"xform": fb_xform,
+					"layer": layer_idx,
+					"dist": fb_pos.distance_to(VALLEY_CENTER),
+					"tower_affinity": rng.randf_range(-10.0, 14.0) + (8.0 if layer_idx >= 1 else 0.0),
+					"has_tower": false,
+					"has_arch": false,
+				})
+				break
 
 
 func _pick_diverse_archetype(
@@ -707,6 +713,10 @@ func _is_clear_of_playable_zone(
 	top_height: float,
 	bottom_depth: float
 ) -> bool:
+	# Strictly keep the sacred sky corridor behind the Baroque Palace dome unobstructed
+	if _is_in_palace_framing_corridor(pos, horiz_radius):
+		return false
+
 	var pad: float = horiz_radius + 12.0
 	var inside_x: bool = absf(pos.x) < (EXCLUSION_HALF_X + pad)
 	var inside_z: bool = pos.z > (EXCLUSION_MIN_Z - pad) and pos.z < (EXCLUSION_MAX_Z + pad)
@@ -714,8 +724,16 @@ func _is_clear_of_playable_zone(
 	return not (inside_x and inside_z and inside_y)
 
 
+func _is_in_palace_framing_corridor(pos: Vector3, horiz_radius: float) -> bool:
+	var pad: float = horiz_radius + 18.0
+	var behind_palace: bool = pos.z < (PALACE_CORRIDOR_MAX_Z + pad)
+	var within_corridor_x: bool = absf(pos.x) < (PALACE_CORRIDOR_HALF_X + pad)
+	return behind_palace and within_corridor_x
+
+
 func _apply_aerial_haze(base_col: Color, dist: float) -> Color:
-	var haze_t: float = clampf((dist - 240.0) / 640.0, 0.0, 0.42)
+	# Softly veil all far sanctuaries in luminous periwinkle-azure atmospheric mist
+	var haze_t: float = clampf(0.42 + (dist - 340.0) / 760.0, 0.42, 0.76)
 	return base_col.lerp(SKY_HAZE_COLOR, haze_t)
 
 
@@ -748,6 +766,7 @@ func _create_multimesh_batch(
 	mmi.multimesh = mm
 	mmi.material_override = mat
 	mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	mmi.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 	mmi.custom_aabb = VISTA_CUSTOM_AABB
 	parent_node.add_child(mmi)
 
@@ -792,11 +811,11 @@ func _build_shared_materials() -> void:
 	_mat_waterfall.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	_mat_waterfall.cull_mode = BaseMaterial3D.CULL_DISABLED
 	_mat_waterfall.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED
-	_mat_waterfall.albedo_color = Color(0.68, 0.96, 1.0, 0.86)
-	_mat_waterfall.roughness = 0.22
+	_mat_waterfall.albedo_color = Color(0.80, 0.91, 1.0, 0.48)
+	_mat_waterfall.roughness = 0.30
 	_mat_waterfall.emission_enabled = true
-	_mat_waterfall.emission = Color("#7CE8F4")
-	_mat_waterfall.emission_energy_multiplier = 0.55
+	_mat_waterfall.emission = Color("#A8D6F8")
+	_mat_waterfall.emission_energy_multiplier = 0.20
 
 	_mat_shard = StandardMaterial3D.new()
 	_mat_shard.vertex_color_use_as_albedo = true

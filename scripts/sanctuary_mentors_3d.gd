@@ -119,11 +119,11 @@ func _process(delta: float) -> void:
 	_alatea_halo_speed = lerpf(_alatea_halo_speed, _alatea_target_halo_speed, blend_weight)
 	_mira_halo_speed = lerpf(_mira_halo_speed, _mira_target_halo_speed, blend_weight)
 
-	# Gentle floating bobbing animation with organic phase offset
+	# Gentle grounded floating sway with organic phase offset (gowns graze the Y = 8.0 marble floor)
 	if _alatea_root != null:
-		_alatea_root.position.y = 0.22 + sin(_anim_time * 1.15) * 0.18
+		_alatea_root.position.y = 0.04 + sin(_anim_time * 1.15) * 0.06
 	if _mira_root != null:
-		_mira_root.position.y = 0.22 + sin(_anim_time * 1.08 + 1.85) * 0.18
+		_mira_root.position.y = 0.04 + sin(_anim_time * 1.08 + 1.85) * 0.06
 
 	# Sculpted GLB halo rotation for Alatea (spins cleanly in local ring plane)
 	if _alatea_halo_pivot != null:
@@ -222,7 +222,8 @@ func highlight_speaker(mentor_id: String) -> void:
 ## Responds to Spark's Soul Call if within 24.0m of the sanctuary dais center.
 ## Triggers a warm luminous pulse on both mentors and returns true.
 func respond_to_soul_call(origin: Vector3) -> bool:
-	var dist: float = origin.distance_to(global_position)
+	var dais_center: Vector3 = global_position + Vector3(0.0, 0.0, -7.5)
+	var dist: float = origin.distance_to(dais_center)
 	if dist > SOUL_CALL_RADIUS:
 		return false
 
@@ -241,7 +242,8 @@ func respond_to_soul_call(origin: Vector3) -> bool:
 
 ## Returns true if the player is within 20.0m of the sanctuary mentors' dais position.
 func is_player_in_talk_range(player_pos: Vector3) -> bool:
-	var dist: float = player_pos.distance_to(global_position)
+	var dais_center: Vector3 = global_position + Vector3(0.0, 0.0, -7.5)
+	var dist: float = player_pos.distance_to(dais_center)
 	return dist <= TALK_RANGE_RADIUS
 
 
@@ -685,8 +687,10 @@ func _resolve_mentor_surface_material(
 func _build_alatea() -> void:
 	_alatea_root = Node3D.new()
 	_alatea_root.name = "Alatea"
-	_alatea_root.position = Vector3(-7.5, 0.22, 0.0)
-	_alatea_root.rotation_degrees.y = 24.0
+	# World (-9.4, 8.04, -274.5): inside Central Baroque Ballroom flanking EarthMirror3D (0, 8, -278)
+	# with >= 1.3m clearance to West Ballroom Wall and >= 0.78m clearance to Mirror outer crown
+	_alatea_root.position = Vector3(-9.4, 0.04, -7.5)
+	_alatea_root.rotation_degrees.y = 26.0
 	add_child(_alatea_root)
 
 	var model_root: Node3D = _try_instantiate_mentor_glb(ALATEA_GLB_PATH, _alatea_root, _alatea_mats)
@@ -714,8 +718,9 @@ func _build_alatea() -> void:
 func _build_mira() -> void:
 	_mira_root = Node3D.new()
 	_mira_root.name = "Mira"
-	_mira_root.position = Vector3(7.5, 0.22, 0.0)
-	_mira_root.rotation_degrees.y = -24.0
+	# World (+9.4, 8.04, -274.5): symmetrically flanking EarthMirror3D inside Central Baroque Ballroom
+	_mira_root.position = Vector3(9.4, 0.04, -7.5)
+	_mira_root.rotation_degrees.y = -26.0
 	add_child(_mira_root)
 
 	var model_root: Node3D = _try_instantiate_mentor_glb(MIRA_GLB_PATH, _mira_root, _mira_mats)

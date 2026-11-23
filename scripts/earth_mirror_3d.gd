@@ -369,8 +369,9 @@ func _load_sculpted_frame_model() -> bool:
 
 	_frame_model_instance = inst as Node3D
 	_frame_model_instance.name = "EarthMirrorFrameModel"
-	# Lift +0.05m above the Rotunda marble floor (y = 8.0) so base faces are never coplanar (zero Z-fighting)
-	_frame_model_instance.position.y = 0.05
+	# Sink -0.02m into the Ballroom marble floor (y = 8.0) so Pedestal_StoneBase (local y >= 0.0)
+	# sits 100% grounded with zero floating gap and zero coplanar Z-fighting
+	_frame_model_instance.position.y = -0.02
 	add_child(_frame_model_instance)
 
 	var stone_mat: Material = _create_pedestal_stone_material()
@@ -431,8 +432,8 @@ func _apply_frame_materials_recursive(node: Node, stone_mat: Material) -> void:
 func _build_pedestal() -> void:
 	var pedestal_root: Node3D = Node3D.new()
 	pedestal_root.name = "MirrorPedestal"
-	# Lift +0.05m above the Rotunda marble floor (y = 8.0) so pedestal base is never coplanar
-	pedestal_root.position.y = 0.05
+	# Sink -0.02m into the Ballroom marble floor (y = 8.0) for zero floating gap and zero coplanar Z-fighting
+	pedestal_root.position.y = -0.02
 	add_child(pedestal_root)
 
 	var stone_mat: Material = _create_pedestal_stone_material()
@@ -488,7 +489,7 @@ func _build_pedestal() -> void:
 func _build_arch_frame() -> void:
 	var frame_root: Node3D = Node3D.new()
 	frame_root.name = "MirrorArchFrame"
-	frame_root.position = Vector3(0.0, MIRROR_CENTER_Y + 0.05, 0.0)
+	frame_root.position = Vector3(0.0, MIRROR_CENTER_Y - 0.02, 0.0)
 	add_child(frame_root)
 
 	# Main freestanding Art Deco golden torus arch (radius = 4.2, centered at y = 4.65)
@@ -653,7 +654,7 @@ func _build_mirror_disc() -> void:
 	disc_inst.name = "MirrorSurfaceDisc"
 	disc_inst.mesh = disc_mesh
 	disc_inst.material_override = _mirror_shader_mat
-	disc_inst.position = Vector3(0.0, MIRROR_CENTER_Y + 0.05, 0.0)
+	disc_inst.position = Vector3(0.0, MIRROR_CENTER_Y - 0.02, 0.0)
 	disc_inst.rotation_degrees.x = 90.0
 	disc_inst.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(disc_inst)
@@ -663,7 +664,7 @@ func _build_lighting_and_particles() -> void:
 	# Soft OmniLight3D positioned slightly in front of the mirror face
 	_mirror_light = OmniLight3D.new()
 	_mirror_light.name = "MirrorAuraLight"
-	_mirror_light.position = Vector3(0.0, MIRROR_CENTER_Y + 0.05, 1.2)
+	_mirror_light.position = Vector3(0.0, MIRROR_CENTER_Y - 0.02, 1.2)
 	_mirror_light.light_color = COLOR_DORMANT_LIGHT
 	_mirror_light.light_energy = LIGHT_ENERGY_DORMANT
 	_mirror_light.omni_range = 14.0

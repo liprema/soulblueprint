@@ -9,7 +9,7 @@ const STONE_LANTERN_SCENE: PackedScene = preload("res://scenes/interactables/sto
 const INTRO_VIDEO_PATH: String = "res://assets/videos/intro.ogv"
 const UPDRAFTS_SCRIPT_PATH: String = "res://scripts/akasha_updrafts_3d.gd"
 const START_PLAYER_POS: Vector3 = Vector3(0.0, 1.3, 36.0)
-const DAIS_RETURN_POS: Vector3 = Vector3(0.0, 9.4, -260.0)
+const DAIS_RETURN_POS: Vector3 = Vector3(0.0, 9.2, -268.0)
 
 const DIALOGUE_CAM_FOV: float = 44.0
 const DIALOGUE_CAM_SMOOTH_RATE: float = 4.5
@@ -97,7 +97,8 @@ func _spawn_lanterns() -> void:
 		for idx: int in range(anchors.size()):
 			var lantern: Node3D = STONE_LANTERN_SCENE.instantiate() as Node3D
 			lantern.name = "StoneLantern_%02d" % idx
-			lantern.position = anchors[idx]
+			var anchor_pos: Vector3 = anchors[idx] as Vector3
+			lantern.position = Vector3(anchor_pos.x, anchor_pos.y - 0.02, anchor_pos.z)
 			if SaveManager != null and SaveManager.is_lantern_awakened(idx):
 				lantern.set("start_awakened", true)
 			_lantern_container.add_child(lantern)
@@ -873,7 +874,7 @@ func _resolve_dialogue_focus(speaker_id: String) -> Dictionary:
 					"speaker_nudge": 0.45,
 				}
 		return {
-			"base_pos": sanctuary_mentors.global_position,
+			"base_pos": sanctuary_mentors.global_position + Vector3(0.0, 0.0, -7.5),
 			"eye_height": 4.2,
 			"distance": 7.0,
 			"speaker_nudge": 0.0,
@@ -886,6 +887,35 @@ func _resolve_dialogue_focus(speaker_id: String) -> Dictionary:
 		"distance": 5.5,
 		"speaker_nudge": 0.0,
 	}
+
+
+func _guard_dialogue_camera_against_walls(focus_pos: Vector3, desired_pos: Vector3) -> Vector3:
+	var world_3d: World3D = get_world_3d()
+	if world_3d == null:
+		return desired_pos
+	var space_state: PhysicsDirectSpaceState3D = world_3d.direct_space_state
+	if space_state == null:
+		return desired_pos
+
+	var seg: Vector3 = desired_pos - focus_pos
+	var seg_len: float = seg.length()
+	if seg_len <= 0.25:
+		return desired_pos
+
+	var query: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(focus_pos, desired_pos)
+	query.collide_with_areas = false
+	query.collide_with_bodies = true
+	if player != null:
+		query.exclude = [player.get_rid()]
+
+	var hit: Dictionary = space_state.intersect_ray(query)
+	if not hit.is_empty():
+		var hit_pos: Vector3 = hit["position"] as Vector3
+		var hit_dist: float = focus_pos.distance_to(hit_pos)
+		var safe_dist: float = clampf(hit_dist - 0.85, 2.2, seg_len)
+		return focus_pos + (seg / seg_len) * safe_dist
+
+	return desired_pos
 
 
 func _compute_dialogue_camera_pose(speaker_id: String) -> void:
@@ -907,9 +937,10 @@ func _compute_dialogue_camera_pose(speaker_id: String) -> void:
 	var floor_guard_y: float = minf(player_pos.y, base_pos.y) + 1.25
 	var cam_y: float = maxf(lerpf(player_pos.y + 1.35, target_eye_y, 0.68), floor_guard_y)
 
-	_dialogue_target_pos = Vector3(base_pos.x, 0.0, base_pos.z) + front_dir * dist + right_dir * side_offset + Vector3(0.0, cam_y, 0.0)
-
 	var speaker_focus: Vector3 = Vector3(base_pos.x, target_eye_y, base_pos.z)
+	var raw_cam_pos: Vector3 = Vector3(base_pos.x, 0.0, base_pos.z) + front_dir * dist + right_dir * side_offset + Vector3(0.0, cam_y, 0.0)
+	_dialogue_target_pos = _guard_dialogue_camera_against_walls(speaker_focus, raw_cam_pos)
+
 	if player != null and player_pos.distance_to(base_pos) <= 14.0:
 		var spark_focus: Vector3 = player_pos + Vector3(0.0, 1.05, 0.0)
 		_dialogue_target_look = speaker_focus.lerp(spark_focus, 0.14)

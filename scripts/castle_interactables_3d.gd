@@ -387,17 +387,17 @@ func _build_fountain_of_silence() -> void:
 
 	_add_cylinder_collider(root, 2.75, 1.45)
 
-	# Stepped octagonal marble plinth
+	# Stepped octagonal marble plinth (bottom seated -0.04m into Y=8.0 floor for zero gap / zero Z-fighting)
 	var plinth_mesh: CylinderMesh = CylinderMesh.new()
 	plinth_mesh.top_radius = 2.95
 	plinth_mesh.bottom_radius = 3.18
-	plinth_mesh.height = 0.34
+	plinth_mesh.height = 0.38
 	plinth_mesh.radial_segments = 8
 	var plinth: MeshInstance3D = MeshInstance3D.new()
 	plinth.name = "MarblePlinth"
 	plinth.mesh = plinth_mesh
 	plinth.material_override = _marble_mat
-	plinth.position = Vector3(0.0, 0.17, 0.0)
+	plinth.position = Vector3(0.0, 0.15, 0.0)
 	plinth.rotation_degrees.y = 22.5
 	root.add_child(plinth)
 
@@ -669,17 +669,17 @@ func _build_chronicle_book() -> void:
 
 	_add_cylinder_collider(root, 1.05, 1.5)
 
-	# Stepped octagonal marble lectern base
+	# Stepped octagonal marble lectern base (seated -0.04m into Y=8.0 floor for zero gap / zero Z-fighting)
 	var base_mesh: CylinderMesh = CylinderMesh.new()
 	base_mesh.top_radius = 0.92
 	base_mesh.bottom_radius = 1.14
-	base_mesh.height = 0.28
+	base_mesh.height = 0.32
 	base_mesh.radial_segments = 8
 	var base_inst: MeshInstance3D = MeshInstance3D.new()
 	base_inst.name = "LecternBase"
 	base_inst.mesh = base_mesh
 	base_inst.material_override = _marble_mat
-	base_inst.position = Vector3(0.0, 0.14, 0.0)
+	base_inst.position = Vector3(0.0, 0.12, 0.0)
 	base_inst.rotation_degrees.y = 22.5
 	root.add_child(base_inst)
 
@@ -866,17 +866,17 @@ func _build_kronos_astrolabe() -> void:
 
 	_add_cylinder_collider(root, 1.15, 1.6)
 
-	# Stepped octagonal marble pedestal base
+	# Stepped octagonal marble pedestal base (seated -0.04m into Y=8.0 floor for zero gap / zero Z-fighting)
 	var base_mesh: CylinderMesh = CylinderMesh.new()
 	base_mesh.top_radius = 1.12
 	base_mesh.bottom_radius = 1.38
-	base_mesh.height = 0.34
+	base_mesh.height = 0.38
 	base_mesh.radial_segments = 8
 	var base_inst: MeshInstance3D = MeshInstance3D.new()
 	base_inst.name = "AstrolabeBase"
 	base_inst.mesh = base_mesh
 	base_inst.material_override = _marble_mat
-	base_inst.position = Vector3(0.0, 0.17, 0.0)
+	base_inst.position = Vector3(0.0, 0.15, 0.0)
 	base_inst.rotation_degrees.y = 22.5
 	root.add_child(base_inst)
 
