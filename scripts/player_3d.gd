@@ -23,19 +23,19 @@ signal flight_mode_changed(is_flying: bool)
 			else:
 				Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
-# --- Ground Movement (Silky Dreamy Inertia — Journey / Sky / Stray Feel) ---
+# --- Ground Movement (Calm, Serene, Meditative — Journey / GRIS / Sky Feel) ---
 @export_group("Ground Movement")
-@export var ground_speed: float = 11.0
-@export var sprint_speed: float = 16.0
-@export var ground_acceleration: float = 5.2
-@export var ground_deceleration: float = 4.2
-@export var input_smooth_rate: float = 10.5
+@export var ground_speed: float = 6.2
+@export var sprint_speed: float = 9.0
+@export var ground_acceleration: float = 4.4
+@export var ground_deceleration: float = 3.8
+@export var input_smooth_rate: float = 9.5
 @export var air_control_factor: float = 0.45
-@export var ground_turn_speed: float = 6.2
-@export var jump_velocity: float = 10.6
-@export var gravity: float = 20.0
-@export var fall_gravity_multiplier: float = 0.76
-@export var coyote_time: float = 0.18
+@export var ground_turn_speed: float = 5.4
+@export var jump_velocity: float = 8.8
+@export var gravity: float = 16.5
+@export var fall_gravity_multiplier: float = 0.72
+@export var coyote_time: float = 0.20
 
 # --- Contextual Ledge / Perch Leap Assist ---
 @export_group("Ledge Leap Assist")
@@ -43,55 +43,55 @@ signal flight_mode_changed(is_flying: bool)
 @export var ledge_probe_max_dist: float = 9.5
 @export var ledge_min_height: float = 0.6
 @export var ledge_max_height: float = 5.0
-@export var ledge_max_horiz_speed: float = 16.5
+@export var ledge_max_horiz_speed: float = 10.2
 
 # --- Omnidirectional 3D Flight ("Fly Where You Look") ---
 @export_group("Free 3D Flight")
-@export var flight_cruise_speed: float = 17.5
-@export var flight_sprint_speed: float = 23.5
-@export var flight_strafe_speed: float = 12.5
-@export var flight_back_speed: float = 8.5
-@export var flight_descend_speed: float = 9.5
-@export var flight_max_speed: float = 30.0
-@export var flight_glide_sink: float = 0.65
-@export var flight_responsiveness: float = 3.4
-@export var flight_decel_responsiveness: float = 2.4
-@export var max_bank_roll_deg: float = 28.0
+@export var flight_cruise_speed: float = 10.5
+@export var flight_sprint_speed: float = 14.2
+@export var flight_strafe_speed: float = 7.6
+@export var flight_back_speed: float = 5.4
+@export var flight_descend_speed: float = 6.0
+@export var flight_max_speed: float = 17.5
+@export var flight_glide_sink: float = 0.48
+@export var flight_responsiveness: float = 2.8
+@export var flight_decel_responsiveness: float = 2.1
+@export var max_bank_roll_deg: float = 24.0
 
 # --- Wing Energy & Abilities ---
 @export_group("Wing Energy & Abilities")
 @export var max_wing_energy: float = 5.0
 @export var wing_regen_rate: float = 0.35
 @export var flap_energy_cost: float = 1.0
-@export var flap_upward_boost: float = 9.5
-@export var flap_forward_boost: float = 7.5
-@export var surge_speed: float = 26.0
-@export var surge_duration: float = 0.45
-@export var surge_cooldown: float = 1.6
+@export var flap_upward_boost: float = 6.4
+@export var flap_forward_boost: float = 4.6
+@export var surge_speed: float = 14.5
+@export var surge_duration: float = 0.55
+@export var surge_cooldown: float = 1.8
 @export var call_cooldown: float = 1.4
 @export var call_pulse_duration: float = 0.78
 
-# --- Camera (Silky Third-Person Framing) ---
+# --- Camera (Calm, Steady Third-Person Framing) ---
 @export_group("Camera")
 @export var base_fov: float = 58.0
-@export var max_fov: float = 72.0
-@export var fov_lerp_speed: float = 3.2
-@export var camera_follow_speed: float = 2.6
-@export var camera_rot_smooth: float = 9.5
-@export var camera_pos_smooth: float = 7.5
+@export var max_fov: float = 67.0
+@export var fov_lerp_speed: float = 3.0
+@export var camera_follow_speed: float = 2.4
+@export var camera_rot_smooth: float = 9.0
+@export var camera_pos_smooth: float = 7.2
 @export var auto_center_delay: float = 2.2
-@export var camera_roll_factor: float = 0.16
+@export var camera_roll_factor: float = 0.14
 @export var spring_length_ground: float = 6.8
-@export var spring_length_flight: float = 8.8
-@export var spring_length_surge_bonus: float = 1.4
-@export var spring_arm_lerp_speed: float = 3.2
-@export var mouse_look_sensitivity: float = 0.0030
+@export var spring_length_flight: float = 8.6
+@export var spring_length_surge_bonus: float = 1.1
+@export var spring_arm_lerp_speed: float = 3.0
+@export var mouse_look_sensitivity: float = 0.0022
 @export var zoom_min_offset: float = -3.0
 @export var zoom_max_offset: float = 5.5
 @export var zoom_step: float = 0.75
 @export var zoom_lerp_speed: float = 6.5
-@export var keyboard_cam_yaw_speed: float = 2.0
-@export var keyboard_cam_pitch_speed: float = 1.4
+@export var keyboard_cam_yaw_speed: float = 1.55
+@export var keyboard_cam_pitch_speed: float = 1.1
 
 # --- Trails ---
 @export_group("Wingtip Trails")
@@ -128,6 +128,7 @@ var cam_zoom_offset: float = 0.0
 var _target_zoom_offset: float = 0.0
 var _manual_cam_timer: float = 0.0
 var _was_input_enabled: bool = false
+var _was_shift_pressed: bool = false
 
 var _coyote_timer: float = 0.0
 var _ledge_leap_timer: float = 0.0
@@ -379,12 +380,12 @@ func _apply_spark_energy_shader_recursive(node: Node, energy_shader: Shader) -> 
 			elif node_name == "SparkCheeks":
 				mesh_inst.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 				var cheek_mat: StandardMaterial3D = StandardMaterial3D.new()
-				cheek_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-				cheek_mat.albedo_color = Color(1.0, 0.56, 0.58, 0.82)
+				cheek_mat.transparency = BaseMaterial3D.TRANSPARENCY_DISABLED
+				cheek_mat.albedo_color = Color.html("#FF949A")
 				cheek_mat.roughness = 0.35
 				cheek_mat.emission_enabled = true
 				cheek_mat.emission = Color.html("#FF8A92")
-				cheek_mat.emission_energy_multiplier = 0.36
+				cheek_mat.emission_energy_multiplier = 0.28
 				for i: int in range(surface_count):
 					mesh_inst.set_surface_override_material(i, cheek_mat)
 			else:
@@ -398,7 +399,7 @@ func _apply_spark_energy_shader_recursive(node: Node, energy_shader: Shader) -> 
 					var smat: ShaderMaterial = ShaderMaterial.new()
 					smat.shader = energy_shader
 
-					# Default: SparkBody (vibrant ACES-safe jewel aqua-turquoise, orchid-lavender sides/tail & warm golden-peach heart)
+					# Default: SparkBody (100% opaque vibrant ACES-safe jewel aqua-turquoise, orchid-lavender sides/tail & warm golden-peach heart)
 					var albedo_col: Color = Color.html("#18B8E8")
 					var shadow_col: Color = Color.html("#1D4CC2")
 					var emit_col: Color = Color.html("#28A8F0")
@@ -406,11 +407,11 @@ func _apply_spark_energy_shader_recursive(node: Node, energy_shader: Shader) -> 
 					var irid_col: Color = Color.html("#8254E8")
 					var belly_col: Color = Color.html("#FFB448")
 					var emit_str: float = 0.28
-					var belly_str: float = 0.78
+					var belly_str: float = 0.85
 					var metallic_v: float = 0.06
 					var roughness_v: float = 0.16
 					var clearcoat_v: float = 0.62
-					var alpha_v: float = 0.94
+					var alpha_v: float = 1.0
 					var irid_str: float = 0.95
 					var wing_flag: float = 0.0
 					var droplet_flag: float = 0.0
@@ -428,7 +429,7 @@ func _apply_spark_energy_shader_recursive(node: Node, energy_shader: Shader) -> 
 						metallic_v = 0.06
 						roughness_v = 0.16
 						clearcoat_v = 0.58
-						alpha_v = 0.90
+						alpha_v = 1.0
 						irid_str = 1.15
 						wing_flag = 1.0
 						sway_v = 1.0
@@ -444,7 +445,7 @@ func _apply_spark_energy_shader_recursive(node: Node, energy_shader: Shader) -> 
 						metallic_v = 0.08
 						roughness_v = 0.14
 						clearcoat_v = 0.64
-						alpha_v = 0.92
+						alpha_v = 1.0
 						irid_str = 1.05
 						droplet_flag = 1.0
 						sway_v = 1.0
@@ -541,12 +542,15 @@ func _physics_process(delta: float) -> void:
 	var steer_x: float = _smoothed_move_input.x
 	var move_z: float = _smoothed_move_input.y
 
-	# Golden Resonance Call [Q]
+	# Golden Resonance Call [Q] — Зов Света (Отклик)
 	if Input.is_action_just_pressed("soul_spark") and _call_cooldown_timer <= 0.0:
 		_trigger_soul_call()
 
-	# Golden Forward Surge [E]
-	if Input.is_action_just_pressed("blink") and _surge_cooldown_timer <= 0.0:
+	# Gentle Aerial Breeze Surge [Shift] while flying ([E] is reserved exclusively for Interaction)
+	var shift_pressed: bool = Input.is_physical_key_pressed(KEY_SHIFT)
+	var shift_just_pressed: bool = shift_pressed and not _was_shift_pressed
+	_was_shift_pressed = shift_pressed
+	if is_flying and shift_just_pressed and _surge_cooldown_timer <= 0.0:
 		_trigger_golden_surge(raw_steer_x, raw_move_z)
 
 	if is_flying:
@@ -720,6 +724,7 @@ func _process_disabled_state(delta: float) -> void:
 	if Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	_smoothed_move_input = Vector2.ZERO
+	_was_shift_pressed = false
 	if is_flying:
 		velocity = velocity.lerp(Vector3.ZERO, 1.0 - exp(-2.8 * delta))
 	else:
@@ -921,7 +926,7 @@ func _physics_flight(delta: float, steer_x: float, move_z: float) -> void:
 	if forward_input > 0.01:
 		var fwd_speed: float = flight_sprint_speed if is_sprinting else flight_cruise_speed
 		if cam_forward_3d.y < -0.15:
-			fwd_speed += (-cam_forward_3d.y) * 4.2
+			fwd_speed += (-cam_forward_3d.y) * 2.5
 		target_velocity += cam_forward_3d * (forward_input * fwd_speed)
 	elif forward_input < -0.01:
 		# S gently brakes / glides backward
@@ -941,7 +946,7 @@ func _physics_flight(delta: float, steer_x: float, move_z: float) -> void:
 
 	target_velocity += _boost_velocity
 
-	# Apply Golden Forward Surge with silky ease-in/ease-out curve
+	# Apply Gentle Aerial Surge [Shift] with silky ease-in/ease-out curve
 	if _surge_timer > 0.0:
 		var surge_curve: float = _get_surge_curve()
 		var surge_vel: Vector3 = _surge_dir * lerpf(flight_cruise_speed, surge_speed, surge_curve)
@@ -980,8 +985,8 @@ func _enter_flight() -> void:
 	_ledge_leap_timer = 0.0
 
 	# Catch a gentle warm updraft instead of snapping upward abruptly
-	velocity.y = lerpf(velocity.y, maxf(velocity.y, 4.2), 0.45)
-	_boost_velocity.y = maxf(_boost_velocity.y, 6.2)
+	velocity.y = lerpf(velocity.y, maxf(velocity.y, 3.2), 0.45)
+	_boost_velocity.y = maxf(_boost_velocity.y, 4.4)
 	_flap_anim_timer = 0.50
 	_energy_flare = maxf(_energy_flare, 0.72)
 	flight_mode_changed.emit(true)
@@ -1005,7 +1010,7 @@ func _perform_wing_flap_boost() -> void:
 
 	# Channel wingbeat lift smoothly through _boost_velocity for a buoyant, dreamy updraft
 	var cam_forward_3d: Vector3 = _get_camera_forward_3d()
-	velocity.y = maxf(velocity.y, 3.2)
+	velocity.y = maxf(velocity.y, 2.4)
 	_boost_velocity += Vector3.UP * (flap_upward_boost * 0.85) + cam_forward_3d * (flap_forward_boost * 0.55)
 	_flap_anim_timer = 0.58
 	_energy_flare = 1.15
@@ -1015,11 +1020,11 @@ func _trigger_golden_surge(steer_x: float, move_z: float) -> void:
 	_surge_timer = surge_duration
 	_surge_cooldown_timer = surge_cooldown
 	_flap_anim_timer = maxf(_flap_anim_timer, 0.42)
-	_energy_flare = 1.3
+	_energy_flare = 1.15
 
 	if is_flying:
 		_surge_dir = _get_camera_forward_3d()
-		_boost_velocity += _surge_dir * 4.5
+		_boost_velocity += _surge_dir * 2.6
 	else:
 		var cam_forward: Vector3 = Vector3(-sin(cam_yaw), 0.0, -cos(cam_yaw))
 		var cam_right: Vector3 = Vector3(cos(cam_yaw), 0.0, -sin(cam_yaw))
@@ -1187,15 +1192,15 @@ func _update_camera(delta: float) -> void:
 	# Smoothly interpolate zoom offset from wheel / Mac trackpad pan gesture
 	cam_zoom_offset = lerpf(cam_zoom_offset, _target_zoom_offset, 1.0 - exp(-zoom_lerp_speed * delta))
 
-	# Dynamic FOV expansion during fast movement, flight, wing flap boost, or golden surge
-	var speed_factor: float = clampf((velocity.length() - 9.0) / maxf(flight_max_speed - 9.0, 1.0), 0.0, 1.0)
+	# Dynamic FOV expansion during fast movement, flight, wing flap boost, or aerial breeze surge
+	var speed_factor: float = clampf((velocity.length() - 6.0) / maxf(flight_max_speed - 6.0, 1.0), 0.0, 1.0)
 	var surge_curve: float = _get_surge_curve()
-	var boost_fov: float = surge_curve * 5.5
+	var boost_fov: float = surge_curve * 3.8
 	if _flap_anim_timer > 0.0:
 		var flap_t: float = 1.0 - clampf(_flap_anim_timer / 0.58, 0.0, 1.0)
-		boost_fov += 3.0 * sin(flap_t * PI)
+		boost_fov += 2.2 * sin(flap_t * PI)
 
-	var target_fov: float = clampf(lerpf(base_fov, max_fov - 4.0, speed_factor) + boost_fov, base_fov, max_fov)
+	var target_fov: float = clampf(lerpf(base_fov, max_fov - 2.5, speed_factor) + boost_fov, base_fov, max_fov)
 	camera.fov = lerpf(camera.fov, target_fov, 1.0 - exp(-fov_lerp_speed * delta))
 
 	# Silky SpringArm3D distance easing + player mouse-wheel / trackpad zoom offset

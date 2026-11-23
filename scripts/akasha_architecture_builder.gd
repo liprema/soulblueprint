@@ -363,11 +363,11 @@ func _add_plaza_colliders(root: Node3D) -> void:
 	_add_box_collider(root, "PlazaSurfaceCollider", Vector3(16.0, 2.4, 23.0), Vector3(0.0, -1.2, 35.0))
 	# Forward ceremonial prow collider (top strictly at y = 0.0, covers down to z = 19.25)
 	_add_box_collider(root, "PlazaProwCollider", Vector3(11.0, 2.4, 5.5), Vector3(0.0, -1.2, 22.0))
-	# Invisible balustrade guard colliders along x = -7.0 and x = +7.0 (z = 24..46) + rear parapet at z = 46.2
-	# (Forward prow at z = 20..24 stays 100% open to walk/glide toward the floating islands)
-	_add_box_collider(root, "PlazaBalustradeCollider_L", Vector3(0.9, 2.2, 22.4), Vector3(-7.0, 1.1, 35.0))
-	_add_box_collider(root, "PlazaBalustradeCollider_R", Vector3(0.9, 2.2, 22.4), Vector3(7.0, 1.1, 35.0))
-	_add_box_collider(root, "PlazaBalustradeCollider_Back", Vector3(14.8, 2.2, 0.9), Vector3(0.0, 1.1, 46.2))
+	# Watertight invisible balustrade guard colliders along x = -7.0 and x = +7.0 (z = 23.75..46.75) + rear parapet at z = 46.2
+	# (H = 3.0 m with overlapping rear corners; forward prow at z = 20..24 stays 100% open to walk/glide toward the floating islands)
+	_add_box_collider(root, "PlazaBalustradeCollider_L", Vector3(1.0, 3.0, 23.0), Vector3(-7.0, 1.5, 35.25))
+	_add_box_collider(root, "PlazaBalustradeCollider_R", Vector3(1.0, 3.0, 23.0), Vector3(7.0, 1.5, 35.25))
+	_add_box_collider(root, "PlazaBalustradeCollider_Back", Vector3(15.2, 3.0, 1.0), Vector3(0.0, 1.5, 46.2))
 
 
 func _build_starting_monolith_plaza() -> void:
@@ -525,16 +525,16 @@ func _build_indigo_viaduct() -> void:
 			Vector3(deck_collider_width, deck_thickness, total_length + 4.0),
 			Vector3(viaduct_x, deck_top_y - deck_thickness * 0.5, deck_center_z)
 		)
-		# Invisible parapet/railing guard colliders along both edges of each viaduct (8.4m clear roadway inside)
+		# Watertight invisible parapet/railing guard colliders along both edges of each viaduct (H = 2.8 m, 8.4 m clear roadway inside)
 		_add_box_collider(
 			wing_root, "ViaductParapetCollider_%s_L" % side_tag,
-			Vector3(1.1, 2.0, total_length + 4.0),
-			Vector3(viaduct_x - 4.75, deck_top_y + 1.0, deck_center_z)
+			Vector3(1.1, 2.8, total_length + 4.0),
+			Vector3(viaduct_x - 4.75, deck_top_y + 1.4, deck_center_z)
 		)
 		_add_box_collider(
 			wing_root, "ViaductParapetCollider_%s_R" % side_tag,
-			Vector3(1.1, 2.0, total_length + 4.0),
-			Vector3(viaduct_x + 4.75, deck_top_y + 1.0, deck_center_z)
+			Vector3(1.1, 2.8, total_length + 4.0),
+			Vector3(viaduct_x + 4.75, deck_top_y + 1.4, deck_center_z)
 		)
 
 		if has_glb:
@@ -821,9 +821,75 @@ func _build_floating_temple_islands() -> void:
 # d) Colossal Akashic Astrolabe Cathedral (z = -280)
 # ---------------------------------------------------------------------------
 
-func _add_cathedral_colliders(root: Node3D) -> void:
-	# Generous walkable lower meadow island ground collider around Y = 0.0 (R = 54.0 m)
-	_add_cylinder_collider(root, "PalaceMeadowGroundCollider", 54.0, 4.0, Vector3(0.0, -2.0, 0.0))
+func _attach_cathedral_trimesh_colliders(node: Node) -> int:
+	var attached: int = 0
+	if node is MeshInstance3D:
+		var mesh_inst: MeshInstance3D = node as MeshInstance3D
+		var lower_name: String = mesh_inst.name.to_lower()
+		if (lower_name.contains("castleislandgrass") or lower_name.contains("castleislandrock")) and mesh_inst.mesh != null:
+			mesh_inst.create_trimesh_collision()
+			attached += 1
+	for child: Node in node.get_children():
+		attached += _attach_cathedral_trimesh_colliders(child)
+	return attached
+
+
+func _add_curved_side_stair_colliders(root: Node3D) -> void:
+	# Twin Curved Garden Side-Staircases flanking the West & East wings:
+	# smooth walkable curved ramp segments + flanking watertight balustrade walls (H = 2.8 m)
+	for side_sign: float in [-1.0, 1.0]:
+		var s_tag: String = "W" if side_sign < 0.0 else "E"
+		var stair_pts: Array[Vector3] = [
+			Vector3(side_sign * 22.00, 8.00, 16.00),
+			Vector3(side_sign * 22.14, 6.80, 18.20),
+			Vector3(side_sign * 22.42, 5.60, 20.53),
+			Vector3(side_sign * 22.93, 4.40, 22.65),
+			Vector3(side_sign * 23.61, 3.20, 24.49),
+			Vector3(side_sign * 24.43, 2.00, 25.98),
+			Vector3(side_sign * 25.85, 0.35, 27.60),
+		]
+		for si: int in range(stair_pts.size() - 1):
+			var p_a: Vector3 = stair_pts[si]
+			var p_b: Vector3 = stair_pts[si + 1]
+			var seg_vec: Vector3 = p_b - p_a
+			var seg_len: float = seg_vec.length()
+			if seg_len < 0.05:
+				continue
+			var seg_mid: Vector3 = (p_a + p_b) * 0.5
+			var fwd_dir: Vector3 = seg_vec.normalized()
+			var right_dir: Vector3 = fwd_dir.cross(Vector3.UP).normalized()
+			var up_dir: Vector3 = right_dir.cross(fwd_dir).normalized()
+			var seg_orient: Basis = Basis(right_dir, up_dir, -fwd_dir)
+
+			var ramp_body: StaticBody3D = _add_box_collider(
+				root, "SideStairRamp_%s_%d" % [s_tag, si],
+				Vector3(4.2, 1.4, seg_len + 0.55),
+				seg_mid - up_dir * 0.7
+			)
+			ramp_body.transform.basis = seg_orient
+
+			for rail_side: float in [-1.0, 1.0]:
+				var r_tag: String = "A" if rail_side < 0.0 else "B"
+				var rail_body: StaticBody3D = _add_box_collider(
+					root, "SideStairRail_%s_%s_%d" % [s_tag, r_tag, si],
+					Vector3(0.8, 2.8, seg_len + 0.85),
+					seg_mid + right_dir * (rail_side * 2.25) + up_dir * 1.3
+				)
+				rail_body.transform.basis = seg_orient
+
+
+func _add_cathedral_colliders(root: Node3D, has_trimesh_meadow: bool = false) -> void:
+	# When the GLB is loaded, CastleIslandGrass & CastleIslandRock provide exact trimesh terrain collision;
+	# only add a fallback flat cylinder collider if running without the GLB mesh.
+	if not has_trimesh_meadow:
+		_add_cylinder_collider(root, "PalaceMeadowGroundCollider", 54.0, 4.0, Vector3(0.0, -2.0, 0.0))
+
+	# Formal Arrival Court solid marble floor slab (top strictly at Y = 0.06, X[-13.5..+13.5], Z[+35.5..+52.2])
+	_add_box_collider(root, "PalaceArrivalCourtFloorCollider", Vector3(27.0, 0.5, 16.7), Vector3(0.0, -0.19, 43.85))
+
+	# Formal Arrival Court flanking garden balustrades at X = +-13.5, Z[+35.6..+52.4] (H = 2.8 m, Y = 0.0..2.8)
+	_add_box_collider(root, "ArrivalCourtBalustrade_W", Vector3(1.0, 2.8, 16.8), Vector3(-13.5, 1.4, 44.0))
+	_add_box_collider(root, "ArrivalCourtBalustrade_E", Vector3(1.0, 2.8, 16.8), Vector3(13.5, 1.4, 44.0))
 
 	# Central Baroque Ballroom & West/East Wings floor slab (top strictly at Y = 8.0, X[-34.5..+34.5], Z[-16.5..+16.5])
 	_add_box_collider(root, "PalaceMainFloorCollider", Vector3(69.0, 4.0, 33.0), Vector3(0.0, 6.0, 0.0))
@@ -873,42 +939,59 @@ func _add_cathedral_colliders(root: Node3D) -> void:
 	)
 	stairs_ramp.rotation.x = ramp_angle
 
-	# Sloped side balustrade colliders flanking the Grand Imperial Staircase at X = +-11.8 (H = 2.4 m)
+	# Watertight sloped side balustrade colliders flanking the Grand Imperial Staircase at X = +-11.8 (H = 3.0 m)
+	# plus solid bottom & top filler walls connecting seamlessly to the Arrival Court balustrades and Ballroom South wall
 	for side_sign: float in [-1.0, 1.0]:
 		var s_tag: String = "W" if side_sign < 0.0 else "E"
 		var rail_center: Vector3 = Vector3(
 			side_sign * 11.8,
-			4.0 + cos(ramp_angle) * 1.2,
-			26.0 + sin(ramp_angle) * 1.2
+			4.0 + cos(ramp_angle) * 1.5,
+			26.0 + sin(ramp_angle) * 1.5
 		)
 		var stair_rail: StaticBody3D = _add_box_collider(
 			root, "StairBalustradeCollider_%s" % s_tag,
-			Vector3(1.2, 2.4, ramp_len + 0.8),
+			Vector3(1.2, 3.0, ramp_len + 1.4),
 			rail_center
 		)
 		stair_rail.rotation.x = ramp_angle
 
-	# North Cloud Terrace Balustrades (H = 2.4 m, Y = 8.0..10.4 -> center Y = 9.2)
-	_add_box_collider(root, "NorthTerraceBalustrade_W", Vector3(0.9, 2.4, 9.0), Vector3(-14.0, 9.2, -20.5))
-	_add_box_collider(root, "NorthTerraceBalustrade_E", Vector3(0.9, 2.4, 9.0), Vector3(14.0, 9.2, -20.5))
-	_add_box_collider(root, "NorthTerraceShoulder_W", Vector3(4.2, 2.4, 0.9), Vector3(-12.3, 9.2, -25.0))
-	_add_box_collider(root, "NorthTerraceShoulder_E", Vector3(4.2, 2.4, 0.9), Vector3(12.3, 9.2, -25.0))
+		# Bottom filler wall bridging X = +-11.8 stair rail to X = +-13.5 Arrival Court balustrade at Z = +36.0
+		_add_box_collider(
+			root, "StairBottomFillerWall_%s" % s_tag,
+			Vector3(2.8, 3.0, 1.2),
+			Vector3(side_sign * 12.6, 1.5, 36.0)
+		)
+		# Top abutment filler wall sealing the sloped rail into BallroomWall_South_L/R at Z = +16.0
+		_add_box_collider(
+			root, "StairTopFillerWall_%s" % s_tag,
+			Vector3(1.4, 3.4, 1.8),
+			Vector3(side_sign * 11.8, 9.5, 16.4)
+		)
 
-	# 7-segment semicircular railing arc around (0, 8.0, -24.0), radius 10.5 m (H = 2.4 m)
+	# Twin Curved Garden Side-Staircases (smooth curved ramps + flanking balustrade walls)
+	_add_curved_side_stair_colliders(root)
+
+	# North Cloud Terrace Balustrades — 100% watertight perimeter (H = 3.0 m, Y = 8.0..11.0 -> center Y = 9.5, thickness = 1.0 m)
+	_add_box_collider(root, "NorthTerraceBalustrade_W", Vector3(1.0, 3.0, 10.2), Vector3(-14.0, 9.5, -20.6))
+	_add_box_collider(root, "NorthTerraceBalustrade_E", Vector3(1.0, 3.0, 10.2), Vector3(14.0, 9.5, -20.6))
+	_add_box_collider(root, "NorthTerraceShoulder_W", Vector3(4.8, 3.0, 1.0), Vector3(-12.25, 9.5, -24.5))
+	_add_box_collider(root, "NorthTerraceShoulder_E", Vector3(4.8, 3.0, 1.0), Vector3(12.25, 9.5, -24.5))
+
+	# 9-segment semicircular railing arc around (0, 8.0, -24.0), radius 10.5 m (H = 3.0 m, thickness = 1.0 m, overlapping joins)
 	var apse_center_z: float = -24.0
 	var apse_radius: float = 10.5
-	var arc_segments: int = 7
-	var arc_half_span: float = deg_to_rad(84.0)
+	var arc_segments: int = 9
+	var arc_half_span: float = deg_to_rad(90.0)
 	for ai: int in range(arc_segments):
 		var frac: float = (float(ai) + 0.5) / float(arc_segments)
 		var theta: float = lerpf(-arc_half_span, arc_half_span, frac)
 		var seg_x: float = sin(theta) * apse_radius
 		var seg_z: float = apse_center_z - cos(theta) * apse_radius
-		var seg_len: float = (2.0 * arc_half_span * apse_radius) / float(arc_segments) + 0.6
+		var seg_len: float = (2.0 * arc_half_span * apse_radius) / float(arc_segments) + 1.1
 		var seg_body: StaticBody3D = _add_box_collider(
 			root, "NorthTerraceApseRail_%d" % ai,
-			Vector3(seg_len, 2.4, 0.9),
-			Vector3(seg_x, 9.2, seg_z)
+			Vector3(seg_len, 3.0, 1.0),
+			Vector3(seg_x, 9.5, seg_z)
 		)
 		seg_body.rotation.y = -theta
 
@@ -957,7 +1040,8 @@ func _build_colossal_cathedral() -> void:
 	add_child(root)
 
 	if _try_instantiate_override(cathedral_model_path, root, Vector3.ZERO, "cathedral"):
-		_add_cathedral_colliders(root)
+		var has_trimesh_meadow: bool = _attach_cathedral_trimesh_colliders(root) > 0
+		_add_cathedral_colliders(root, has_trimesh_meadow)
 		_build_rotunda_skylight_sunbeam(root)
 		_build_cathedral_astrolabe_rings(root, Vector3(0.0, 92.0, 0.0))
 		return
@@ -966,7 +1050,7 @@ func _build_colossal_cathedral() -> void:
 	_add_box_mesh(root, "CathedralFoundation", Vector3(92.0, 82.0, 64.0), Vector3(0.0, -41.0, 0.0), _mat_dark_obsidian)
 	_add_box_mesh(root, "CathedralDaisStep1", Vector3(84.0, 4.0, 56.0), Vector3(0.0, 2.0, 2.0), _mat_indigo_stone)
 	_add_box_mesh(root, "CathedralDaisStep2", Vector3(68.0, 4.0, 44.0), Vector3(0.0, 6.0, 4.0), _mat_polished_marble)
-	_add_cathedral_colliders(root)
+	_add_cathedral_colliders(root, false)
 
 	# Golden dais edge steps
 	_add_box_mesh(root, "DaisGoldEdge1", Vector3(84.6, 0.45, 0.6), Vector3(0.0, 3.9, 30.1), _mat_gold_filigree)

@@ -286,6 +286,8 @@ func _apply_spirit_palette_recursive(
 				var heart_mat: StandardMaterial3D = StandardMaterial3D.new()
 				heart_mat.albedo_color = Color("#FFD468")
 				heart_mat.roughness = 0.14
+				heart_mat.transparency = BaseMaterial3D.TRANSPARENCY_DISABLED
+				heart_mat.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_OPAQUE_ONLY
 				heart_mat.emission_enabled = true
 				heart_mat.emission = Color("#FFC848")
 				heart_mat.emission_energy_multiplier = 1.05
@@ -296,6 +298,8 @@ func _apply_spirit_palette_recursive(
 				var sclera_mat: StandardMaterial3D = StandardMaterial3D.new()
 				sclera_mat.albedo_color = Color("#F4F8FC")
 				sclera_mat.roughness = 0.08
+				sclera_mat.transparency = BaseMaterial3D.TRANSPARENCY_DISABLED
+				sclera_mat.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_OPAQUE_ONLY
 				sclera_mat.emission_enabled = true
 				sclera_mat.emission = Color("#E8F2FC")
 				sclera_mat.emission_energy_multiplier = 0.14
@@ -306,6 +310,8 @@ func _apply_spirit_palette_recursive(
 				var iris_mat: StandardMaterial3D = StandardMaterial3D.new()
 				iris_mat.albedo_color = iris_col
 				iris_mat.roughness = 0.05
+				iris_mat.transparency = BaseMaterial3D.TRANSPARENCY_DISABLED
+				iris_mat.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_OPAQUE_ONLY
 				iris_mat.clearcoat_enabled = true
 				iris_mat.clearcoat = 1.0
 				iris_mat.clearcoat_roughness = 0.05
@@ -319,6 +325,8 @@ func _apply_spirit_palette_recursive(
 				var hl_mat: StandardMaterial3D = StandardMaterial3D.new()
 				hl_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 				hl_mat.albedo_color = Color.WHITE
+				hl_mat.transparency = BaseMaterial3D.TRANSPARENCY_DISABLED
+				hl_mat.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_OPAQUE_ONLY
 				hl_mat.emission_enabled = true
 				hl_mat.emission = Color.WHITE
 				hl_mat.emission_energy_multiplier = 1.15
@@ -329,13 +337,16 @@ func _apply_spirit_palette_recursive(
 				var rim_mat: StandardMaterial3D = StandardMaterial3D.new()
 				rim_mat.albedo_color = Color("#2A2F58")
 				rim_mat.roughness = 0.30
+				rim_mat.transparency = BaseMaterial3D.TRANSPARENCY_DISABLED
+				rim_mat.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_OPAQUE_ONLY
 				for i: int in range(surface_count):
 					mesh_inst.set_surface_override_material(i, rim_mat)
 			elif node_name == "SparkCheeks":
 				mesh_inst.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 				var cheek_mat: StandardMaterial3D = StandardMaterial3D.new()
-				cheek_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-				cheek_mat.albedo_color = Color(0.96, 0.46, 0.58, 0.80)
+				cheek_mat.transparency = BaseMaterial3D.TRANSPARENCY_DISABLED
+				cheek_mat.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_OPAQUE_ONLY
+				cheek_mat.albedo_color = Color(0.96, 0.46, 0.58, 1.0)
 				cheek_mat.roughness = 0.35
 				cheek_mat.emission_enabled = true
 				cheek_mat.emission = Color("#F56888")
@@ -386,7 +397,7 @@ func _apply_spirit_palette_recursive(
 					smat.set_shader_parameter("metallic_val", 0.10)
 					smat.set_shader_parameter("roughness_val", 0.14)
 					smat.set_shader_parameter("clearcoat_val", 0.92)
-					smat.set_shader_parameter("alpha_base", 0.92)
+					smat.set_shader_parameter("alpha_base", 1.0)
 					smat.set_shader_parameter("iridescence_strength", 0.68)
 					smat.set_shader_parameter("is_wing_ribbon", wing_flag)
 					smat.set_shader_parameter("is_droplet", droplet_flag)
@@ -413,6 +424,8 @@ func _build_fallback_spirit_mat(albedo_col: Color, emit_col: Color) -> StandardM
 	var mat: StandardMaterial3D = StandardMaterial3D.new()
 	mat.albedo_color = albedo_col
 	mat.roughness = 0.16
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_DISABLED
+	mat.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_OPAQUE_ONLY
 	mat.emission_enabled = true
 	mat.emission = emit_col
 	mat.emission_energy_multiplier = 0.42
@@ -448,24 +461,25 @@ func _build_procedural_spirit_fallback(parent: Node3D, albedo_col: Color, emit_c
 func _create_archangel_pbr_materials() -> Dictionary:
 	var mats: Dictionary = {}
 
-	# ArchSkin: Classical warm ivory-peach skin with subtle subsurface scattering
+	# ArchSkin: Solid opaque warm ivory-peach skin (SSS disabled to prevent Apple Silicon Metal sky bleed)
 	var skin_mat: StandardMaterial3D = StandardMaterial3D.new()
 	skin_mat.albedo_color = Color("#EFC6AE")
-	skin_mat.roughness = 0.40
-	skin_mat.subsurf_scatter_enabled = true
-	skin_mat.subsurf_scatter_strength = 0.35
-	skin_mat.subsurf_scatter_skin_mode = true
+	skin_mat.roughness = 0.54
+	skin_mat.subsurf_scatter_enabled = false
+	skin_mat.transparency = BaseMaterial3D.TRANSPARENCY_DISABLED
+	skin_mat.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_OPAQUE_ONLY
 	skin_mat.emission_enabled = true
 	skin_mat.emission = Color("#F5D0B8")
 	skin_mat.emission_energy_multiplier = 0.04
 	mats["ArchSkin"] = skin_mat
 
-	# ArchLips: Soft serene rose lips
+	# ArchLips: Solid opaque soft serene rose lips
 	var lips_mat: StandardMaterial3D = StandardMaterial3D.new()
 	lips_mat.albedo_color = Color("#C26E6E")
-	lips_mat.roughness = 0.30
-	lips_mat.subsurf_scatter_enabled = true
-	lips_mat.subsurf_scatter_strength = 0.22
+	lips_mat.roughness = 0.32
+	lips_mat.subsurf_scatter_enabled = false
+	lips_mat.transparency = BaseMaterial3D.TRANSPARENCY_DISABLED
+	lips_mat.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_OPAQUE_ONLY
 	mats["ArchLips"] = lips_mat
 
 	# ArchEyeSclera: Clear pearl-white eye sclera
@@ -605,6 +619,13 @@ func _create_archangel_pbr_materials() -> Dictionary:
 	core_mat.emission = Color("#FFDC82")
 	core_mat.emission_energy_multiplier = 1.65
 	mats["ArchStarCore"] = core_mat
+
+	for mat_key: Variant in mats.keys():
+		var m: StandardMaterial3D = mats[mat_key] as StandardMaterial3D
+		if m != null:
+			m.transparency = BaseMaterial3D.TRANSPARENCY_DISABLED
+			m.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_OPAQUE_ONLY
+			m.subsurf_scatter_enabled = false
 
 	return mats
 

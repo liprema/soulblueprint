@@ -37,6 +37,7 @@ const PIP_COUNT := 5
 @onready var _dialogue_divider: Control = $RootControl/DialoguePanel/Margin/VBox/DialogueDivider
 @onready var _dialogue_text: Label = $RootControl/DialoguePanel/Margin/VBox/DialogueText
 @onready var _controls_hint_pill: PanelContainer = $RootControl/ControlHintsPill
+@onready var _controls_hint_label: Label = get_node_or_null("RootControl/ControlHintsPill/ControlHintsLabel") as Label
 @onready var _flight_hint: Label = $RootControl/FlightHint
 
 var _choices_container: VBoxContainer
@@ -90,6 +91,11 @@ func _ready() -> void:
 
 	# Subtle bottom-left control hints pill fades in gently during gameplay
 	_flight_hint.visible = false
+	if _controls_hint_label != null:
+		_controls_hint_label.text = "WASD — Движение  ·  Пробел — Взлёт  ·  Shift — Ускорение  ·  Q — Зов Света  ·  E — Поговорить"
+	if _controls_hint_pill != null:
+		_controls_hint_pill.grow_horizontal = Control.GROW_DIRECTION_END
+		_controls_hint_pill.offset_right = 700.0
 	_controls_hint_pill.visible = true
 	_controls_hint_pill.modulate.a = 0.0
 	_hint_tween = create_tween()
