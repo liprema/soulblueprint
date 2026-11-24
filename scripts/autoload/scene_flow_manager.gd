@@ -4,22 +4,38 @@ extends CanvasLayer
 ## for SoulBlueprint (Godot 4.3). Registered as Autoload `SceneFlowManager` (no class_name).
 
 const INTRO_VIDEO_SCENE_PATH: String = "res://scenes/intro_video.tscn"
+const WORLD_3D_SCENE_PATH: String = "res://scenes/world_3d.tscn"
+const LESSON1_EARTH_SCENE_PATH: String = "res://scenes/lesson1/earth_life_lesson1.tscn"
 
 const COLOR_INDIGO: Color = Color(0.027451, 0.078431, 0.180392, 1.0) # #07142E
 const COLOR_INDIGO_BACKDROP: Color = Color(0.027451, 0.078431, 0.180392, 0.78)
 const COLOR_INDIGO_CARD: Color = Color(0.027451, 0.078431, 0.180392, 0.95)
+const COLOR_SUNSET_BACKDROP: Color = Color(0.090196, 0.054902, 0.078431, 0.76)
+const COLOR_SUNSET_CARD: Color = Color(0.082353, 0.058824, 0.105882, 0.95)
 const COLOR_GOLD: Color = Color(0.964706, 0.827451, 0.419608, 1.0) # #F6D36B
 const COLOR_GOLD_SOFT: Color = Color(0.964706, 0.827451, 0.419608, 0.65)
+const COLOR_GOLD_WARM: Color = Color(0.988235, 0.866667, 0.545098, 1.0) # #FCDD8B
 const COLOR_IVORY: Color = Color(1.0, 0.964706, 0.8, 1.0) # #FFF6CC
 const COLOR_IVORY_SOFT: Color = Color(1.0, 0.964706, 0.8, 0.92)
+const COLOR_KRONOS_TEASER: Color = Color(0.901961, 0.784314, 0.541176, 0.86) # #E6C88A
 
 const GOLD_VEIL_PEAK_ALPHA: float = 0.18
+
+var pending_world_mode: String = ""
 
 var _epilogue_overlay: Control = null
 var _epilogue_divider: Control = null
 var _epilogue_stats_label: Label = null
 var _btn_continue: Button = null
 var _btn_return_menu: Button = null
+
+var _lesson1_epilogue_overlay: Control = null
+var _lesson1_epilogue_divider: Control = null
+var _lesson1_btn_continue: Button = null
+var _lesson1_btn_return_menu: Button = null
+var _lesson1_epilogue_tween: Tween = null
+var _lesson1_on_continue_callback: Callable = Callable()
+var _lesson1_on_return_menu_callback: Callable = Callable()
 
 var _fade_veil: ColorRect = null
 var _gold_veil: ColorRect = null
@@ -41,6 +57,7 @@ var _fallback_video_active: bool = false
 func _ready() -> void:
 	layer = 100
 	_build_epilogue_overlay()
+	_build_lesson1_epilogue_overlay()
 	_build_veils()
 
 
@@ -165,6 +182,43 @@ func hide_prologue_epilogue() -> void:
 	_epilogue_tween.tween_property(_epilogue_overlay, "modulate:a", 0.0, 0.45)
 	_epilogue_tween.tween_callback(func() -> void:
 		_epilogue_overlay.visible = false
+	)
+
+
+func show_lesson1_epilogue(
+	on_continue_exploring: Callable,
+	on_return_menu: Callable
+) -> void:
+	_lesson1_on_continue_callback = on_continue_exploring
+	_lesson1_on_return_menu_callback = on_return_menu
+
+	if _lesson1_epilogue_tween != null and _lesson1_epilogue_tween.is_valid():
+		_lesson1_epilogue_tween.kill()
+
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	_lesson1_epilogue_overlay.visible = true
+	_lesson1_epilogue_overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+	_lesson1_epilogue_overlay.modulate.a = 0.0
+	_lesson1_epilogue_divider.queue_redraw()
+
+	_lesson1_epilogue_tween = create_tween()
+	_lesson1_epilogue_tween.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	_lesson1_epilogue_tween.tween_property(_lesson1_epilogue_overlay, "modulate:a", 1.0, 0.9)
+
+
+func hide_lesson1_epilogue() -> void:
+	if not _lesson1_epilogue_overlay.visible:
+		return
+
+	if _lesson1_epilogue_tween != null and _lesson1_epilogue_tween.is_valid():
+		_lesson1_epilogue_tween.kill()
+
+	_lesson1_epilogue_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_lesson1_epilogue_tween = create_tween()
+	_lesson1_epilogue_tween.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+	_lesson1_epilogue_tween.tween_property(_lesson1_epilogue_overlay, "modulate:a", 0.0, 0.45)
+	_lesson1_epilogue_tween.tween_callback(func() -> void:
+		_lesson1_epilogue_overlay.visible = false
 	)
 
 
@@ -416,6 +470,152 @@ func _draw_epilogue_divider() -> void:
 	_epilogue_divider.draw_colored_polygon(diamond_points, COLOR_GOLD)
 
 
+func _build_lesson1_epilogue_overlay() -> void:
+	_lesson1_epilogue_overlay = Control.new()
+	_lesson1_epilogue_overlay.name = "Lesson1EpilogueOverlay"
+	_lesson1_epilogue_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_lesson1_epilogue_overlay.visible = false
+	_lesson1_epilogue_overlay.modulate.a = 0.0
+	_lesson1_epilogue_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_lesson1_epilogue_overlay)
+
+	var backdrop: ColorRect = ColorRect.new()
+	backdrop.name = "SunsetBackdrop"
+	backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
+	backdrop.color = COLOR_SUNSET_BACKDROP
+	backdrop.mouse_filter = Control.MOUSE_FILTER_STOP
+	_lesson1_epilogue_overlay.add_child(backdrop)
+
+	var center: CenterContainer = CenterContainer.new()
+	center.name = "CenterContainer"
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_lesson1_epilogue_overlay.add_child(center)
+
+	var card: PanelContainer = PanelContainer.new()
+	card.name = "Lesson1GoldCard"
+	card.custom_minimum_size = Vector2(700.0, 0.0)
+	card.add_theme_stylebox_override("panel", _create_sunset_card_stylebox())
+	center.add_child(card)
+
+	var margin: MarginContainer = MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 52)
+	margin.add_theme_constant_override("margin_right", 52)
+	margin.add_theme_constant_override("margin_top", 44)
+	margin.add_theme_constant_override("margin_bottom", 44)
+	card.add_child(margin)
+
+	var vbox: VBoxContainer = VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 18)
+	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	margin.add_child(vbox)
+
+	var subtitle_label: Label = Label.new()
+	subtitle_label.name = "SubtitleLabel"
+	subtitle_label.text = "У Р О К   1   З А В Е Р Ш Ё Н"
+	subtitle_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	subtitle_label.add_theme_color_override("font_color", COLOR_GOLD_WARM)
+	subtitle_label.add_theme_font_size_override("font_size", 14)
+	vbox.add_child(subtitle_label)
+
+	var title_label: Label = Label.new()
+	title_label.name = "TitleLabel"
+	title_label.text = "Опыт Безусловной Любви"
+	title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title_label.add_theme_color_override("font_color", COLOR_IVORY)
+	title_label.add_theme_font_size_override("font_size", 34)
+	vbox.add_child(title_label)
+
+	_lesson1_epilogue_divider = Control.new()
+	_lesson1_epilogue_divider.name = "Lesson1GoldDivider"
+	_lesson1_epilogue_divider.custom_minimum_size = Vector2(0.0, 18.0)
+	_lesson1_epilogue_divider.draw.connect(_draw_lesson1_epilogue_divider)
+	vbox.add_child(_lesson1_epilogue_divider)
+
+	var quote_label: Label = Label.new()
+	quote_label.name = "QuoteLabel"
+	quote_label.text = "«У тебя было всё, кроме времени — и этого хватило,\nчтобы чья-то долгая зима навсегда сменилась весной.»"
+	quote_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	quote_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	quote_label.add_theme_color_override("font_color", COLOR_IVORY_SOFT)
+	quote_label.add_theme_font_size_override("font_size", 18)
+	vbox.add_child(quote_label)
+
+	var teaser_label: Label = Label.new()
+	teaser_label.name = "KronosTeaserLabel"
+	teaser_label.text = "Вдали за северной колоннадой слышен мерный шаг Кроноса.\nВторой контракт уже ждёт своего часа…"
+	teaser_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	teaser_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	teaser_label.add_theme_color_override("font_color", COLOR_KRONOS_TEASER)
+	teaser_label.add_theme_font_size_override("font_size", 15)
+	vbox.add_child(teaser_label)
+
+	var spacer: Control = Control.new()
+	spacer.custom_minimum_size = Vector2(0.0, 10.0)
+	vbox.add_child(spacer)
+
+	var button_row: HBoxContainer = HBoxContainer.new()
+	button_row.name = "ButtonRow"
+	button_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	button_row.add_theme_constant_override("separation", 20)
+	vbox.add_child(button_row)
+
+	_lesson1_btn_continue = _create_art_deco_button("Продолжить полёт на закате")
+	_lesson1_btn_continue.pressed.connect(_on_lesson1_continue_pressed)
+	button_row.add_child(_lesson1_btn_continue)
+
+	_lesson1_btn_return_menu = _create_art_deco_button("Вернуться в главное меню")
+	_lesson1_btn_return_menu.pressed.connect(_on_lesson1_return_menu_pressed)
+	button_row.add_child(_lesson1_btn_return_menu)
+
+
+func _create_sunset_card_stylebox() -> StyleBoxFlat:
+	var box: StyleBoxFlat = StyleBoxFlat.new()
+	box.bg_color = COLOR_SUNSET_CARD
+	box.border_color = COLOR_GOLD_WARM
+	box.border_width_left = 2
+	box.border_width_right = 2
+	box.border_width_top = 2
+	box.border_width_bottom = 2
+	box.corner_radius_top_left = 4
+	box.corner_radius_top_right = 4
+	box.corner_radius_bottom_left = 4
+	box.corner_radius_bottom_right = 4
+	box.shadow_color = Color(0.964706, 0.827451, 0.419608, 0.16)
+	box.shadow_size = 28
+	return box
+
+
+func _draw_lesson1_epilogue_divider() -> void:
+	var rect_size: Vector2 = _lesson1_epilogue_divider.size
+	var mid_y: float = rect_size.y * 0.5
+	var center_x: float = rect_size.x * 0.5
+	var half_span: float = minf(rect_size.x * 0.42, 230.0)
+	var diamond_r: float = 5.5
+
+	_lesson1_epilogue_divider.draw_line(
+		Vector2(center_x - half_span, mid_y),
+		Vector2(center_x - diamond_r - 8.0, mid_y),
+		COLOR_GOLD_SOFT,
+		1.5,
+		true
+	)
+	_lesson1_epilogue_divider.draw_line(
+		Vector2(center_x + diamond_r + 8.0, mid_y),
+		Vector2(center_x + half_span, mid_y),
+		COLOR_GOLD_SOFT,
+		1.5,
+		true
+	)
+
+	var diamond_points: PackedVector2Array = PackedVector2Array([
+		Vector2(center_x, mid_y - diamond_r),
+		Vector2(center_x + diamond_r, mid_y),
+		Vector2(center_x, mid_y + diamond_r),
+		Vector2(center_x - diamond_r, mid_y),
+	])
+	_lesson1_epilogue_divider.draw_colored_polygon(diamond_points, COLOR_GOLD_WARM)
+
+
 func _on_continue_pressed() -> void:
 	hide_prologue_epilogue()
 	_invoke_callable(_on_continue_callback)
@@ -426,12 +626,30 @@ func _on_return_menu_pressed() -> void:
 	_invoke_callable(_on_return_menu_callback)
 
 
+func _on_lesson1_continue_pressed() -> void:
+	hide_lesson1_epilogue()
+	_invoke_callable(_lesson1_on_continue_callback)
+
+
+func _on_lesson1_return_menu_pressed() -> void:
+	hide_lesson1_epilogue()
+	_invoke_callable(_lesson1_on_return_menu_callback)
+
+
 func _hide_epilogue_immediate() -> void:
 	if _epilogue_tween != null and _epilogue_tween.is_valid():
 		_epilogue_tween.kill()
-	_epilogue_overlay.visible = false
-	_epilogue_overlay.modulate.a = 0.0
-	_epilogue_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if _epilogue_overlay != null:
+		_epilogue_overlay.visible = false
+		_epilogue_overlay.modulate.a = 0.0
+		_epilogue_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	if _lesson1_epilogue_tween != null and _lesson1_epilogue_tween.is_valid():
+		_lesson1_epilogue_tween.kill()
+	if _lesson1_epilogue_overlay != null:
+		_lesson1_epilogue_overlay.visible = false
+		_lesson1_epilogue_overlay.modulate.a = 0.0
+		_lesson1_epilogue_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 
 func _play_fallback_video_overlay(stream: VideoStream, on_finished: Callable) -> void:

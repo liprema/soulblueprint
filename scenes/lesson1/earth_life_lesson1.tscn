@@ -1,0 +1,327 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://scripts/lesson1/earth_life_lesson1.gd" id="1_main_script"]
+[ext_resource type="Script" path="res://scripts/lesson1/earth_life_audio.gd" id="2_audio_script"]
+[ext_resource type="Shader" path="res://shaders/lesson1_vignette_bg.gdshader" id="3_bg_shader"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_bg"]
+shader = ExtResource("3_bg_shader")
+shader_parameter/sky_top = Color(0.055, 0.086, 0.165, 1)
+shader_parameter/sky_mid = Color(0.118, 0.165, 0.255, 1)
+shader_parameter/sky_bottom = Color(0.188, 0.231, 0.318, 1)
+shader_parameter/ray_color = Color(0.75, 0.86, 1, 1)
+shader_parameter/warmth = 0.0
+shader_parameter/sun_pos = Vector2(0.36, 0.3)
+shader_parameter/ray_strength = 0.18
+shader_parameter/vignette_strength = 0.42
+shader_parameter/grain_strength = 0.014
+shader_parameter/bokeh_strength = 0.0
+shader_parameter/watercolor_wash = 0.36
+
+[node name="EarthLifeLesson1" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_main_script")
+
+[node name="Audio" type="Node" parent="."]
+script = ExtResource("2_audio_script")
+
+[node name="BgShaderRect" type="ColorRect" parent="."]
+material = SubResource("ShaderMaterial_bg")
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="StageCanvas" type="Control" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="UILayer" type="Control" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="ChapterHeader" type="VBoxContainer" parent="UILayer"]
+layout_mode = 1
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -360.0
+offset_top = 24.0
+offset_right = 360.0
+offset_bottom = 96.0
+grow_horizontal = 2
+mouse_filter = 2
+theme_override_constants/separation = 4
+
+[node name="ChapterRomanLabel" type="Label" parent="UILayer/ChapterHeader"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.964706, 0.827451, 0.419608, 0.86)
+theme_override_font_sizes/font_size = 13
+text = "Г Л А В А   I"
+horizontal_alignment = 1
+
+[node name="ChapterTitleLabel" type="Label" parent="UILayer/ChapterHeader"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.964706, 0.84, 0.96)
+theme_override_font_sizes/font_size = 26
+text = "Зима в доме"
+horizontal_alignment = 1
+
+[node name="NarrationAnchor" type="Control" parent="UILayer"]
+layout_mode = 1
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -460.0
+offset_top = -172.0
+offset_right = 460.0
+offset_bottom = -58.0
+grow_horizontal = 2
+grow_vertical = 0
+mouse_filter = 2
+
+[node name="NarrationPanel" type="PanelContainer" parent="UILayer/NarrationAnchor"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="NarrationMargin" type="MarginContainer" parent="UILayer/NarrationAnchor/NarrationPanel"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/margin_left = 28
+theme_override_constants/margin_top = 14
+theme_override_constants/margin_right = 28
+theme_override_constants/margin_bottom = 14
+
+[node name="NarrationVBox" type="VBoxContainer" parent="UILayer/NarrationAnchor/NarrationPanel/NarrationMargin"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 6
+alignment = 1
+
+[node name="PoeticLabel" type="Label" parent="UILayer/NarrationAnchor/NarrationPanel/NarrationMargin/NarrationVBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.968627, 0.862745, 0.98)
+theme_override_font_sizes/font_size = 19
+text = ""
+horizontal_alignment = 1
+autowrap_mode = 3
+
+[node name="SubPoeticLabel" type="Label" parent="UILayer/NarrationAnchor/NarrationPanel/NarrationMargin/NarrationVBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.964706, 0.827451, 0.419608, 0.9)
+theme_override_font_sizes/font_size = 15
+text = ""
+horizontal_alignment = 1
+autowrap_mode = 3
+
+[node name="ChoiceContainer" type="VBoxContainer" parent="UILayer"]
+visible = false
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -290.0
+offset_top = -90.0
+offset_right = 290.0
+offset_bottom = 90.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 12
+alignment = 1
+
+[node name="ControlsHintLabel" type="Label" parent="UILayer"]
+layout_mode = 1
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -460.0
+offset_top = -40.0
+offset_right = 460.0
+offset_bottom = -14.0
+grow_horizontal = 2
+grow_vertical = 0
+theme_override_colors/font_color = Color(0.964706, 0.827451, 0.419608, 0.78)
+theme_override_font_sizes/font_size = 14
+text = ""
+horizontal_alignment = 1
+
+[node name="EscHintLabel" type="Label" parent="UILayer"]
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -160.0
+offset_top = 20.0
+offset_right = -24.0
+offset_bottom = 44.0
+grow_horizontal = 0
+theme_override_colors/font_color = Color(0.964706, 0.827451, 0.419608, 0.68)
+theme_override_font_sizes/font_size = 13
+text = "[Esc] Пауза"
+horizontal_alignment = 2
+
+[node name="TransitionVeil" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.027451, 0.078431, 0.180392, 1)
+
+[node name="VideoOverlay" type="Control" parent="."]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="VideoBackdrop" type="ColorRect" parent="VideoOverlay"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.027451, 0.078431, 0.180392, 1)
+
+[node name="VideoPlayer" type="VideoStreamPlayer" parent="VideoOverlay"]
+texture_filter = 2
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+expand = true
+
+[node name="VideoSkipHint" type="Label" parent="VideoOverlay"]
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -280.0
+offset_top = -44.0
+offset_right = -20.0
+offset_bottom = -16.0
+grow_horizontal = 0
+grow_vertical = 0
+theme_override_colors/font_color = Color(0.964706, 0.827451, 0.419608, 0.78)
+theme_override_font_sizes/font_size = 14
+text = "[Space / Esc] Пропустить"
+horizontal_alignment = 2
+
+[node name="VideoFadeRect" type="ColorRect" parent="VideoOverlay"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.027451, 0.078431, 0.180392, 1)
+
+[node name="PauseOverlay" type="Control" parent="."]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="PauseBackdrop" type="ColorRect" parent="PauseOverlay"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.027451, 0.078431, 0.180392, 0.78)
+
+[node name="PauseCenter" type="CenterContainer" parent="PauseOverlay"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="PauseCard" type="PanelContainer" parent="PauseOverlay/PauseCenter"]
+custom_minimum_size = Vector2(420, 0)
+layout_mode = 2
+
+[node name="PauseMargin" type="MarginContainer" parent="PauseOverlay/PauseCenter/PauseCard"]
+layout_mode = 2
+theme_override_constants/margin_left = 36
+theme_override_constants/margin_top = 32
+theme_override_constants/margin_right = 36
+theme_override_constants/margin_bottom = 32
+
+[node name="PauseVBox" type="VBoxContainer" parent="PauseOverlay/PauseCenter/PauseCard/PauseMargin"]
+layout_mode = 2
+theme_override_constants/separation = 14
+alignment = 1
+
+[node name="PauseSubtitle" type="Label" parent="PauseOverlay/PauseCenter/PauseCard/PauseMargin/PauseVBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.964706, 0.827451, 0.419608, 0.88)
+theme_override_font_sizes/font_size = 13
+text = "У Р О К   1   ·   З Е М Н О Е   В О П Л О Щ Е Н И Е"
+horizontal_alignment = 1
+
+[node name="PauseTitle" type="Label" parent="PauseOverlay/PauseCenter/PauseCard/PauseMargin/PauseVBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.964706, 0.84, 1)
+theme_override_font_sizes/font_size = 28
+text = "Пауза"
+horizontal_alignment = 1
+
+[node name="BtnResume" type="Button" parent="PauseOverlay/PauseCenter/PauseCard/PauseMargin/PauseVBox"]
+custom_minimum_size = Vector2(300, 44)
+layout_mode = 2
+text = "Продолжить"
+
+[node name="BtnMute" type="Button" parent="PauseOverlay/PauseCenter/PauseCard/PauseMargin/PauseVBox"]
+custom_minimum_size = Vector2(300, 44)
+layout_mode = 2
+text = "Звук: Вкл"
+
+[node name="BtnMainMenu" type="Button" parent="PauseOverlay/PauseCenter/PauseCard/PauseMargin/PauseVBox"]
+custom_minimum_size = Vector2(300, 44)
+layout_mode = 2
+text = "Вернуться в главное меню"

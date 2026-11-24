@@ -184,6 +184,11 @@ var _spark_model_instance: Node3D = null
 var _spark_halo_node: Node3D = null
 var _spark_halo_base_y: float = 1.75
 var _spark_energy_materials: Array[ShaderMaterial] = []
+var _heart_core_mat: StandardMaterial3D = null
+var _gold_love_evolution: float = 0.0
+var _gold_love_tween: Tween = null
+var _gold_love_particles: GPUParticles3D = null
+var _base_spark_light_color: Color = Color("#9AEBFF")
 
 
 func _ready() -> void:
@@ -335,6 +340,7 @@ func _apply_spark_energy_shader_recursive(node: Node, energy_shader: Shader) -> 
 				heart_mat.emission_enabled = true
 				heart_mat.emission = Color.html("#FFAE42")
 				heart_mat.emission_energy_multiplier = 0.95
+				_heart_core_mat = heart_mat
 				for i: int in range(surface_count):
 					mesh_inst.set_surface_override_material(i, heart_mat)
 			elif node_name == "SparkEyeSclera":
@@ -467,6 +473,8 @@ func _apply_spark_energy_shader_recursive(node: Node, energy_shader: Shader) -> 
 					smat.set_shader_parameter("is_wing_ribbon", wing_flag)
 					smat.set_shader_parameter("is_droplet", droplet_flag)
 					smat.set_shader_parameter("sway_scale", sway_v)
+					smat.set_shader_parameter("gold_love_color", Color.html("#FFD46B"))
+					smat.set_shader_parameter("gold_love_evolution", _gold_love_evolution)
 
 					mesh_inst.set_surface_override_material(i, smat)
 					_spark_energy_materials.append(smat)
@@ -683,6 +691,106 @@ func teleport_to(target_pos: Vector3, new_yaw: float = facing_yaw) -> void:
 		visual_pivot.global_position = target_pos + Vector3(0.0, 0.9, 0.0)
 		visual_pivot.basis = Basis.from_euler(Vector3(0.0, facing_yaw, 0.0))
 	reset_camera(new_yaw, cam_pitch)
+
+
+## Public API: Evolves Spark's Unconditional Love golden heart radiance and delicate golden halo (0.0..1.0).
+func set_gold_love_evolution(level: float, animate: bool = true) -> void:
+	var target: float = clampf(level, 0.0, 1.0)
+	if _gold_love_tween != null and _gold_love_tween.is_valid():
+		_gold_love_tween.kill()
+
+	if not animate or not is_inside_tree():
+		_apply_gold_love_evolution(target)
+		return
+
+	_gold_love_tween = create_tween()
+	_gold_love_tween.tween_method(
+		_apply_gold_love_evolution,
+		_gold_love_evolution,
+		target,
+		1.8
+	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+
+
+func _apply_gold_love_evolution(level: float) -> void:
+	_gold_love_evolution = clampf(level, 0.0, 1.0)
+
+	for smat: ShaderMaterial in _spark_energy_materials:
+		if smat != null:
+			smat.set_shader_parameter("gold_love_evolution", _gold_love_evolution)
+
+	if _heart_core_mat != null:
+		_heart_core_mat.emission = Color.html("#FFAE42").lerp(Color.html("#FFD46B"), _gold_love_evolution)
+		_heart_core_mat.emission_energy_multiplier = lerpf(0.95, 1.45, _gold_love_evolution)
+
+	if spark_light != null:
+		spark_light.light_color = _base_spark_light_color.lerp(Color.html("#FFE2A4"), _gold_love_evolution * 0.72)
+
+	if _gold_love_evolution > 0.5:
+		_ensure_gold_love_particles()
+		if _gold_love_particles != null:
+			_gold_love_particles.emitting = true
+			_gold_love_particles.amount_ratio = clampf((_gold_love_evolution - 0.5) * 2.0, 0.15, 1.0)
+	elif _gold_love_particles != null:
+		_gold_love_particles.emitting = false
+
+
+func _ensure_gold_love_particles() -> void:
+	if _gold_love_particles != null or visual_pivot == null:
+		return
+
+	var grad: Gradient = Gradient.new()
+	grad.offsets = PackedFloat32Array([0.0, 0.40, 0.80, 1.0])
+	grad.colors = PackedColorArray([
+		Color(1.0, 0.96, 0.78, 1.0),
+		Color(1.0, 0.84, 0.44, 0.65),
+		Color(1.0, 0.78, 0.36, 0.15),
+		Color(1.0, 0.76, 0.32, 0.0),
+	])
+	var tex: GradientTexture2D = GradientTexture2D.new()
+	tex.width = 40
+	tex.height = 40
+	tex.fill = GradientTexture2D.FILL_RADIAL
+	tex.fill_from = Vector2(0.5, 0.5)
+	tex.fill_to = Vector2(0.5, 0.0)
+	tex.gradient = grad
+
+	var proc: ParticleProcessMaterial = ParticleProcessMaterial.new()
+	proc.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
+	proc.emission_sphere_radius = 0.62
+	proc.direction = Vector3(0.0, 1.0, 0.0)
+	proc.spread = 38.0
+	proc.initial_velocity_min = 0.18
+	proc.initial_velocity_max = 0.52
+	proc.gravity = Vector3(0.0, 0.12, 0.0)
+	proc.scale_min = 0.45
+	proc.scale_max = 1.05
+	proc.color = Color.html("#FFD46B")
+
+	var quad_mat: StandardMaterial3D = StandardMaterial3D.new()
+	quad_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	quad_mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	quad_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	quad_mat.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	quad_mat.albedo_texture = tex
+	quad_mat.albedo_color = Color.html("#FFE49A")
+	quad_mat.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED
+
+	var quad: QuadMesh = QuadMesh.new()
+	quad.size = Vector2(0.09, 0.09)
+	quad.material = quad_mat
+
+	_gold_love_particles = GPUParticles3D.new()
+	_gold_love_particles.name = "GoldLoveHaloMotes"
+	_gold_love_particles.position = Vector3(0.0, 0.05, 0.0)
+	_gold_love_particles.amount = 22
+	_gold_love_particles.lifetime = 2.2
+	_gold_love_particles.emitting = false
+	_gold_love_particles.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_gold_love_particles.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
+	_gold_love_particles.process_material = proc
+	_gold_love_particles.draw_pass_1 = quad
+	visual_pivot.add_child(_gold_love_particles)
 
 
 # ==============================================================================
@@ -1145,7 +1253,7 @@ func _update_visual_rig(delta: float) -> void:
 
 	# Warm OmniLight3D intensity modulation on abilities & speed (kept soft to avoid floor hotspots)
 	if spark_light:
-		var target_energy: float = _base_light_energy + (_energy_flare * 0.42) + (_flight_blend * 0.14)
+		var target_energy: float = _base_light_energy + (_energy_flare * 0.42) + (_flight_blend * 0.14) + (_gold_love_evolution * 0.24)
 		spark_light.light_energy = lerpf(spark_light.light_energy, target_energy, 1.0 - exp(-7.5 * delta))
 
 

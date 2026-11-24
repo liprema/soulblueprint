@@ -16,6 +16,13 @@ const VALID_PROLOGUE_STAGES := [
 	"mirror_awakened",
 	"prologue_complete",
 ]
+const VALID_LESSON1_STAGES := [
+	"not_started",
+	"earth_life",
+	"sunset_return",
+	"collecting_signs",
+	"complete",
+]
 
 signal progress_saved
 signal progress_loaded
@@ -28,6 +35,9 @@ var spark_evolution_level: int = 0
 var audio_muted: bool = false
 var last_player_pos: Vector3 = DEFAULT_PLAYER_POS
 var has_custom_player_pos: bool = false
+var lesson1_stage: String = "not_started"
+var lesson1_signs_found: Array[String] = []
+var lesson1_signs_sent: Array[String] = []
 
 
 func _ready() -> void:
@@ -115,6 +125,33 @@ func load_game() -> bool:
 		var pz: float = _read_float(pos_dict, "z", DEFAULT_PLAYER_POS.z)
 		last_player_pos = Vector3(px, py, pz)
 
+	var l1_stage_val: Variant = data.get("lesson1_stage", "not_started")
+	if l1_stage_val is String:
+		var l1_stage_str: String = l1_stage_val as String
+		if VALID_LESSON1_STAGES.has(l1_stage_str):
+			lesson1_stage = l1_stage_str
+
+	var l1_found_val: Variant = data.get("lesson1_signs_found", [])
+	if l1_found_val is Array:
+		var l1_found_raw: Array = l1_found_val as Array
+		for item: Variant in l1_found_raw:
+			if item is String:
+				var sign_id: String = item as String
+				if not sign_id.is_empty() and not lesson1_signs_found.has(sign_id):
+					lesson1_signs_found.append(sign_id)
+
+	var l1_sent_val: Variant = data.get("lesson1_signs_sent", [])
+	if l1_sent_val is Array:
+		var l1_sent_raw: Array = l1_sent_val as Array
+		for item: Variant in l1_sent_raw:
+			if item is String:
+				var sign_id: String = item as String
+				if not sign_id.is_empty() and not lesson1_signs_sent.has(sign_id):
+					lesson1_signs_sent.append(sign_id)
+
+	if lesson1_stage == "complete":
+		spark_evolution_level = maxi(spark_evolution_level, 2)
+
 	_apply_audio_mute_state()
 	has_saved_progress = true
 	progress_loaded.emit()
@@ -135,6 +172,9 @@ func save_game() -> void:
 			"y": last_player_pos.y,
 			"z": last_player_pos.z,
 		},
+		"lesson1_stage": lesson1_stage,
+		"lesson1_signs_found": lesson1_signs_found,
+		"lesson1_signs_sent": lesson1_signs_sent,
 	}
 
 	var serialized: String = JSON.stringify(payload, "\t")
@@ -204,6 +244,52 @@ func set_prologue_stage(stage: String) -> void:
 	save_game()
 
 
+func set_lesson1_stage(stage: String) -> void:
+	if not VALID_LESSON1_STAGES.has(stage):
+		push_warning("SaveManager: unknown lesson1 stage '%s'." % stage)
+	lesson1_stage = stage
+	if stage == "complete":
+		spark_evolution_level = maxi(spark_evolution_level, 2)
+	save_game()
+
+
+func mark_lesson1_sign_found(sign_id: String) -> void:
+	if sign_id.is_empty() or lesson1_signs_found.has(sign_id):
+		return
+	lesson1_signs_found.append(sign_id)
+	save_game()
+
+
+func mark_lesson1_sign_sent(sign_id: String) -> void:
+	if sign_id.is_empty() or lesson1_signs_sent.has(sign_id):
+		return
+	lesson1_signs_sent.append(sign_id)
+	save_game()
+
+
+func has_lesson1_sign_found(sign_id: String) -> bool:
+	return lesson1_signs_found.has(sign_id)
+
+
+func has_lesson1_sign_sent(sign_id: String) -> bool:
+	return lesson1_signs_sent.has(sign_id)
+
+
+func get_lesson1_signs_found_count() -> int:
+	return lesson1_signs_found.size()
+
+
+func get_lesson1_signs_sent_count() -> int:
+	return lesson1_signs_sent.size()
+
+
+func reset_lesson1_progress() -> void:
+	lesson1_stage = "not_started"
+	lesson1_signs_found.clear()
+	lesson1_signs_sent.clear()
+	save_game()
+
+
 func record_choice(key: String, value: String) -> void:
 	dialogue_choices[key] = value
 	save_game()
@@ -230,6 +316,9 @@ func _reset_state_to_defaults() -> void:
 	audio_muted = false
 	last_player_pos = DEFAULT_PLAYER_POS
 	has_custom_player_pos = false
+	lesson1_stage = "not_started"
+	lesson1_signs_found.clear()
+	lesson1_signs_sent.clear()
 
 
 func _apply_audio_mute_state() -> void:

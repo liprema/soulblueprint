@@ -7,6 +7,7 @@ extends CanvasLayer
 
 signal start_new_game_requested
 signal continue_game_requested
+signal start_lesson1_requested
 signal audio_toggled(muted: bool)
 signal quit_requested
 
@@ -26,6 +27,7 @@ const LABEL_AUDIO_OFF: String = "Звук: Выкл"
 @onready var _title_divider: Control = $RootControl/TitleBlock/VBox/TitleDivider
 @onready var _continue_button: Button = $RootControl/MenuButtons/ContinueButton
 @onready var _start_button: Button = $RootControl/MenuButtons/StartButton
+@onready var _lesson1_button: Button = $RootControl/MenuButtons/Lesson1Button
 @onready var _quit_button: Button = $RootControl/MenuButtons/QuitButton
 @onready var _audio_button: Button = $RootControl/AudioButton
 
@@ -44,10 +46,11 @@ func _ready() -> void:
 
 	_continue_button.pressed.connect(_on_continue_pressed)
 	_start_button.pressed.connect(_on_start_pressed)
+	_lesson1_button.pressed.connect(_on_lesson1_pressed)
 	_quit_button.pressed.connect(_on_quit_pressed)
 	_audio_button.pressed.connect(_on_audio_pressed)
 
-	var buttons: Array[Button] = [_continue_button, _start_button, _quit_button, _audio_button]
+	var buttons: Array[Button] = [_continue_button, _start_button, _lesson1_button, _quit_button, _audio_button]
 	for btn: Button in buttons:
 		btn.mouse_entered.connect(_on_button_hover.bind(btn))
 		btn.focus_entered.connect(_on_button_hover.bind(btn))
@@ -136,7 +139,7 @@ func _on_hide_finished() -> void:
 func _set_buttons_interactive(enabled: bool) -> void:
 	var filter: Control.MouseFilter = Control.MOUSE_FILTER_STOP if enabled else Control.MOUSE_FILTER_IGNORE
 	var focus: Control.FocusMode = Control.FOCUS_ALL if enabled else Control.FOCUS_NONE
-	var buttons: Array[Button] = [_continue_button, _start_button, _quit_button, _audio_button]
+	var buttons: Array[Button] = [_continue_button, _start_button, _lesson1_button, _quit_button, _audio_button]
 	for btn: Button in buttons:
 		btn.disabled = not enabled
 		btn.mouse_filter = filter
@@ -165,6 +168,13 @@ func _on_start_pressed() -> void:
 		return
 	_play_ui_audio("play_ui_click")
 	start_new_game_requested.emit()
+
+
+func _on_lesson1_pressed() -> void:
+	if not _is_open:
+		return
+	_play_ui_audio("play_ui_click")
+	start_lesson1_requested.emit()
 
 
 func _on_quit_pressed() -> void:

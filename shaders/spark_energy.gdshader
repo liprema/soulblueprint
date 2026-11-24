@@ -17,6 +17,7 @@ uniform vec3 emission_color : source_color = vec3(0.157, 0.659, 0.941);    // #2
 uniform vec3 rim_color : source_color = vec3(0.220, 0.784, 1.0);           // #38C8FF vivid sky-cyan rim
 uniform vec3 iridescence_tint : source_color = vec3(0.471, 0.290, 0.878);  // #784AE0 rich orchid-lavender
 uniform vec3 belly_glow_color : source_color = vec3(1.0, 0.682, 0.259);    // #FFAE42 warm golden-peach belly glow
+uniform vec3 gold_love_color : source_color = vec3(1.0, 0.831, 0.420);     // #FFD46B Unconditional Love golden radiance
 
 uniform float emission_strength : hint_range(0.0, 2.5) = 0.28;
 uniform float belly_glow_strength : hint_range(0.0, 2.5) = 0.78;
@@ -32,6 +33,7 @@ uniform float is_droplet : hint_range(0.0, 1.0) = 0.0;
 uniform float flight_speed : hint_range(0.0, 40.0) = 0.0;
 uniform float energy_flare : hint_range(0.0, 2.5) = 0.0;
 uniform float sway_scale : hint_range(0.0, 2.0) = 1.0;
+uniform float gold_love_evolution : hint_range(0.0, 1.0) = 0.0;
 
 varying float v_local_y;
 varying float v_ribbon_span;
@@ -179,15 +181,18 @@ void fragment() {
 	float contour_strength = inner_contour * mix(0.58, 0.44, is_wing_ribbon) * (1.0 - is_droplet * 0.35);
 	spirit_body_col = mix(spirit_body_col, shadow_tint, contour_strength);
 
-	// 3. Warm golden-peach inner belly radiance (#FFAE42) rendered as rich luminous subsurface glow on solid body
-	float belly_dist = length((v_local_pos - vec3(0.0, 0.56, 0.0)) * vec3(1.08, 1.28, 1.08));
+	// 3. Warm golden-peach inner belly radiance (#FFAE42) expanding into Unconditional Love gold (#FFD46B)
+	float gold_evol = clamp(gold_love_evolution, 0.0, 1.0);
+	float belly_dist = length((v_local_pos - vec3(0.0, 0.58, 0.0)) * vec3(1.08, 1.24, 1.08));
 	float belly_pulse = 0.90 + 0.10 * sin(TIME * 2.4);
-	float belly_mask = smoothstep(0.36, 0.03, belly_dist)
+	float belly_radius = mix(0.36, 0.56, gold_evol);
+	float belly_mask = smoothstep(belly_radius, 0.03, belly_dist)
 		* (1.0 - is_wing_ribbon)
 		* (1.0 - is_droplet)
 		* (0.40 + 0.60 * ndotv);
-	float belly_glow = belly_mask * belly_glow_strength * belly_pulse;
-	spirit_body_col = mix(spirit_body_col, belly_glow_color, clamp(belly_glow * 0.62, 0.0, 0.68));
+	float belly_glow = belly_mask * (belly_glow_strength + gold_evol * 0.62) * belly_pulse;
+	vec3 heart_radiance_col = mix(belly_glow_color, gold_love_color, gold_evol * 0.78);
+	spirit_body_col = mix(spirit_body_col, heart_radiance_col, clamp(belly_glow * mix(0.62, 0.78, gold_evol), 0.0, 0.76));
 
 	// 4. Delicate swirling internal starlight & shimmering galaxy wisps across body & tail
 	float swirl_t = TIME * (0.95 + speed_norm * 1.25);
@@ -209,12 +214,14 @@ void fragment() {
 	float star_twinkle = 0.5 + 0.5 * sin(TIME * 5.2 + star_grid * 30.0 + v_local_y * 10.0);
 	float star_pinpoint = smoothstep(0.78, 0.95, star_grid) * star_twinkle;
 
-	// Wing-specific iridescent edge & tip shimmer
+	// Wing-specific iridescent edge & tip shimmer + delicate golden pearlescent sheen on evolution
 	float wing_edge_glow = smoothstep(0.45, 0.98, v_ribbon_edge) * is_wing_ribbon;
 	float wing_tip_glow = smoothstep(0.55, 1.0, v_ribbon_span) * is_wing_ribbon;
+	float gold_pearl_sheen = gold_evol * (fresnel_soft * 0.36 + wing_edge_glow * 0.32 + wing_tip_glow * 0.38);
+	spirit_body_col = mix(spirit_body_col, gold_love_color, clamp(gold_pearl_sheen * 0.42, 0.0, 0.38));
 
 	ALBEDO = spirit_body_col;
-	METALLIC = clamp(metallic_val + fresnel_crisp * 0.06, 0.0, 0.28);
+	METALLIC = clamp(metallic_val + fresnel_crisp * 0.06 + gold_evol * 0.04, 0.0, 0.28);
 	ROUGHNESS = clamp(roughness_val - swirl_ribbon * 0.02 - star_pinpoint * 0.025, 0.10, 0.28);
 	SPECULAR = 0.42;
 	CLEARCOAT = clearcoat_val;
@@ -227,17 +234,18 @@ void fragment() {
 		* (emission_strength + energy_flare * 0.14 + is_droplet * 0.08)
 		* contour_damp
 		* dome_emit_mod;
-	vec3 warm_belly_emit = belly_glow_color * (belly_glow * 0.72);
-	vec3 sparkle_emit = mix(rim_color, belly_glow_color, 0.34)
-		* (swirl_ribbon * 0.14 + star_pinpoint * (0.34 + energy_flare * 0.18));
-	// Saturated sky-cyan & periwinkle-blue Fresnel glow (never pushes RGB toward chalky white)
+	vec3 warm_belly_emit = heart_radiance_col * (belly_glow * mix(0.72, 1.08, gold_evol));
+	vec3 sparkle_emit = mix(rim_color, heart_radiance_col, mix(0.34, 0.72, gold_evol))
+		* (swirl_ribbon * (0.14 + gold_evol * 0.08) + star_pinpoint * (0.34 + energy_flare * 0.18 + gold_evol * 0.16));
+	// Saturated sky-cyan & periwinkle-blue Fresnel glow with golden pearlescent halo on evolution
 	vec3 fresnel_glow_tint = mix(rim_color, mix(shadow_tint, iridescence_tint, 0.50), 0.34);
+	fresnel_glow_tint = mix(fresnel_glow_tint, gold_love_color, gold_evol * (0.42 + is_wing_ribbon * 0.28));
 	vec3 rim_emit = fresnel_glow_tint
 		* (
-			fresnel_crisp * 0.38
-			+ fresnel_soft * 0.12 * contour_damp
-			+ wing_edge_glow * 0.18
-			+ wing_tip_glow * 0.16
+			fresnel_crisp * (0.38 + gold_evol * 0.16)
+			+ fresnel_soft * (0.12 + gold_evol * 0.10) * contour_damp
+			+ wing_edge_glow * (0.18 + gold_evol * 0.14)
+			+ wing_tip_glow * (0.16 + gold_evol * 0.14)
 			+ energy_flare * fresnel_soft * 0.14
 		);
 

@@ -46,6 +46,12 @@ var _interaction_panel: PanelContainer
 var _interaction_label: Label
 var _lantern_panel: PanelContainer
 var _lantern_label: Label
+var _comfort_panel: PanelContainer
+var _comfort_label: Label
+var _mirror_vision_panel: PanelContainer
+var _mirror_vision_title: Label
+var _mirror_vision_divider: Control
+var _mirror_vision_body: Label
 
 var _time: float = 0.0
 var _current_energy: float = 5.0
@@ -68,6 +74,8 @@ var _choices_tween: Tween
 var _hint_tween: Tween
 var _interaction_tween: Tween
 var _lantern_tween: Tween
+var _comfort_tween: Tween
+var _mirror_vision_tween: Tween
 
 
 func _ready() -> void:
@@ -341,6 +349,92 @@ func show_lantern_progress(awakened: int, total: int) -> void:
 		.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 
 
+## Displays or updates the luminous top-right Comfort Signs counter pill for Lesson 1.
+func update_comfort_signs_counter(found_count: int, sent_count: int, total: int = 3) -> void:
+	if _comfort_panel == null or _comfort_label == null:
+		return
+
+	var safe_total: int = maxi(total, 1)
+	var clamped_sent: int = clampi(sent_count, 0, safe_total)
+	var clamped_found: int = clampi(found_count, clamped_sent, safe_total)
+	var has_unsent: bool = clamped_found > clamped_sent
+
+	if has_unsent:
+		_comfort_label.text = "✦ Знаки Утешения: %d / %d  ·  Отнесите к Зеркалу" % [clamped_sent, safe_total]
+	else:
+		_comfort_label.text = "✦ Знаки Утешения: %d / %d" % [clamped_sent, safe_total]
+
+	# Avoid overlapping the lantern badge if both are ever active simultaneously
+	if _lantern_panel != null and _lantern_panel.visible:
+		_comfort_panel.offset_top = 62.0
+		_comfort_panel.offset_bottom = 96.0
+	else:
+		_comfort_panel.offset_top = 20.0
+		_comfort_panel.offset_bottom = 54.0
+
+	_comfort_panel.visible = true
+
+	if _comfort_tween and _comfort_tween.is_valid():
+		_comfort_tween.kill()
+
+	var settle_alpha: float = 0.96 if has_unsent else 0.84
+	_comfort_tween = create_tween()
+	_comfort_tween.tween_property(_comfort_panel, "modulate:a", 1.0, 0.32) \
+		.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	if not has_unsent:
+		_comfort_tween.tween_interval(3.2)
+		_comfort_tween.tween_property(_comfort_panel, "modulate:a", settle_alpha, 0.85) \
+			.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+
+
+## Smoothly fades out and hides the Comfort Signs counter pill.
+func hide_comfort_signs_counter() -> void:
+	if _comfort_panel == null:
+		return
+	if not _comfort_panel.visible:
+		return
+
+	if _comfort_tween and _comfort_tween.is_valid():
+		_comfort_tween.kill()
+
+	_comfort_tween = create_tween()
+	_comfort_tween.tween_property(_comfort_panel, "modulate:a", 0.0, 0.35) \
+		.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+	_comfort_tween.tween_callback(func() -> void: _comfort_panel.visible = false)
+
+
+## Displays a soft cinematic translucent light-gold vision card in the upper third of the screen
+## when the Soul sends a Comfort Sign to parents through the Mirror of Earth.
+func show_mirror_vision(title: String, body: String, duration: float = 5.5) -> void:
+	if _mirror_vision_panel == null or _mirror_vision_title == null or _mirror_vision_body == null:
+		return
+
+	if _mirror_vision_tween and _mirror_vision_tween.is_valid():
+		_mirror_vision_tween.kill()
+
+	_mirror_vision_title.text = title
+	_mirror_vision_body.text = body
+	_mirror_vision_panel.offset_top = 0.0
+	_mirror_vision_panel.offset_bottom = 108.0
+	_mirror_vision_panel.size = Vector2(580.0, 108.0)
+	_mirror_vision_panel.visible = true
+	_mirror_vision_panel.modulate.a = 0.0
+	if _mirror_vision_divider != null:
+		_mirror_vision_divider.queue_redraw()
+
+	var fade_in_time: float = 0.65
+	var fade_out_time: float = 0.75
+	var hold_time: float = maxf(0.8, duration - fade_in_time - fade_out_time)
+
+	_mirror_vision_tween = create_tween()
+	_mirror_vision_tween.tween_property(_mirror_vision_panel, "modulate:a", 1.0, fade_in_time) \
+		.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	_mirror_vision_tween.tween_interval(hold_time)
+	_mirror_vision_tween.tween_property(_mirror_vision_panel, "modulate:a", 0.0, fade_out_time) \
+		.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+	_mirror_vision_tween.tween_callback(func() -> void: _mirror_vision_panel.visible = false)
+
+
 ## Cleanly toggles visibility of the entire HUD root (for Main Menu / cutscenes).
 func set_hud_visible(visible_state: bool) -> void:
 	if _root_control != null:
@@ -480,6 +574,121 @@ func _build_extended_ui() -> void:
 	_lantern_label.add_theme_color_override("font_color", COLOR_BRONZE_GOLD)
 	_lantern_panel.add_child(_lantern_label)
 	_root_control.add_child(_lantern_panel)
+
+	# Luminous top-right Comfort Signs counter pill (Lesson 1)
+	_comfort_panel = PanelContainer.new()
+	_comfort_panel.name = "ComfortSignsBadge"
+	_comfort_panel.visible = false
+	_comfort_panel.modulate.a = 0.0
+	_comfort_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_comfort_panel.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	_comfort_panel.offset_left = -260.0
+	_comfort_panel.offset_right = -22.0
+	_comfort_panel.offset_top = 20.0
+	_comfort_panel.offset_bottom = 54.0
+	_comfort_panel.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	_comfort_panel.grow_vertical = Control.GROW_DIRECTION_END
+
+	var comfort_style: StyleBoxFlat = StyleBoxFlat.new()
+	comfort_style.bg_color = COLOR_PEARL_PILL
+	comfort_style.border_width_left = 2
+	comfort_style.border_width_top = 2
+	comfort_style.border_width_right = 2
+	comfort_style.border_width_bottom = 2
+	comfort_style.border_color = Color(COLOR_GOLD.r, COLOR_GOLD.g, COLOR_GOLD.b, 0.88)
+	comfort_style.corner_radius_top_left = 16
+	comfort_style.corner_radius_top_right = 16
+	comfort_style.corner_radius_bottom_right = 16
+	comfort_style.corner_radius_bottom_left = 16
+	comfort_style.shadow_color = COLOR_SHADOW
+	comfort_style.shadow_size = 10
+	comfort_style.shadow_offset = Vector2(0.0, 3.0)
+	comfort_style.content_margin_left = 16.0
+	comfort_style.content_margin_right = 16.0
+	comfort_style.content_margin_top = 6.0
+	comfort_style.content_margin_bottom = 6.0
+	_comfort_panel.add_theme_stylebox_override("panel", comfort_style)
+
+	_comfort_label = Label.new()
+	_comfort_label.name = "ComfortSignsLabel"
+	_comfort_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_comfort_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_comfort_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_comfort_label.add_theme_font_size_override("font_size", 14)
+	_comfort_label.add_theme_color_override("font_color", COLOR_BRONZE_GOLD)
+	_comfort_panel.add_child(_comfort_label)
+	_root_control.add_child(_comfort_panel)
+
+	# Cinematic translucent light-gold Mirror Vision card in upper third of screen
+	_mirror_vision_panel = PanelContainer.new()
+	_mirror_vision_panel.name = "MirrorVisionCard"
+	_mirror_vision_panel.visible = false
+	_mirror_vision_panel.modulate.a = 0.0
+	_mirror_vision_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_mirror_vision_panel.anchor_left = 0.5
+	_mirror_vision_panel.anchor_right = 0.5
+	_mirror_vision_panel.anchor_top = 0.16
+	_mirror_vision_panel.anchor_bottom = 0.16
+	_mirror_vision_panel.offset_left = -290.0
+	_mirror_vision_panel.offset_right = 290.0
+	_mirror_vision_panel.offset_top = 0.0
+	_mirror_vision_panel.offset_bottom = 108.0
+	_mirror_vision_panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_mirror_vision_panel.grow_vertical = Control.GROW_DIRECTION_END
+
+	var vision_style: StyleBoxFlat = StyleBoxFlat.new()
+	vision_style.bg_color = Color(0.996, 0.984, 0.945, 0.90)
+	vision_style.border_width_left = 2
+	vision_style.border_width_top = 2
+	vision_style.border_width_right = 2
+	vision_style.border_width_bottom = 2
+	vision_style.border_color = Color(COLOR_GOLD_BRIGHT.r, COLOR_GOLD_BRIGHT.g, COLOR_GOLD_BRIGHT.b, 0.94)
+	vision_style.corner_radius_top_left = 20
+	vision_style.corner_radius_top_right = 20
+	vision_style.corner_radius_bottom_right = 20
+	vision_style.corner_radius_bottom_left = 20
+	vision_style.shadow_color = Color(COLOR_GOLD.r, COLOR_GOLD.g, COLOR_GOLD.b, 0.28)
+	vision_style.shadow_size = 20
+	vision_style.shadow_offset = Vector2(0.0, 6.0)
+	vision_style.content_margin_left = 28.0
+	vision_style.content_margin_right = 28.0
+	vision_style.content_margin_top = 16.0
+	vision_style.content_margin_bottom = 18.0
+	_mirror_vision_panel.add_theme_stylebox_override("panel", vision_style)
+
+	var vision_vbox: VBoxContainer = VBoxContainer.new()
+	vision_vbox.name = "VisionVBox"
+	vision_vbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	vision_vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	vision_vbox.add_theme_constant_override("separation", 6)
+	_mirror_vision_panel.add_child(vision_vbox)
+
+	_mirror_vision_title = Label.new()
+	_mirror_vision_title.name = "VisionTitleLabel"
+	_mirror_vision_title.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_mirror_vision_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_mirror_vision_title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_mirror_vision_title.add_theme_font_size_override("font_size", 15)
+	_mirror_vision_title.add_theme_color_override("font_color", COLOR_BRONZE_GOLD)
+	vision_vbox.add_child(_mirror_vision_title)
+
+	_mirror_vision_divider = Control.new()
+	_mirror_vision_divider.name = "VisionDivider"
+	_mirror_vision_divider.custom_minimum_size = Vector2(220.0, 10.0)
+	_mirror_vision_divider.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_mirror_vision_divider.draw.connect(_draw_mirror_vision_divider)
+	vision_vbox.add_child(_mirror_vision_divider)
+
+	_mirror_vision_body = Label.new()
+	_mirror_vision_body.name = "VisionBodyLabel"
+	_mirror_vision_body.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_mirror_vision_body.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_mirror_vision_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_mirror_vision_body.add_theme_font_size_override("font_size", 15)
+	_mirror_vision_body.add_theme_color_override("font_color", COLOR_SAPPHIRE)
+	vision_vbox.add_child(_mirror_vision_body)
+
+	_root_control.add_child(_mirror_vision_panel)
 
 
 func _set_controls_hint_visible(should_show: bool) -> void:
@@ -815,6 +1024,33 @@ func _draw_chapter_divider() -> void:
 	_chapter_divider.draw_colored_polygon(outer_diamond, COLOR_GOLD_BRIGHT)
 	var center_diamond := _make_diamond(Vector2(cx, cy), 2.8, 2.8)
 	_chapter_divider.draw_colored_polygon(center_diamond, COLOR_IVORY)
+
+
+func _draw_mirror_vision_divider() -> void:
+	if _mirror_vision_divider == null:
+		return
+	var size: Vector2 = _mirror_vision_divider.size
+	var cy: float = size.y * 0.5
+	var cx: float = size.x * 0.5
+	var half_w: float = minf(size.x * 0.42, 130.0)
+
+	var segments: int = 10
+	for s in range(segments):
+		var t0: float = float(s) / float(segments)
+		var t1: float = float(s + 1) / float(segments)
+		var alpha: float = (1.0 - (t0 + t1) * 0.5) * 0.82
+		var seg_col: Color = Color(COLOR_GOLD.r, COLOR_GOLD.g, COLOR_GOLD.b, alpha)
+		var x0_r: float = cx + 7.0 + t0 * (half_w - 7.0)
+		var x1_r: float = cx + 7.0 + t1 * (half_w - 7.0)
+		var x0_l: float = cx - 7.0 - t0 * (half_w - 7.0)
+		var x1_l: float = cx - 7.0 - t1 * (half_w - 7.0)
+		_mirror_vision_divider.draw_line(Vector2(x0_r, cy), Vector2(x1_r, cy), seg_col, 1.3, true)
+		_mirror_vision_divider.draw_line(Vector2(x0_l, cy), Vector2(x1_l, cy), seg_col, 1.3, true)
+
+	var outer_diamond: PackedVector2Array = _make_diamond(Vector2(cx, cy), 4.2, 4.2)
+	_mirror_vision_divider.draw_colored_polygon(outer_diamond, COLOR_GOLD_BRIGHT)
+	var inner_diamond: PackedVector2Array = _make_diamond(Vector2(cx, cy), 2.0, 2.0)
+	_mirror_vision_divider.draw_colored_polygon(inner_diamond, COLOR_IVORY)
 
 
 func _draw_dialogue_divider() -> void:

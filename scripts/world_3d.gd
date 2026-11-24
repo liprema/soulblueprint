@@ -18,6 +18,9 @@ const DIALOGUE_CAM_IDLE: int = 0
 const DIALOGUE_CAM_ACTIVE: int = 1
 const DIALOGUE_CAM_RETURNING: int = 2
 
+@onready var world_env: WorldEnvironment = $WorldEnvironment
+@onready var sun_light: DirectionalLight3D = $SunLight
+@onready var cloud_sea: Node3D = $CloudSea
 @onready var architecture: Node3D = $AkashaArchitecture
 @onready var player: CharacterBody3D = $Player3D
 @onready var soul_call: Node3D = $SoulCall3D
@@ -40,6 +43,8 @@ var _castle_interactables: CastleInteractables3D = null
 var _infinite_vista: AkashaInfiniteVista = null
 var _akasha_npcs: AkashaNPCs3D = null
 var _updrafts: Node3D = null
+var _sunset_controller: SunsetAtmosphereController = null
+var _comfort_signs: ComfortSigns3D = null
 
 var _dialogue_camera: Camera3D = null
 var _dialogue_cam_state: int = DIALOGUE_CAM_IDLE
@@ -73,13 +78,20 @@ func _ready() -> void:
 	_setup_infinite_vista()
 	_setup_akasha_npcs()
 	_setup_akasha_updrafts()
+	_setup_sunset_controller()
+	_setup_comfort_signs()
 	_setup_dialogue_camera()
 	_ensure_vista_camera_clip_planes()
 	_setup_atmospheric_dust_motes()
 	_setup_sakura_petals()
 	_connect_signals()
 	_apply_audio_setting()
-	_enter_main_menu_immediate()
+
+	if SceneFlowManager != null and SceneFlowManager.pending_world_mode == "lesson1_sunset_return":
+		SceneFlowManager.pending_world_mode = ""
+		_enter_lesson1_sunset_return()
+	else:
+		_enter_main_menu_immediate()
 
 
 func _spawn_lanterns() -> void:
@@ -163,6 +175,28 @@ func _setup_akasha_updrafts() -> void:
 		add_child(_updrafts)
 		if _updrafts.has_method("setup") and player != null:
 			_updrafts.call("setup", player, audio_manager)
+
+
+func _setup_sunset_controller() -> void:
+	if _sunset_controller != null and is_instance_valid(_sunset_controller):
+		_sunset_controller.queue_free()
+
+	_sunset_controller = SunsetAtmosphereController.new()
+	_sunset_controller.name = "SunsetAtmosphereController"
+	add_child(_sunset_controller)
+	_sunset_controller.setup(world_env, sun_light, cloud_sea)
+
+
+func _setup_comfort_signs() -> void:
+	if _comfort_signs != null and is_instance_valid(_comfort_signs):
+		_comfort_signs.queue_free()
+
+	_comfort_signs = ComfortSigns3D.new()
+	_comfort_signs.name = "ComfortSigns3D"
+	add_child(_comfort_signs)
+	var mirror_pos: Vector3 = earth_mirror.global_position if earth_mirror != null else Vector3(0.0, 8.0, -278.0)
+	_comfort_signs.setup(mirror_pos)
+	_comfort_signs.set_lesson1_active(false)
 
 
 func _setup_dialogue_camera() -> void:
@@ -410,6 +444,8 @@ func _connect_signals() -> void:
 			main_menu.connect("start_new_game_requested", _on_start_new_game_requested)
 		if main_menu.has_signal("continue_game_requested"):
 			main_menu.connect("continue_game_requested", _on_continue_game_requested)
+		if main_menu.has_signal("start_lesson1_requested"):
+			main_menu.connect("start_lesson1_requested", _on_start_lesson1_requested)
 		if main_menu.has_signal("audio_toggled"):
 			main_menu.connect("audio_toggled", _on_audio_toggled)
 		if main_menu.has_signal("quit_requested"):
@@ -451,13 +487,32 @@ func _apply_audio_setting() -> void:
 		audio_manager.call("set_muted", SaveManager.audio_muted)
 
 
+func _get_lesson1_stage() -> String:
+	if SaveManager == null:
+		return "not_started"
+	return SaveManager.lesson1_stage
+
+
+func _is_lesson1_sunset_mode() -> bool:
+	var l1_stage: String = _get_lesson1_stage()
+	return l1_stage == "sunset_return" or l1_stage == "collecting_signs" or l1_stage == "complete"
+
+
+func _is_lesson1_collecting() -> bool:
+	return _get_lesson1_stage() == "collecting_signs"
+
+
 # ---------------------------------------------------------------------------
 # Main Menu & Session Lifecycle
 # ---------------------------------------------------------------------------
 
 func _enter_main_menu_immediate() -> void:
 	_is_in_gameplay = false
+	_epilogue_triggered = false
 	_cancel_dialogue_camera()
+	if SceneFlowManager != null:
+		SceneFlowManager.hide_prologue_epilogue()
+		SceneFlowManager.hide_lesson1_epilogue()
 	if audio_manager != null and audio_manager.has_method("update_flight_wind"):
 		audio_manager.call("update_flight_wind", 0.0, false)
 	_set_player_control(false)
@@ -468,12 +523,84 @@ func _enter_main_menu_immediate() -> void:
 		sky_hud.call("set_hud_visible", false)
 	if sky_hud and sky_hud.has_method("hide_interaction_prompt"):
 		sky_hud.call("hide_interaction_prompt")
+	if sky_hud and sky_hud.has_method("hide_comfort_signs_counter"):
+		sky_hud.call("hide_comfort_signs_counter")
 	_active_prompt_text = ""
 
 	var has_save: bool = SaveManager != null and SaveManager.has_save_data()
 	var is_muted: bool = SaveManager != null and SaveManager.audio_muted
 	if main_menu and main_menu.has_method("show_menu"):
 		main_menu.call("show_menu", has_save, is_muted)
+
+
+func _enter_lesson1_sunset_return() -> void:
+	_arrival_greeting_shown = true
+	_epilogue_triggered = false
+	_is_transitioning = false
+
+	if main_menu and main_menu.has_method("hide_menu"):
+		main_menu.call("hide_menu")
+
+	if SaveManager != null:
+		if SaveManager.lesson1_stage != "sunset_return":
+			SaveManager.set_lesson1_stage("sunset_return")
+		SaveManager.save_player_checkpoint(DAIS_RETURN_POS)
+
+	if _sunset_controller != null and is_instance_valid(_sunset_controller):
+		_sunset_controller.apply_golden_sunset_preset(true)
+
+	if _comfort_signs != null and is_instance_valid(_comfort_signs):
+		_comfort_signs.set_lesson1_active(true)
+		if SaveManager != null:
+			_comfort_signs.sync_progress(SaveManager.lesson1_signs_found, SaveManager.get_lesson1_signs_sent_count())
+		else:
+			var empty_ids: Array[String] = []
+			_comfort_signs.sync_progress(empty_ids, 0)
+
+	if player != null:
+		if player.has_method("teleport_to"):
+			player.call("teleport_to", DAIS_RETURN_POS, 0.0)
+		else:
+			player.global_position = DAIS_RETURN_POS
+			player.velocity = Vector3.ZERO
+			player.rotation.y = 0.0
+		if player.has_method("set_gold_love_evolution"):
+			var evo_level: float = 1.0 if (SaveManager != null and SaveManager.spark_evolution_level >= 2) else 0.0
+			player.call("set_gold_love_evolution", evo_level, false)
+
+	if earth_mirror != null and earth_mirror.has_method("awaken_mirror"):
+		earth_mirror.call("awaken_mirror")
+
+	if title_camera_rig and title_camera_rig.has_method("deactivate"):
+		title_camera_rig.call("deactivate")
+	_set_player_camera_current(true)
+
+	_is_in_gameplay = true
+	if sky_hud and sky_hud.has_method("set_hud_visible"):
+		sky_hud.call("set_hud_visible", true)
+	if sky_hud and sky_hud.has_method("hide_comfort_signs_counter"):
+		sky_hud.call("hide_comfort_signs_counter")
+	_set_player_control(true)
+
+	if audio_manager and audio_manager.has_method("play_sunset_return_chord"):
+		audio_manager.call("play_sunset_return_chord")
+	if sky_hud and sky_hud.has_method("show_chapter_title"):
+		sky_hud.call("show_chapter_title", "У Р О К  1  ·  В О З В Р А Щ Е Н И Е", "Золотой закат Хроник", 4.5)
+
+	_schedule_lesson1_mira_welcome(1.4)
+
+
+func _schedule_lesson1_mira_welcome(delay_sec: float) -> void:
+	await get_tree().create_timer(delay_sec).timeout
+	if not is_inside_tree() or not _is_in_gameplay or _is_transitioning:
+		return
+	if dialogue_manager and dialogue_manager.has_method("is_active") and bool(dialogue_manager.call("is_active")):
+		return
+	if _get_lesson1_stage() != "sunset_return":
+		return
+	var mira_focus_pos: Vector3 = sanctuary_mentors.global_position if sanctuary_mentors != null else DAIS_RETURN_POS + Vector3(0.0, 0.0, -6.0)
+	_set_dialogue_context("mentor", "lesson1_mira_welcome", sanctuary_mentors, mira_focus_pos, 4.35, 6.8)
+	_start_dialogue_sequence("lesson1_mira_welcome")
 
 
 func _on_start_new_game_requested() -> void:
@@ -502,6 +629,25 @@ func _on_start_new_game_requested() -> void:
 		_on_intro_completed()
 
 
+func _on_start_lesson1_requested() -> void:
+	if _is_transitioning:
+		return
+	_is_transitioning = true
+
+	if main_menu and main_menu.has_method("hide_menu"):
+		main_menu.call("hide_menu")
+
+	if SaveManager != null:
+		SaveManager.reset_lesson1_progress()
+		SaveManager.set_lesson1_stage("earth_life")
+
+	if SceneFlowManager != null:
+		SceneFlowManager.pending_world_mode = ""
+		SceneFlowManager.transition_to_scene(SceneFlowManager.LESSON1_EARTH_SCENE_PATH, true)
+	else:
+		_is_transitioning = false
+
+
 func _on_continue_game_requested() -> void:
 	if _is_transitioning:
 		return
@@ -509,6 +655,12 @@ func _on_continue_game_requested() -> void:
 
 	if main_menu and main_menu.has_method("hide_menu"):
 		main_menu.call("hide_menu")
+
+	if SaveManager != null and SaveManager.lesson1_stage == "earth_life":
+		if SceneFlowManager != null:
+			SceneFlowManager.pending_world_mode = ""
+			SceneFlowManager.transition_to_scene(SceneFlowManager.LESSON1_EARTH_SCENE_PATH, true)
+			return
 
 	if SceneFlowManager != null:
 		await SceneFlowManager.fade_to_veil(0.65, true)
@@ -525,6 +677,13 @@ func _on_continue_game_requested() -> void:
 		await SceneFlowManager.fade_from_veil(0.9)
 
 	_is_transitioning = false
+
+	if _get_lesson1_stage() == "sunset_return":
+		_schedule_lesson1_mira_welcome(0.6)
+	elif _get_lesson1_stage() == "collecting_signs" and SaveManager != null and SaveManager.get_lesson1_signs_sent_count() >= 3:
+		var mentor_pos: Vector3 = sanctuary_mentors.global_position if sanctuary_mentors != null else DAIS_RETURN_POS
+		_set_dialogue_context("mentor", "lesson1_finale_awakening", sanctuary_mentors, mentor_pos, 4.35, 6.8)
+		_start_dialogue_sequence("lesson1_finale_awakening")
 
 
 func _on_intro_completed() -> void:
@@ -551,9 +710,22 @@ func _begin_gameplay(show_title: bool) -> void:
 
 func _reset_world_for_new_game() -> void:
 	_spawn_lanterns()
+	if _sunset_controller != null and is_instance_valid(_sunset_controller):
+		_sunset_controller.apply_dawn_preset(true)
+	if _comfort_signs != null and is_instance_valid(_comfort_signs):
+		var empty_ids: Array[String] = []
+		_comfort_signs.sync_progress(empty_ids, 0)
+		_comfort_signs.set_lesson1_active(false)
+	if sky_hud and sky_hud.has_method("hide_comfort_signs_counter"):
+		sky_hud.call("hide_comfort_signs_counter")
 	if player:
-		player.global_position = START_PLAYER_POS
-		player.velocity = Vector3.ZERO
+		if player.has_method("teleport_to"):
+			player.call("teleport_to", START_PLAYER_POS, 0.0)
+		else:
+			player.global_position = START_PLAYER_POS
+			player.velocity = Vector3.ZERO
+		if player.has_method("set_gold_love_evolution"):
+			player.call("set_gold_love_evolution", 0.0, false)
 	if earth_mirror and earth_mirror.has_method("reset_to_dormant"):
 		earth_mirror.call("reset_to_dormant")
 	if sanctuary_mentors and sanctuary_mentors.has_method("highlight_speaker"):
@@ -568,23 +740,65 @@ func _restore_world_from_save() -> void:
 		return
 
 	var stage: String = SaveManager.prologue_stage
+	var l1_stage: String = SaveManager.lesson1_stage
+	var is_l1_sunset: bool = (
+		l1_stage == "sunset_return"
+		or l1_stage == "collecting_signs"
+		or l1_stage == "complete"
+	)
+
 	_epilogue_triggered = false
-	_arrival_greeting_shown = stage != "intro" and stage != "exploring"
+	_arrival_greeting_shown = is_l1_sunset or (stage != "intro" and stage != "exploring")
 
 	if player:
+		var target_pos: Vector3 = START_PLAYER_POS
 		if SaveManager.has_custom_player_pos:
-			player.global_position = SaveManager.last_player_pos
+			target_pos = SaveManager.last_player_pos
+		elif is_l1_sunset:
+			target_pos = DAIS_RETURN_POS
+		if player.has_method("teleport_to"):
+			player.call("teleport_to", target_pos, 0.0)
 		else:
-			player.global_position = START_PLAYER_POS
-		player.velocity = Vector3.ZERO
+			player.global_position = target_pos
+			player.velocity = Vector3.ZERO
 
-	if earth_mirror:
-		if stage == "contract_spoken":
-			if earth_mirror.has_method("set_ready_for_call"):
-				earth_mirror.call("set_ready_for_call")
-		elif stage == "mirror_awakened" or stage == "prologue_complete":
-			if earth_mirror.has_method("awaken_mirror"):
-				earth_mirror.call("awaken_mirror")
+	if is_l1_sunset:
+		if _sunset_controller != null and is_instance_valid(_sunset_controller):
+			_sunset_controller.apply_golden_sunset_preset(true)
+		if _comfort_signs != null and is_instance_valid(_comfort_signs):
+			_comfort_signs.set_lesson1_active(true)
+			_comfort_signs.sync_progress(SaveManager.lesson1_signs_found, SaveManager.get_lesson1_signs_sent_count())
+		if sky_hud:
+			if l1_stage == "collecting_signs" and sky_hud.has_method("update_comfort_signs_counter"):
+				sky_hud.call(
+					"update_comfort_signs_counter",
+					SaveManager.get_lesson1_signs_found_count(),
+					SaveManager.get_lesson1_signs_sent_count(),
+					3
+				)
+			elif sky_hud.has_method("hide_comfort_signs_counter"):
+				sky_hud.call("hide_comfort_signs_counter")
+		if player and player.has_method("set_gold_love_evolution"):
+			var evo_level: float = 1.0 if SaveManager.spark_evolution_level >= 2 else 0.0
+			player.call("set_gold_love_evolution", evo_level, false)
+		if earth_mirror and earth_mirror.has_method("awaken_mirror"):
+			earth_mirror.call("awaken_mirror")
+	else:
+		if _sunset_controller != null and is_instance_valid(_sunset_controller):
+			_sunset_controller.apply_dawn_preset(true)
+		if _comfort_signs != null and is_instance_valid(_comfort_signs):
+			_comfort_signs.set_lesson1_active(false)
+		if sky_hud and sky_hud.has_method("hide_comfort_signs_counter"):
+			sky_hud.call("hide_comfort_signs_counter")
+		if player and player.has_method("set_gold_love_evolution"):
+			player.call("set_gold_love_evolution", 0.0, false)
+		if earth_mirror:
+			if stage == "contract_spoken":
+				if earth_mirror.has_method("set_ready_for_call"):
+					earth_mirror.call("set_ready_for_call")
+			elif stage == "mirror_awakened" or stage == "prologue_complete":
+				if earth_mirror.has_method("awaken_mirror"):
+					earth_mirror.call("awaken_mirror")
 
 
 func _return_to_main_menu() -> void:
@@ -641,7 +855,7 @@ func _set_player_camera_current(is_current: bool) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if not _is_in_gameplay or _is_transitioning:
+	if not _is_in_gameplay or _is_transitioning or _epilogue_triggered:
 		return
 	if dialogue_manager and dialogue_manager.has_method("is_active") and bool(dialogue_manager.call("is_active")):
 		return
@@ -662,6 +876,12 @@ func _unhandled_input(event: InputEvent) -> void:
 				pressed_interact = true
 
 	if pressed_interact and player != null:
+		if _is_lesson1_collecting() and _comfort_signs != null and is_instance_valid(_comfort_signs):
+			var nearest_sign_id: String = _comfort_signs.get_nearest_uncollected_sign_id(player.global_position)
+			if not nearest_sign_id.is_empty():
+				_collect_comfort_sign(nearest_sign_id)
+				get_viewport().set_input_as_handled()
+				return
 		if _castle_interactables != null and is_instance_valid(_castle_interactables):
 			var relic_seq: String = _castle_interactables.interact_nearest(player.global_position)
 			if not relic_seq.is_empty():
@@ -676,6 +896,99 @@ func _unhandled_input(event: InputEvent) -> void:
 # Gameplay Signals (Soul Call, Lanterns, Mentors, Earth Mirror, Castle Relics, NPCs)
 # ---------------------------------------------------------------------------
 
+func _collect_comfort_sign(sign_id: String) -> void:
+	if sign_id.is_empty():
+		return
+	if dialogue_manager and dialogue_manager.has_method("is_active") and bool(dialogue_manager.call("is_active")):
+		return
+
+	if _comfort_signs != null and is_instance_valid(_comfort_signs):
+		_comfort_signs.mark_sign_collected(sign_id)
+
+	if SaveManager != null:
+		SaveManager.mark_lesson1_sign_found(sign_id)
+
+	if audio_manager and audio_manager.has_method("play_comfort_sign_found"):
+		audio_manager.call("play_comfort_sign_found")
+
+	var found_count: int = SaveManager.get_lesson1_signs_found_count() if SaveManager != null else 1
+	var sent_count: int = SaveManager.get_lesson1_signs_sent_count() if SaveManager != null else 0
+	if sky_hud and sky_hud.has_method("update_comfort_signs_counter"):
+		sky_hud.call("update_comfort_signs_counter", found_count, sent_count, 3)
+
+	var sign_pos: Vector3 = player.global_position + Vector3(0.0, 0.0, -4.0) if player != null else Vector3.ZERO
+	if _comfort_signs != null and is_instance_valid(_comfort_signs):
+		sign_pos = _comfort_signs.get_sign_world_position(sign_id)
+	_set_dialogue_context("comfort_sign", sign_id, null, sign_pos, 1.45, 5.2)
+
+	var seq_id: String = ""
+	if sign_id == ComfortSigns3D.SIGN_GARDEN:
+		seq_id = "lesson1_sign_garden"
+	elif sign_id == ComfortSigns3D.SIGN_FOUNTAIN:
+		seq_id = "lesson1_sign_fountain"
+	elif sign_id == ComfortSigns3D.SIGN_BOAT:
+		seq_id = "lesson1_sign_boat"
+
+	if not seq_id.is_empty():
+		_start_dialogue_sequence(seq_id)
+
+
+func _try_send_comfort_sign_through_mirror(origin: Vector3) -> bool:
+	if not _is_lesson1_collecting() or SaveManager == null:
+		return false
+	if earth_mirror == null or not earth_mirror.has_method("is_player_near_call_zone"):
+		return false
+	if not bool(earth_mirror.call("is_player_near_call_zone", origin)):
+		return false
+
+	var found_count: int = SaveManager.get_lesson1_signs_found_count()
+	var sent_count: int = SaveManager.get_lesson1_signs_sent_count()
+	if found_count <= sent_count:
+		return false
+
+	var next_sign_id: String = ""
+	for sid: String in SaveManager.lesson1_signs_found:
+		if not SaveManager.has_lesson1_sign_sent(sid):
+			next_sign_id = sid
+			break
+	if next_sign_id.is_empty():
+		return false
+
+	SaveManager.mark_lesson1_sign_sent(next_sign_id)
+	var new_sent: int = SaveManager.get_lesson1_signs_sent_count()
+
+	if _comfort_signs != null and is_instance_valid(_comfort_signs):
+		_comfort_signs.set_sent_count(new_sent)
+		_comfort_signs.pulse_mirror_thread()
+
+	if audio_manager and audio_manager.has_method("play_comfort_sign_sent"):
+		audio_manager.call("play_comfort_sign_sent")
+
+	if sky_hud and sky_hud.has_method("update_comfort_signs_counter"):
+		sky_hud.call("update_comfort_signs_counter", found_count, new_sent, 3)
+
+	var vision_title: String = "ОТКЛИК СКВОЗЬ ЗЕРКАЛО"
+	var vision_body: String = "Тёплая золотая рябь касается земного дома."
+	if new_sent == 1:
+		vision_title = "ПЕРВЫЙ ОТКЛИК  ·  УТРЕННИЙ СВЕТ"
+		vision_body = "Мать просыпается от запаха летнего сада, раздвигает шторы и молча находит руку мужа."
+	elif new_sent == 2:
+		vision_title = "ВТОРОЙ ОТКЛИК  ·  ТЁПЛАЯ ЛАДОНЬ"
+		vision_body = "Отец касается детских рисунков на стене. Камень вины отпускает, и в доме снова рождается тихая улыбка."
+	elif new_sent >= 3:
+		vision_title = "ТРЕТИЙ ОТКЛИК  ·  БЕЛЫЙ КОРАБЛИК"
+		vision_body = "В светлом доме у парка открывается приют и фонд помощи детям — твои семь вёсен продолжают жить."
+
+	if sky_hud and sky_hud.has_method("show_mirror_vision"):
+		sky_hud.call("show_mirror_vision", vision_title, vision_body, 5.5)
+
+	var clamped_step: int = clampi(new_sent, 1, 3)
+	var send_seq: String = "lesson1_mirror_send_%d" % clamped_step
+	_set_dialogue_context("mirror", send_seq, earth_mirror, earth_mirror.global_position, 3.6, 7.8)
+	_start_dialogue_sequence(send_seq)
+	return true
+
+
 func _on_player_soul_call(origin: Vector3) -> void:
 	if soul_call and soul_call.has_method("trigger"):
 		soul_call.call("trigger", origin)
@@ -683,6 +996,10 @@ func _on_player_soul_call(origin: Vector3) -> void:
 		audio_manager.call("play_soul_call")
 
 	if dialogue_manager and dialogue_manager.has_method("is_active") and bool(dialogue_manager.call("is_active")):
+		return
+
+	# 0. Lesson 1: Send a collected Comfort Sign through the Earth Mirror via Soul Call [Q]
+	if _try_send_comfort_sign_through_mirror(origin):
 		return
 
 	# 1. Check if Earth Mirror is ready for awakening via Soul Call [Q]
@@ -696,10 +1013,15 @@ func _on_player_soul_call(origin: Vector3) -> void:
 		var mentors_responded: bool = bool(sanctuary_mentors.call("respond_to_soul_call", origin))
 		if mentors_responded:
 			var stage: String = SaveManager.prologue_stage if SaveManager != null else "exploring"
-			if stage == "exploring" or stage == "intro":
+			if not _is_lesson1_sunset_mode() and (stage == "exploring" or stage == "intro"):
 				var mentor_pos: Vector3 = sanctuary_mentors.global_position
 				_set_dialogue_context("mentor", "first_contract", sanctuary_mentors, mentor_pos, 4.35, 6.8)
 				_start_dialogue_sequence("first_contract")
+				return
+			elif _get_lesson1_stage() == "sunset_return" and sanctuary_mentors.has_method("is_player_in_talk_range") and bool(sanctuary_mentors.call("is_player_in_talk_range", origin)):
+				var mira_pos: Vector3 = sanctuary_mentors.global_position
+				_set_dialogue_context("mentor", "lesson1_mira_welcome", sanctuary_mentors, mira_pos, 4.35, 6.8)
+				_start_dialogue_sequence("lesson1_mira_welcome")
 				return
 
 	# 3. Check if player is calling to a Castle relic (Fountain, Chronicle Book, Kronos Astrolabe)
@@ -761,8 +1083,13 @@ func _on_akasha_npc_interacted(npc_id: String, dialogue_sequence_id: String) -> 
 	var npc_dist: float = 6.4 if is_archangel else 5.0
 	_set_dialogue_context("npc", npc_id, npc_node, npc_pos, npc_eye, npc_dist)
 
-	if not dialogue_sequence_id.is_empty():
-		_start_dialogue_sequence(dialogue_sequence_id)
+	var effective_seq: String = dialogue_sequence_id
+	if _is_lesson1_sunset_mode():
+		if npc_id == "lumi" or npc_id == "spirit_plaza" or npc_id == "spirit_balcony" or dialogue_sequence_id == "npc_plaza_spirit":
+			effective_seq = "lesson1_lumi_sunset"
+
+	if not effective_seq.is_empty():
+		_start_dialogue_sequence(effective_seq)
 
 
 func _on_player_wing_energy_changed(current: float, max_energy: float) -> void:
@@ -829,6 +1156,33 @@ func _set_dialogue_context(
 func _resolve_dialogue_focus(speaker_id: String) -> Dictionary:
 	var normalized: String = speaker_id.strip_edges().to_lower()
 
+	if _dialogue_context_kind == "comfort_sign":
+		var sign_nudge: float = 0.45 if normalized == "mira" else 0.0
+		return {
+			"base_pos": _dialogue_context_pos,
+			"eye_height": _dialogue_context_eye_height,
+			"distance": _dialogue_context_distance,
+			"speaker_nudge": sign_nudge,
+		}
+
+	if _dialogue_context_kind == "mirror":
+		if normalized == "mira" and sanctuary_mentors != null and is_instance_valid(sanctuary_mentors):
+			var mira_ref: Node3D = sanctuary_mentors.get_node_or_null("Mira") as Node3D
+			if mira_ref != null:
+				return {
+					"base_pos": mira_ref.global_position,
+					"eye_height": 4.35,
+					"distance": 6.8,
+					"speaker_nudge": 0.45,
+				}
+		var mirror_focus: Vector3 = earth_mirror.global_position if earth_mirror != null else _dialogue_context_pos
+		return {
+			"base_pos": mirror_focus,
+			"eye_height": _dialogue_context_eye_height,
+			"distance": _dialogue_context_distance,
+			"speaker_nudge": 0.0,
+		}
+
 	if _dialogue_context_kind == "relic":
 		var nudge: float = 0.0
 		if normalized == "alatea":
@@ -850,6 +1204,14 @@ func _resolve_dialogue_focus(speaker_id: String) -> Dictionary:
 			"base_pos": live_pos,
 			"eye_height": _dialogue_context_eye_height,
 			"distance": _dialogue_context_distance,
+			"speaker_nudge": 0.0,
+		}
+
+	if normalized == "earth_mirror" and earth_mirror != null and is_instance_valid(earth_mirror):
+		return {
+			"base_pos": earth_mirror.global_position,
+			"eye_height": 3.6,
+			"distance": 7.8,
 			"speaker_nudge": 0.0,
 		}
 
@@ -1098,6 +1460,28 @@ func _on_dialogue_ended(sequence_id: String) -> void:
 			SaveManager.set_prologue_stage("contract_spoken")
 		if earth_mirror and earth_mirror.has_method("set_ready_for_call"):
 			earth_mirror.call("set_ready_for_call")
+	elif sequence_id == "lesson1_mira_welcome":
+		if SaveManager != null:
+			SaveManager.set_lesson1_stage("collecting_signs")
+			if sky_hud and sky_hud.has_method("update_comfort_signs_counter"):
+				sky_hud.call(
+					"update_comfort_signs_counter",
+					SaveManager.get_lesson1_signs_found_count(),
+					SaveManager.get_lesson1_signs_sent_count(),
+					3
+				)
+	elif sequence_id == "lesson1_mirror_send_3":
+		var mentor_pos: Vector3 = sanctuary_mentors.global_position if sanctuary_mentors != null else DAIS_RETURN_POS
+		_set_dialogue_context("mentor", "lesson1_finale_awakening", sanctuary_mentors, mentor_pos, 4.35, 6.8)
+		_start_dialogue_sequence("lesson1_finale_awakening")
+		return
+	elif sequence_id == "lesson1_finale_awakening":
+		_end_dialogue_camera()
+		_dialogue_context_kind = ""
+		_dialogue_context_id = ""
+		_dialogue_context_node = null
+		_trigger_lesson1_completion()
+		return
 
 	_end_dialogue_camera()
 	_dialogue_context_kind = ""
@@ -1106,11 +1490,59 @@ func _on_dialogue_ended(sequence_id: String) -> void:
 	_set_player_control(true)
 
 
+func _trigger_lesson1_completion() -> void:
+	if _epilogue_triggered or _is_transitioning:
+		return
+	_epilogue_triggered = true
+	_is_transitioning = true
+	_set_player_control(false)
+	_update_prompt("")
+
+	if SaveManager != null:
+		SaveManager.set_lesson1_stage("complete")
+	if player != null and player.has_method("set_gold_love_evolution"):
+		player.call("set_gold_love_evolution", 1.0, true)
+	if audio_manager and audio_manager.has_method("play_unconditional_love_awakening"):
+		audio_manager.call("play_unconditional_love_awakening")
+	if sky_hud and sky_hud.has_method("hide_comfort_signs_counter"):
+		sky_hud.call("hide_comfort_signs_counter")
+
+	await get_tree().create_timer(1.8).timeout
+	_is_transitioning = false
+	if not is_inside_tree() or not _is_in_gameplay:
+		_epilogue_triggered = false
+		return
+
+	if SceneFlowManager != null:
+		SceneFlowManager.show_lesson1_epilogue(
+			_on_lesson1_epilogue_continue,
+			_on_epilogue_return_menu
+		)
+	else:
+		_epilogue_triggered = false
+		_set_player_control(true)
+
+
+func _on_lesson1_epilogue_continue() -> void:
+	if _is_transitioning:
+		return
+	_is_transitioning = true
+
+	if SceneFlowManager != null:
+		SceneFlowManager.hide_lesson1_epilogue()
+
+	_epilogue_triggered = false
+	_set_player_control(true)
+	_is_transitioning = false
+
+
 # ---------------------------------------------------------------------------
 # Earth Mirror & Prologue Completion
 # ---------------------------------------------------------------------------
 
 func _on_mirror_awakened() -> void:
+	if _is_lesson1_sunset_mode():
+		return
 	if audio_manager and audio_manager.has_method("play_mirror_awakening"):
 		audio_manager.call("play_mirror_awakening")
 	if SaveManager != null and SaveManager.prologue_stage != "prologue_complete":
@@ -1120,10 +1552,15 @@ func _on_mirror_awakened() -> void:
 func _on_player_entered_portal() -> void:
 	if _epilogue_triggered or _is_transitioning or not _is_in_gameplay:
 		return
+	if _get_lesson1_stage() != "not_started":
+		return
 	_trigger_prologue_completion()
 
 
 func _trigger_prologue_completion() -> void:
+	if _get_lesson1_stage() != "not_started":
+		return
+
 	_epilogue_triggered = true
 	_is_transitioning = true
 	_cancel_dialogue_camera()
@@ -1134,17 +1571,13 @@ func _trigger_prologue_completion() -> void:
 		audio_manager.call("play_mirror_awakening")
 	if SaveManager != null:
 		SaveManager.set_prologue_stage("prologue_complete")
+		SaveManager.set_lesson1_stage("earth_life")
 		SaveManager.save_player_checkpoint(DAIS_RETURN_POS)
 
 	if SceneFlowManager != null:
-		await SceneFlowManager.fade_to_veil(1.25, true)
-		var awakened_count: int = SaveManager.get_awakened_lantern_count() if SaveManager != null else 0
-		SceneFlowManager.show_prologue_epilogue(
-			awakened_count,
-			_total_lanterns,
-			_on_epilogue_continue_exploring,
-			_on_epilogue_return_menu
-		)
+		SceneFlowManager.pending_world_mode = ""
+		SceneFlowManager.transition_to_scene(SceneFlowManager.LESSON1_EARTH_SCENE_PATH, true)
+		return
 
 	_is_transitioning = false
 
@@ -1178,6 +1611,8 @@ func _on_epilogue_return_menu() -> void:
 
 	if SceneFlowManager != null:
 		SceneFlowManager.hide_prologue_epilogue()
+		SceneFlowManager.hide_lesson1_epilogue()
+		await SceneFlowManager.fade_to_veil(0.65, true)
 
 	_enter_main_menu_immediate()
 
@@ -1239,7 +1674,7 @@ func _process(delta: float) -> void:
 		else:
 			audio_manager.call("update_flight_wind", 0.0, false)
 
-	if not _is_in_gameplay or _is_transitioning or not player:
+	if not _is_in_gameplay or _is_transitioning or _epilogue_triggered or not player:
 		return
 
 	if is_talking:
@@ -1256,15 +1691,15 @@ func _process(delta: float) -> void:
 	var stage: String = SaveManager.prologue_stage if SaveManager != null else "exploring"
 
 	# 1. Warm arrival greeting when approaching the Cathedral grand stairs
-	if not _arrival_greeting_shown and stage == "exploring" and p_pos.z < -210.0:
+	if not _arrival_greeting_shown and not _is_lesson1_sunset_mode() and stage == "exploring" and p_pos.z < -210.0:
 		_arrival_greeting_shown = true
 		var arrival_pos: Vector3 = sanctuary_mentors.global_position if sanctuary_mentors != null else p_pos + Vector3(0.0, 0.0, -8.0)
 		_set_dialogue_context("mentor", "cathedral_arrival", sanctuary_mentors, arrival_pos, 4.35, 6.8)
 		_start_dialogue_sequence("cathedral_arrival")
 		return
 
-	# 2. Check portal step-in when Earth Mirror is awakened
-	if earth_mirror and earth_mirror.has_method("is_player_in_portal_zone"):
+	# 2. Check portal step-in when Earth Mirror is awakened (Prologue -> Lesson 1 only)
+	if _get_lesson1_stage() == "not_started" and earth_mirror and earth_mirror.has_method("is_player_in_portal_zone"):
 		if bool(earth_mirror.call("is_player_in_portal_zone", p_pos)):
 			_trigger_prologue_completion()
 			return
@@ -1291,7 +1726,38 @@ func _update_interaction_prompt(p_pos: Vector3, stage: String) -> void:
 		and bool(earth_mirror.call("is_player_near_call_zone", p_pos))
 	)
 
+	var l1_stage: String = _get_lesson1_stage()
 	var prompt: String = ""
+
+	if l1_stage == "collecting_signs":
+		var found_count: int = SaveManager.get_lesson1_signs_found_count() if SaveManager != null else 0
+		var sent_count: int = SaveManager.get_lesson1_signs_sent_count() if SaveManager != null else 0
+		var sign_prompt: String = ""
+		if _comfort_signs != null and is_instance_valid(_comfort_signs):
+			sign_prompt = _comfort_signs.get_interaction_prompt(p_pos)
+
+		if near_mirror_zone and found_count > sent_count:
+			prompt = "✦  [Q]  Послать Знак Утешения сквозь Зеркало"
+		elif not sign_prompt.is_empty():
+			prompt = sign_prompt
+		elif not npc_prompt.is_empty():
+			prompt = npc_prompt
+		elif not relic_prompt.is_empty():
+			prompt = relic_prompt
+		_update_prompt(prompt)
+		return
+
+	if l1_stage == "sunset_return" or l1_stage == "complete":
+		if l1_stage == "sunset_return" and sanctuary_mentors and sanctuary_mentors.has_method("is_player_in_talk_range"):
+			if bool(sanctuary_mentors.call("is_player_in_talk_range", p_pos)):
+				prompt = "✦  [Q]  Поговорить с Мирой"
+		if prompt.is_empty() and not npc_prompt.is_empty():
+			prompt = npc_prompt
+		elif prompt.is_empty() and not relic_prompt.is_empty():
+			prompt = relic_prompt
+		_update_prompt(prompt)
+		return
+
 	if stage == "contract_spoken":
 		if near_mirror_close:
 			prompt = "✦  [Q]  Пробудить Зеркало Земли"

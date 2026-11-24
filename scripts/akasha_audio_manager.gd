@@ -568,6 +568,190 @@ func play_ui_click() -> void:
 		})
 
 
+## Warm honeyed sunset chord of returning Home (D4 + A4 + F#5 + B5 with long soft tail).
+func play_sunset_return_chord() -> void:
+	if not enabled:
+		return
+	var freqs: Array[float] = [293.66, 440.00, 739.99, 987.77] # D4, A4, F#5, B5
+	var pans: Array[float] = [0.0, -0.22, 0.22, -0.14]
+	var amps: Array[float] = [0.19, 0.17, 0.15, 0.13]
+	var delays: Array[float] = [0.0, 0.09, 0.19, 0.30]
+	for i in range(freqs.size()):
+		_add_voice({
+			"type": VOICE_PAD,
+			"freq": freqs[i],
+			"freq_end": freqs[i],
+			"phase": 0.0,
+			"phase2": 0.0,
+			"phase3": 0.0,
+			"age": 0.0,
+			"delay": delays[i],
+			"attack": 0.22,
+			"decay": 2.65,
+			"duration": 5.8,
+			"amp": amps[i],
+			"pan": pans[i],
+			"lp": 0.0,
+		})
+	# Gentle honeyed upper-register sunset glint on B5
+	_add_voice({
+		"type": VOICE_CHIME,
+		"freq": 987.77,
+		"freq_end": 987.77,
+		"phase": 0.0,
+		"phase2": 0.0,
+		"phase3": 0.0,
+		"age": 0.0,
+		"delay": 0.36,
+		"attack": 0.02,
+		"decay": 1.65,
+		"duration": 4.0,
+		"amp": 0.09,
+		"pan": 0.16,
+		"lp": 0.0,
+	})
+
+
+## Delicate crystal-harp 3-note ascending shimmer when discovering a Comfort Sign.
+func play_comfort_sign_found() -> void:
+	if not enabled:
+		return
+	# Subtle warm pillow underneath the harp arpeggio (D5)
+	_add_voice({
+		"type": VOICE_PAD,
+		"freq": 587.33,
+		"freq_end": 587.33,
+		"phase": 0.0,
+		"phase2": 0.0,
+		"phase3": 0.0,
+		"age": 0.0,
+		"delay": 0.0,
+		"attack": 0.08,
+		"decay": 1.15,
+		"duration": 2.6,
+		"amp": 0.11,
+		"pan": 0.0,
+		"lp": 0.0,
+	})
+	# 3 ascending crystal-harp notes: F#5 -> A5 -> D6
+	var notes: Array[float] = [739.99, 880.00, 1174.66]
+	var pans: Array[float] = [-0.24, 0.0, 0.24]
+	var amps: Array[float] = [0.24, 0.23, 0.22]
+	for i in range(notes.size()):
+		_add_voice({
+			"type": VOICE_CHIME,
+			"freq": notes[i],
+			"freq_end": notes[i],
+			"phase": 0.0,
+			"phase2": 0.0,
+			"phase3": 0.0,
+			"age": 0.0,
+			"delay": float(i) * 0.085,
+			"attack": 0.006,
+			"decay": 1.05,
+			"duration": 2.8,
+			"amp": amps[i],
+			"pan": pans[i],
+			"lp": 0.0,
+		})
+
+
+## Deep resonating chord of sending a Comfort Sign through the Mirror of Earth
+## (warm foundational fifth + ascending starry shimmer).
+func play_comfort_sign_sent() -> void:
+	if not enabled:
+		return
+	# Warm resonant fifth foundation: D3 + A3 + D4
+	var base_freqs: Array[float] = [146.83, 220.00, 293.66]
+	var base_pans: Array[float] = [-0.14, 0.14, 0.0]
+	var base_amps: Array[float] = [0.18, 0.16, 0.15]
+	for i in range(base_freqs.size()):
+		_add_voice({
+			"type": VOICE_PAD,
+			"freq": base_freqs[i],
+			"freq_end": base_freqs[i],
+			"phase": 0.0,
+			"phase2": 0.0,
+			"phase3": 0.0,
+			"age": 0.0,
+			"delay": float(i) * 0.055,
+			"attack": 0.14,
+			"decay": 2.1,
+			"duration": 4.6,
+			"amp": base_amps[i],
+			"pan": base_pans[i],
+			"lp": 0.0,
+		})
+	# Starry ascending crystalline shimmer: A5 -> D6 -> F#6
+	var star_freqs: Array[float] = [880.00, 1174.66, 1479.98]
+	var star_pans: Array[float] = [-0.28, 0.0, 0.28]
+	var star_amps: Array[float] = [0.15, 0.14, 0.12]
+	for i in range(star_freqs.size()):
+		_add_voice({
+			"type": VOICE_CHIME,
+			"freq": star_freqs[i],
+			"freq_end": star_freqs[i],
+			"phase": 0.0,
+			"phase2": 0.0,
+			"phase3": 0.0,
+			"age": 0.0,
+			"delay": 0.16 + float(i) * 0.095,
+			"attack": 0.01,
+			"decay": 1.3,
+			"duration": 3.4,
+			"amp": star_amps[i],
+			"pan": star_pans[i],
+			"lp": 0.0,
+		})
+
+
+## Solemn yet tender golden catharsis for awakening the first golden light of Unconditional Love.
+func play_unconditional_love_awakening() -> void:
+	if not enabled:
+		return
+	var pad_freqs: Array[float] = [146.83, 220.00, 293.66, 369.99, 440.00, 587.33, 739.99, 880.00]
+	var pad_pans: Array[float] = [0.0, -0.18, 0.18, -0.26, 0.26, -0.32, 0.32, 0.0]
+	var pad_amps: Array[float] = [0.15, 0.14, 0.14, 0.13, 0.13, 0.12, 0.11, 0.10]
+	for i in range(pad_freqs.size()):
+		_add_voice({
+			"type": VOICE_PAD,
+			"freq": pad_freqs[i],
+			"freq_end": pad_freqs[i],
+			"phase": 0.0,
+			"phase2": 0.0,
+			"phase3": 0.0,
+			"age": 0.0,
+			"delay": float(i) * 0.085,
+			"attack": 0.24,
+			"decay": 2.8,
+			"duration": 6.2,
+			"amp": pad_amps[i],
+			"pan": pad_pans[i],
+			"lp": 0.0,
+		})
+	# Gentle crowning golden bell harmonics: D6 -> F#6
+	var crown_freqs: Array[float] = [1174.66, 1479.98]
+	var crown_pans: Array[float] = [-0.15, 0.15]
+	var crown_amps: Array[float] = [0.13, 0.10]
+	for i in range(crown_freqs.size()):
+		_add_voice({
+			"type": VOICE_CHIME,
+			"freq": crown_freqs[i],
+			"freq_end": crown_freqs[i],
+			"phase": 0.0,
+			"phase2": 0.0,
+			"phase3": 0.0,
+			"age": 0.0,
+			"delay": 0.62 + float(i) * 0.16,
+			"attack": 0.018,
+			"decay": 1.85,
+			"duration": 4.4,
+			"amp": crown_amps[i],
+			"pan": crown_pans[i],
+			"lp": 0.0,
+		})
+
+
 ## Enables or mutes procedural celestial audio output.
 func set_muted(muted: bool) -> void:
 	enabled = not muted

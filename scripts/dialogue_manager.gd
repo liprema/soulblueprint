@@ -11,6 +11,7 @@ signal choice_recorded(choice_key: String, choice_id: String)
 signal dialogue_ended(sequence_id: String)
 
 const DEFAULT_DIALOGUE_PATH: String = "res://data/dialogues/prologue_contract.json"
+const LESSON1_DIALOGUE_PATH: String = "res://data/dialogues/lesson1_return.json"
 const DEFAULT_ACCENT: Color = Color(0.964706, 0.827451, 0.419608, 1.0) # #F6D36B
 
 @export var dialogue_file_path: String = DEFAULT_DIALOGUE_PATH
@@ -27,6 +28,8 @@ var _current_node_id: String = ""
 
 func _ready() -> void:
 	load_dialogue_file(dialogue_file_path)
+	if FileAccess.file_exists(LESSON1_DIALOGUE_PATH):
+		merge_dialogue_file(LESSON1_DIALOGUE_PATH)
 
 
 ## Loads and parses a dialogue JSON resource from disk.
@@ -57,6 +60,41 @@ func load_dialogue_file(path: String) -> bool:
 	return true
 
 
+## Merges speakers and sequences from an additional dialogue JSON file into existing dictionaries.
+func merge_dialogue_file(path: String) -> bool:
+	if not FileAccess.file_exists(path):
+		push_warning("DialogueManager: additional dialogue file not found at '%s'" % path)
+		return false
+
+	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
+	if file == null:
+		push_error("DialogueManager: failed to open '%s'" % path)
+		return false
+
+	var raw_text: String = file.get_as_text()
+	file.close()
+
+	var parsed: Variant = JSON.parse_string(raw_text)
+	if typeof(parsed) != TYPE_DICTIONARY:
+		push_error("DialogueManager: invalid JSON root in '%s'" % path)
+		return false
+
+	var data: Dictionary = parsed as Dictionary
+	var speakers_var: Variant = data.get("speakers", {})
+	if speakers_var is Dictionary:
+		var extra_speakers: Dictionary = speakers_var as Dictionary
+		for speaker_key: Variant in extra_speakers.keys():
+			_speakers[str(speaker_key)] = extra_speakers[speaker_key]
+
+	var sequences_var: Variant = data.get("sequences", {})
+	if sequences_var is Dictionary:
+		var extra_sequences: Dictionary = sequences_var as Dictionary
+		for seq_key: Variant in extra_sequences.keys():
+			_sequences[str(seq_key)] = extra_sequences[seq_key]
+
+	return true
+
+
 ## Returns true if a dialogue sequence is currently in progress.
 func is_active() -> bool:
 	return _active
@@ -66,6 +104,8 @@ func is_active() -> bool:
 func start_sequence(sequence_id: String) -> bool:
 	if _sequences.is_empty():
 		load_dialogue_file(dialogue_file_path)
+		if FileAccess.file_exists(LESSON1_DIALOGUE_PATH):
+			merge_dialogue_file(LESSON1_DIALOGUE_PATH)
 
 	if not _sequences.has(sequence_id):
 		push_warning("DialogueManager: unknown dialogue sequence '%s'" % sequence_id)
