@@ -967,21 +967,7 @@ func _try_send_comfort_sign_through_mirror(origin: Vector3) -> bool:
 	if sky_hud and sky_hud.has_method("update_comfort_signs_counter"):
 		sky_hud.call("update_comfort_signs_counter", found_count, new_sent, 3)
 
-	var vision_title: String = "ОТКЛИК СКВОЗЬ ЗЕРКАЛО"
-	var vision_body: String = "Тёплая золотая рябь касается земного дома."
-	if new_sent == 1:
-		vision_title = "ПЕРВЫЙ ОТКЛИК  ·  УТРЕННИЙ СВЕТ"
-		vision_body = "Мать просыпается от запаха летнего сада, раздвигает шторы и молча находит руку мужа."
-	elif new_sent == 2:
-		vision_title = "ВТОРОЙ ОТКЛИК  ·  ТЁПЛАЯ ЛАДОНЬ"
-		vision_body = "Отец касается детских рисунков на стене. Камень вины отпускает, и в доме снова рождается тихая улыбка."
-	elif new_sent >= 3:
-		vision_title = "ТРЕТИЙ ОТКЛИК  ·  БЕЛЫЙ КОРАБЛИК"
-		vision_body = "В светлом доме у парка открывается приют и фонд помощи детям — твои семь вёсен продолжают жить."
-
-	if sky_hud and sky_hud.has_method("show_mirror_vision"):
-		sky_hud.call("show_mirror_vision", vision_title, vision_body, 5.5)
-
+	_update_prompt("")
 	var clamped_step: int = clampi(new_sent, 1, 3)
 	var send_seq: String = "lesson1_mirror_send_%d" % clamped_step
 	_set_dialogue_context("mirror", send_seq, earth_mirror, earth_mirror.global_position, 3.6, 7.8)
@@ -1628,17 +1614,20 @@ func _on_epilogue_return_menu() -> void:
 # ---------------------------------------------------------------------------
 
 func _update_prompt(new_text: String) -> void:
-	if new_text == _active_prompt_text:
+	var cleaned: String = new_text.strip_edges()
+	if not cleaned.is_empty() and dialogue_manager != null and dialogue_manager.has_method("is_active") and bool(dialogue_manager.call("is_active")):
+		cleaned = ""
+	if cleaned == _active_prompt_text:
 		return
-	_active_prompt_text = new_text
+	_active_prompt_text = cleaned
 	if not sky_hud:
 		return
-	if new_text.is_empty():
+	if cleaned.is_empty():
 		if sky_hud.has_method("hide_interaction_prompt"):
 			sky_hud.call("hide_interaction_prompt")
 	else:
 		if sky_hud.has_method("show_interaction_prompt"):
-			sky_hud.call("show_interaction_prompt", new_text)
+			sky_hud.call("show_interaction_prompt", cleaned)
 
 
 func _process(delta: float) -> void:
@@ -1678,6 +1667,8 @@ func _process(delta: float) -> void:
 		return
 
 	if is_talking:
+		if not _active_prompt_text.is_empty():
+			_update_prompt("")
 		return
 
 	# Periodic safe checkpoint autosave while grounded
@@ -1709,6 +1700,9 @@ func _process(delta: float) -> void:
 
 
 func _update_interaction_prompt(p_pos: Vector3, stage: String) -> void:
+	if dialogue_manager != null and dialogue_manager.has_method("is_active") and bool(dialogue_manager.call("is_active")):
+		_update_prompt("")
+		return
 	var relic_prompt: String = ""
 	if _castle_interactables != null and is_instance_valid(_castle_interactables):
 		relic_prompt = _castle_interactables.get_interaction_prompt(p_pos)

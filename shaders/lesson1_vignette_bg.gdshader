@@ -1,8 +1,10 @@
 shader_type canvas_item;
 
-// Painterly atmospheric vignette background shader for Lesson 1 ("Было всё, кроме времени").
-// Morphs smoothly between 4 emotional states in GRIS + Spiritfarer + Makoto Shinkai aesthetic.
-// All pow() and normalize() operations are strictly NaN-safe for Godot 4.3+ Forward+ / macOS Retina.
+// Pixar / Disney cinematic color-script background shader for Lesson 1 ("Было всё, кроме времени").
+// Rich warm key light, cool velvet shadows, soft volumetric god rays, drifting cinematic bokeh,
+// horizon bloom, and atmospheric air haze.
+// Strictly Apple Silicon / Metal NaN-safe: all pow() guarded with max(..., 0.0001),
+// all smoothstep(a, b, x) strictly satisfy a < b, atan() and divisions guarded against zero.
 
 uniform vec4 sky_top : source_color = vec4(0.055, 0.086, 0.165, 1.0);
 uniform vec4 sky_mid : source_color = vec4(0.118, 0.165, 0.255, 1.0);
@@ -13,7 +15,7 @@ uniform float warmth : hint_range(0.0, 1.0) = 0.0;
 uniform vec2 sun_pos = vec2(0.5, 0.36);
 uniform float ray_strength : hint_range(0.0, 1.6) = 0.25;
 uniform float vignette_strength : hint_range(0.0, 1.0) = 0.38;
-uniform float grain_strength : hint_range(0.0, 0.08) = 0.014;
+uniform float grain_strength : hint_range(0.0, 0.08) = 0.012;
 uniform float bokeh_strength : hint_range(0.0, 1.0) = 0.0;
 uniform float watercolor_wash : hint_range(0.0, 1.0) = 0.36;
 
@@ -40,7 +42,7 @@ float fbm3(vec2 p) {
 	mat2 rot = mat2(vec2(0.80, -0.60), vec2(0.60, 0.80));
 	for (int i = 0; i < 3; i++) {
 		v += amp * value_noise(p);
-		p = rot * p * 2.04 + vec2(11.3, 7.1);
+		p = rot * p * 2.02 + vec2(11.3, 7.1);
 		amp *= 0.5;
 	}
 	return v;
@@ -48,10 +50,11 @@ float fbm3(vec2 p) {
 
 float soft_bokeh_disc(vec2 uv_aspect, vec2 center_aspect, float radius) {
 	float d = length(uv_aspect - center_aspect);
-	float safe_r = max(radius, 0.001);
-	float edge = 1.0 - smoothstep(safe_r * 0.62, safe_r, d);
-	float rim = smoothstep(safe_r * 0.55, safe_r * 0.88, d) * edge;
-	return edge * 0.45 + rim * 0.55;
+	float safe_r = max(radius, 0.002);
+	float body = 1.0 - smoothstep(safe_r * 0.55, safe_r, d);
+	float rim = smoothstep(safe_r * 0.50, safe_r * 0.88, d) * body;
+	float core = 1.0 - smoothstep(0.0, safe_r * 0.65, d);
+	return body * 0.42 + rim * 0.48 + core * 0.22;
 }
 
 void fragment() {
@@ -60,66 +63,84 @@ void fragment() {
 	vec2 uv_aspect = vec2(uv.x * aspect, uv.y);
 	vec2 sun_aspect = vec2(sun_pos.x * aspect, sun_pos.y);
 
-	// 1. Three-stop painterly sky gradient with soft horizon bloom
-	float t_upper = smoothstep(0.0, 0.54, uv.y);
-	float t_lower = smoothstep(0.46, 1.0, uv.y);
+	// 1. Multi-stop Pixar color-script sky gradient (warm key vs. cool velvet shadow)
+	float t_upper = smoothstep(0.0, 0.56, uv.y);
+	float t_lower = smoothstep(0.42, 1.0, uv.y);
 	vec3 col = mix(sky_top.rgb, sky_mid.rgb, t_upper);
 	col = mix(col, sky_bottom.rgb, t_lower);
 
-	// 2. GRIS-style drifting watercolor atmospheric wash
-	float t_slow = TIME * 0.028;
-	float wash1 = fbm3(uv * vec2(2.6, 1.8) + vec2(t_slow, -t_slow * 0.45));
-	float wash2 = fbm3(uv * vec2(4.8, 3.2) + vec2(-t_slow * 0.7, t_slow * 0.35) + vec2(4.2, 1.9));
-	float paper_grain = value_noise(uv * vec2(46.0, 28.0));
-	float wash_delta = (wash1 * 0.65 + wash2 * 0.35 - 0.5) * watercolor_wash;
-	vec3 wash_tint = mix(sky_mid.rgb * 1.18 + vec3(0.02, 0.03, 0.05), ray_color.rgb, warmth * 0.45);
-	col = mix(col, wash_tint, clamp(wash_delta * 0.65 + 0.14 * watercolor_wash, 0.0, 0.45));
-	col += vec3((paper_grain - 0.5) * 0.018 * watercolor_wash);
+	// Subtle cool velvet lift in upper shadows + warm creamy scatter near the horizon
+	float upper_shadow = 1.0 - smoothstep(0.0, 0.45, uv.y);
+	vec3 velvet_tint = mix(vec3(0.04, 0.06, 0.16), vec3(0.12, 0.09, 0.18), warmth);
+	col = mix(col, max(col, velvet_tint), upper_shadow * 0.18);
 
-	// 3. Radial sun/moon glow + soft volumetric rays (NaN-safe)
+	float horizon_band = exp(-pow(max(abs(uv.y - 0.60) * 3.4, 0.0001), 2.0));
+	vec3 horizon_col = mix(sky_bottom.rgb * 1.12, ray_color.rgb, 0.48 + warmth * 0.28);
+	col += horizon_col * horizon_band * (0.08 + warmth * 0.16 + ray_strength * 0.08);
+
+	// 2. Soft painterly atmospheric air haze & drifting storybook clouds
+	float t_slow = TIME * 0.022;
+	float haze1 = fbm3(uv * vec2(2.4, 1.65) + vec2(t_slow, -t_slow * 0.35));
+	float haze2 = fbm3(uv * vec2(4.4, 2.9) + vec2(-t_slow * 0.65, t_slow * 0.28) + vec2(3.7, 2.1));
+	float air_density = clamp((haze1 * 0.62 + haze2 * 0.38 - 0.38) * 1.35, 0.0, 1.0);
+	vec3 air_tint = mix(sky_mid.rgb * 1.16 + vec3(0.03, 0.04, 0.06), ray_color.rgb * 0.96, 0.35 + warmth * 0.45);
+	col = mix(col, air_tint, air_density * 0.26 * clamp(watercolor_wash + 0.18, 0.0, 1.0));
+
+	// 3. Radial Pixar key-light bloom + delicate volumetric god rays (Metal-safe)
 	vec2 delta = uv_aspect - sun_aspect;
 	float dist = length(delta);
 	vec2 dir = (dist > 0.0001) ? (delta / dist) : vec2(1.0, 0.0);
 
-	float core_glow = pow(max(1.0 - clamp(dist * 1.15, 0.0, 1.0), 0.0001), 2.4);
-	float wide_glow = pow(max(1.0 - clamp(dist * 0.52, 0.0, 1.0), 0.0001), 1.65);
+	float core_glow = pow(max(1.0 - clamp(dist * 1.08, 0.0, 1.0), 0.0001), 2.5);
+	float wide_glow = pow(max(1.0 - clamp(dist * 0.46, 0.0, 1.0), 0.0001), 1.65);
 
 	float angle = atan(dir.y, dir.x);
-	float ray_wave_a = 0.5 + 0.5 * sin(angle * 7.0 + TIME * 0.14);
-	float ray_wave_b = 0.5 + 0.5 * sin(angle * 13.0 - TIME * 0.09 + 1.4);
-	float ray_pattern = pow(max(ray_wave_a * 0.62 + ray_wave_b * 0.38, 0.0001), 1.8);
-	float ray_falloff = 1.0 - smoothstep(0.04, 1.25, dist);
-	float rays = ray_pattern * ray_falloff * ray_strength;
+	float ray_a = 0.5 + 0.5 * sin(angle * 6.0 + TIME * 0.11);
+	float ray_b = 0.5 + 0.5 * sin(angle * 11.0 - TIME * 0.08 + 1.7);
+	float ray_c = 0.5 + 0.5 * sin(angle * 17.0 + TIME * 0.05 + 0.6);
+	float ray_pattern = pow(max(ray_a * 0.48 + ray_b * 0.34 + ray_c * 0.18, 0.0001), 1.9);
+	float ray_falloff = 1.0 - smoothstep(0.03, 1.38, dist);
+	// Soft downward bias so god rays feel like cinema light streaming into the scene
+	float downward_bias = 0.65 + 0.35 * smoothstep(-0.35, 0.55, uv.y - sun_pos.y);
+	float rays = ray_pattern * ray_falloff * downward_bias * ray_strength;
 
-	vec3 light_col = mix(ray_color.rgb, vec3(1.0, 0.91, 0.68), warmth * 0.4);
-	col += light_col * (core_glow * 0.36 + wide_glow * 0.22 + rays * 0.28) * clamp(ray_strength + 0.15, 0.0, 1.5);
+	vec3 key_light_col = mix(ray_color.rgb, vec3(1.0, 0.92, 0.72), warmth * 0.42);
+	float light_gain = clamp(ray_strength + 0.16, 0.0, 1.55);
+	col += key_light_col * (core_glow * 0.38 + wide_glow * 0.24 + rays * 0.30) * light_gain;
 
-	// 4. Tender amber hearth warmth suffusion
-	float hearth_dist = length((uv - vec2(0.5, 0.62)) * vec2(1.15, 1.0));
-	float hearth_mask = pow(max(1.0 - clamp(hearth_dist * 0.92, 0.0, 1.0), 0.0001), 1.85);
-	vec3 amber_glow = vec3(0.98, 0.72, 0.36);
-	col = mix(col, col + amber_glow * 0.24, warmth * hearth_mask);
+	// 4. Cozy honey-amber hearth suffusion & warm atmospheric mist near lower center
+	float hearth_dist = length((uv - vec2(0.5, 0.64)) * vec2(1.08, 1.05));
+	float hearth_mask = pow(max(1.0 - clamp(hearth_dist * 0.88, 0.0, 1.0), 0.0001), 1.75);
+	vec3 honey_glow = vec3(1.0, 0.76, 0.38);
+	col += honey_glow * (0.22 * warmth * hearth_mask);
 
-	// 5. Soft sunlit garden bokeh circles (Chapter 2 Spring 1)
-	if (bokeh_strength > 0.001) {
-		float b = 0.0;
-		b += soft_bokeh_disc(uv_aspect, vec2(0.24 * aspect + sin(TIME * 0.21) * 0.04, 0.26 + cos(TIME * 0.18) * 0.03), 0.11);
-		b += soft_bokeh_disc(uv_aspect, vec2(0.76 * aspect + cos(TIME * 0.17) * 0.05, 0.22 + sin(TIME * 0.22) * 0.03), 0.14);
-		b += soft_bokeh_disc(uv_aspect, vec2(0.54 * aspect + sin(TIME * 0.15 + 1.2) * 0.06, 0.40 + cos(TIME * 0.16) * 0.04), 0.09);
-		b += soft_bokeh_disc(uv_aspect, vec2(0.16 * aspect + cos(TIME * 0.19 + 2.0) * 0.04, 0.56 + sin(TIME * 0.14) * 0.03), 0.08);
-		b += soft_bokeh_disc(uv_aspect, vec2(0.84 * aspect + sin(TIME * 0.20 + 0.7) * 0.04, 0.52 + cos(TIME * 0.17) * 0.03), 0.10);
-		vec3 bokeh_col = mix(vec3(1.0, 0.95, 0.78), vec3(0.88, 0.98, 0.92), 0.32);
-		col += bokeh_col * b * bokeh_strength * 0.24;
+	// 5. Warm cinematic floating bokeh circles (Tangled / Up / Soul lens feel)
+	float eff_bokeh = clamp(max(bokeh_strength, warmth * 0.20), 0.0, 1.0);
+	if (eff_bokeh > 0.005) {
+		float b_warm = 0.0;
+		float b_soft = 0.0;
+		b_warm += soft_bokeh_disc(uv_aspect, vec2(0.20 * aspect + sin(TIME * 0.19) * 0.045, 0.24 + cos(TIME * 0.16) * 0.030), 0.115);
+		b_soft += soft_bokeh_disc(uv_aspect, vec2(0.78 * aspect + cos(TIME * 0.15) * 0.050, 0.22 + sin(TIME * 0.20) * 0.032), 0.145);
+		b_warm += soft_bokeh_disc(uv_aspect, vec2(0.54 * aspect + sin(TIME * 0.14 + 1.2) * 0.055, 0.38 + cos(TIME * 0.15) * 0.036), 0.088);
+		b_soft += soft_bokeh_disc(uv_aspect, vec2(0.14 * aspect + cos(TIME * 0.18 + 2.1) * 0.038, 0.58 + sin(TIME * 0.13) * 0.028), 0.082);
+		b_warm += soft_bokeh_disc(uv_aspect, vec2(0.86 * aspect + sin(TIME * 0.17 + 0.8) * 0.042, 0.54 + cos(TIME * 0.16) * 0.030), 0.105);
+		b_soft += soft_bokeh_disc(uv_aspect, vec2(0.36 * aspect + cos(TIME * 0.13 + 3.1) * 0.040, 0.18 + sin(TIME * 0.17) * 0.024), 0.068);
+		b_warm += soft_bokeh_disc(uv_aspect, vec2(0.66 * aspect + sin(TIME * 0.21 + 2.4) * 0.035, 0.62 + cos(TIME * 0.14) * 0.026), 0.072);
+		b_soft += soft_bokeh_disc(uv_aspect, vec2(0.45 * aspect + cos(TIME * 0.12 + 4.2) * 0.048, 0.68 + sin(TIME * 0.15) * 0.025), 0.125);
+
+		vec3 bokeh_gold = mix(vec3(1.0, 0.92, 0.68), ray_color.rgb, 0.35);
+		vec3 bokeh_peach = mix(vec3(1.0, 0.84, 0.72), vec3(0.88, 0.97, 0.93), clamp(bokeh_strength * 0.65, 0.0, 0.65));
+		col += (bokeh_gold * b_warm * 0.20 + bokeh_peach * b_soft * 0.16) * eff_bokeh;
 	}
 
-	// 6. Soft cinematic vignette
+	// 6. Velvet cinematic vignette (cool midnight indigo in cold scenes, warm plum-umber in cozy scenes)
 	vec2 centered = uv - vec2(0.5);
-	float vig_dist = length(centered * vec2(1.12, 1.04));
-	float vig_mask = smoothstep(0.24, 0.88, vig_dist);
-	vec3 vig_tint = mix(vec3(0.03, 0.05, 0.11), vec3(0.10, 0.06, 0.05), warmth * 0.45);
-	col = mix(col, mix(col * 0.32, vig_tint, 0.45), vig_mask * vignette_strength);
+	float vig_dist = length(centered * vec2(1.10, 1.04));
+	float vig_mask = smoothstep(0.26, 0.90, vig_dist);
+	vec3 vig_tint = mix(vec3(0.028, 0.045, 0.115), vec3(0.115, 0.065, 0.062), warmth * 0.62);
+	col = mix(col, mix(col * 0.34, vig_tint, 0.48), vig_mask * vignette_strength);
 
-	// 7. Subtle animated film/watercolor grain to eliminate banding
+	// 7. Ultra-fine cinema film grain to keep Apple Silicon Retina gradients silky smooth
 	float t_seed = fract(TIME * 11.73) * 100.0;
 	float grain = hash12(FRAGCOORD.xy + vec2(t_seed * 13.7, t_seed * 7.9)) - 0.5;
 	col += vec3(grain * grain_strength);

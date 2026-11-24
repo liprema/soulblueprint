@@ -10,23 +10,23 @@ const DEFAULT_TRANSITION_DURATION: float = 3.2
 const SUN_SHADOW_BIAS: float = 0.06
 const SUN_SHADOW_NORMAL_BIAS: float = 2.4
 
-# Golden Sunset ("Золотой закат") palette for akasha_sky.gdshader
+# Pixar / Disney Golden Sunset ("Золотой закат" — Tangled / Coco color script) for akasha_sky.gdshader
 const SUNSET_SKY_COLORS: Dictionary = {
-	"zenith_color": Color("#243E8C"),          # Deep lavender-indigo zenith
-	"upper_indigo_color": Color("#5C56A8"),    # Twilight violet-indigo upper vault
-	"mid_sky_color": Color("#E89A78"),         # Warm apricot-honey mid sky
-	"horizon_warm_color": Color("#FF9B6A"),    # Rich golden-coral sunset horizon
-	"horizon_amber_color": Color("#FFD07A"),   # Luminous honey-gold sunset glow
-	"horizon_cool_color": Color("#B886B8"),    # Soft dusk rose-lavender opposite sun
-	"nadir_color": Color("#967698"),           # Warm twilight rose-plum nadir
-	"sun_color": Color("#FFCE7A"),             # Warm golden sunset disk & corona
-	"cumulus_shadow_color": Color("#8F6A9A"),  # Mauve-violet cumulus shadow base
-	"cumulus_body_color": Color("#F8C9A6"),    # Warm apricot-gold cumulus body
-	"cumulus_bounce_color": Color("#FFA66E"),  # Glowing coral-gold bounce light
-	"cumulus_rim_color": Color("#FFE6A8"),     # Honey-gold sunlit cumulus rim
-	"cloud_shadow_color": Color("#A67EA8"),    # Dusk violet high cloud underside
-	"cloud_body_color": Color("#FCD8B8"),      # Warm peach-cream overhead clouds
-	"cloud_lit_color": Color("#FFC27C"),       # Golden-apricot sunlit high clouds
+	"zenith_color": Color("#1E3580"),          # Deep sapphire-violet zenith
+	"upper_indigo_color": Color("#6B5BA8"),    # Soft lavender upper vault
+	"mid_sky_color": Color("#F29A6E"),         # Apricot-honey mid sky
+	"horizon_warm_color": Color("#FF8F8F"),    # Radiant golden-rose sunset horizon
+	"horizon_amber_color": Color("#FFBE73"),   # Luminous honey-gold horizon glow
+	"horizon_cool_color": Color("#C28EC6"),    # Soft dusk rose-lavender opposite sun
+	"nadir_color": Color("#9B78A6"),           # Fairytale twilight rose-violet nadir
+	"sun_color": Color("#FFDC9E"),             # Honey-warm golden sunset disk & corona
+	"cumulus_shadow_color": Color("#9A74A8"),  # Clean rosy-lilac cumulus shadow base
+	"cumulus_body_color": Color("#FCD1AF"),    # Plush warm peach-cream cumulus body
+	"cumulus_bounce_color": Color("#FF9E7A"),  # Classic Pixar coral-rose bounce light
+	"cumulus_rim_color": Color("#FFECC2"),     # Golden-cream sunlit cumulus rim
+	"cloud_shadow_color": Color("#AF86B8"),    # Soft lilac-rose high cloud underside
+	"cloud_body_color": Color("#FEE0C6"),      # Warm creamy-peach overhead clouds
+	"cloud_lit_color": Color("#FFC884"),       # Golden-apricot sunlit high clouds
 }
 
 # Fallback Dawn palette matching akasha_sky.gdshader defaults (used if a uniform wasn't explicitly overridden in .tres)
@@ -48,18 +48,33 @@ const DAWN_SKY_COLOR_DEFAULTS: Dictionary = {
 	"cloud_lit_color": Color("#FFE8E7"),
 }
 
+# Subtle sky glow scalar lifts for Golden Sunset (matched to akasha_sky.gdshader defaults)
+const DAWN_SKY_FLOAT_DEFAULTS: Dictionary = {
+	"horizon_glow_strength": 0.52,
+	"mie_inner_strength": 0.52,
+	"mie_outer_strength": 0.38,
+}
+
+const SUNSET_SKY_FLOATS: Dictionary = {
+	"horizon_glow_strength": 0.72,
+	"mie_inner_strength": 0.64,
+	"mie_outer_strength": 0.48,
+}
+
 const DAWN_SUN_DIR_DEFAULT: Vector3 = Vector3(0.0, 0.16, -1.0)
-const SUNSET_SUN_DIR: Vector3 = Vector3(0.14, 0.085, -0.986)
+const SUNSET_SUN_DIR: Vector3 = Vector3(0.13, 0.078, -0.988)
 
-const SUNSET_SUN_COLOR: Color = Color("#FFE0A8")
-const SUNSET_SUN_ENERGY: float = 1.68
-const SUNSET_SUN_ROT_DEG: Vector3 = Vector3(-13.5, -18.0, 0.0)
+const SUNSET_SUN_COLOR: Color = Color("#FFDC9E")
+const SUNSET_SUN_ENERGY: float = 1.62
+const SUNSET_SUN_ROT_DEG: Vector3 = Vector3(-12.5, -16.0, 0.0)
 
-const SUNSET_AMBIENT_COLOR: Color = Color("#E6B8A8")
-const SUNSET_AMBIENT_ENERGY: float = 0.74
-const SUNSET_FOG_ALBEDO: Color = Color("#F8C8B2")
-const SUNSET_FOG_EMISSION: Color = Color("#FFB88C")
-const SUNSET_FOG_EMISSION_ENERGY: float = 0.036
+const SUNSET_AMBIENT_COLOR: Color = Color("#E8B8B2")
+const SUNSET_AMBIENT_ENERGY: float = 0.75
+const SUNSET_FOG_ALBEDO: Color = Color("#FBD0BC")
+const SUNSET_FOG_EMISSION: Color = Color("#FFB68C")
+const SUNSET_FOG_EMISSION_ENERGY: float = 0.044
+const SUNSET_FOG_DENSITY: float = 0.00088
+const SUNSET_FOG_SKY_AFFECT: float = 0.14
 
 var _world_env: WorldEnvironment = null
 var _env: Environment = null
@@ -73,6 +88,7 @@ var _transition_tween: Tween = null
 
 # Captured Dawn baseline values
 var _dawn_sky_colors: Dictionary = {}
+var _dawn_sky_floats: Dictionary = {}
 var _dawn_sun_dir: Vector3 = DAWN_SUN_DIR_DEFAULT
 var _dawn_sun_color: Color = Color(1.0, 0.94, 0.84, 1.0)
 var _dawn_sun_energy: float = 1.85
@@ -82,6 +98,8 @@ var _dawn_ambient_energy: float = 0.72
 var _dawn_fog_albedo: Color = Color(0.96, 0.90, 0.95, 1.0)
 var _dawn_fog_emission: Color = Color(0.98, 0.88, 0.90, 1.0)
 var _dawn_fog_emission_energy: float = 0.02
+var _dawn_fog_density: float = 0.0006
+var _dawn_fog_sky_affect: float = 0.10
 
 # Captured CloudSea materials and their Dawn/Sunset color pairs
 var _cloud_mat_entries: Array[Dictionary] = []
@@ -104,6 +122,8 @@ func setup(
 		_dawn_fog_albedo = _env.volumetric_fog_albedo
 		_dawn_fog_emission = _env.volumetric_fog_emission
 		_dawn_fog_emission_energy = _env.volumetric_fog_emission_energy
+		_dawn_fog_density = _env.volumetric_fog_density
+		_dawn_fog_sky_affect = _env.volumetric_fog_sky_affect
 
 		if _env.sky != null and _env.sky.sky_material is ShaderMaterial:
 			_sky_mat = _env.sky.sky_material as ShaderMaterial
@@ -145,6 +165,7 @@ func get_sunset_blend() -> float:
 
 func _capture_dawn_sky_params() -> void:
 	_dawn_sky_colors.clear()
+	_dawn_sky_floats.clear()
 	if _sky_mat == null:
 		return
 
@@ -155,6 +176,14 @@ func _capture_dawn_sky_params() -> void:
 			_dawn_sky_colors[key] = raw_val as Color
 		else:
 			_dawn_sky_colors[key] = default_col
+
+	for f_key: String in DAWN_SKY_FLOAT_DEFAULTS.keys():
+		var default_f: float = float(DAWN_SKY_FLOAT_DEFAULTS[f_key])
+		var raw_f: Variant = _sky_mat.get_shader_parameter(f_key)
+		if raw_f is float or raw_f is int:
+			_dawn_sky_floats[f_key] = float(raw_f)
+		else:
+			_dawn_sky_floats[f_key] = default_f
 
 	var raw_dir: Variant = _sky_mat.get_shader_parameter("sun_direction")
 	if raw_dir is Vector3 and (raw_dir as Vector3).length_squared() > 0.001:
@@ -171,13 +200,14 @@ func _capture_cloud_sea_materials() -> void:
 	var seen_mats: Array[ShaderMaterial] = []
 	_collect_cloud_materials_recursive(_cloud_sea, seen_mats)
 
+	# Pixar / Disney plush sunset clouds: warm golden-cream lit rim + clean rosy-lilac bounce shadows
 	var cloud_param_tints: Dictionary = {
-		"underside_color": Color("#946C96"),
-		"shadow_color": Color("#B87E9C"),
-		"mid_color": Color("#F6BE9E"),
-		"sunlit_color": Color("#FFE4AC"),
-		"silver_lining_color": Color("#FFD68A"),
-		"horizon_bounce_color": Color("#FFA068"),
+		"underside_color": Color("#A27BA8"),
+		"shadow_color": Color("#C694B8"),
+		"mid_color": Color("#FBD0B6"),
+		"sunlit_color": Color("#FFF0CC"),
+		"silver_lining_color": Color("#FFE6A8"),
+		"horizon_bounce_color": Color("#FFA484"),
 	}
 
 	for smat: ShaderMaterial in seen_mats:
@@ -189,8 +219,8 @@ func _capture_cloud_sea_materials() -> void:
 				var d_col: Color = raw_col as Color
 				var tint_col: Color = cloud_param_tints[param_name] as Color
 				dawn_map[param_name] = d_col
-				# Blend original cloud material gently toward warm golden-apricot sunset tones
-				sunset_map[param_name] = d_col.lerp(tint_col, 0.72)
+				# Blend original cloud tier gently toward Pixar golden-cream & rosy-lilac sunset palette
+				sunset_map[param_name] = d_col.lerp(tint_col, 0.76)
 		if not dawn_map.is_empty():
 			_cloud_mat_entries.append({
 				"material": smat,
@@ -238,10 +268,15 @@ func _apply_blend(t: float) -> void:
 			var sunset_c: Color = SUNSET_SKY_COLORS[key] as Color
 			_sky_mat.set_shader_parameter(key, dawn_c.lerp(sunset_c, _sunset_blend))
 
+		for f_key: String in SUNSET_SKY_FLOATS.keys():
+			var dawn_f: float = float(_dawn_sky_floats.get(f_key, DAWN_SKY_FLOAT_DEFAULTS[f_key]))
+			var sunset_f: float = float(SUNSET_SKY_FLOATS[f_key])
+			_sky_mat.set_shader_parameter(f_key, lerpf(dawn_f, sunset_f, _sunset_blend))
+
 		var blended_sun_dir: Vector3 = _dawn_sun_dir.lerp(SUNSET_SUN_DIR.normalized(), _sunset_blend).normalized()
 		_sky_mat.set_shader_parameter("sun_direction", blended_sun_dir)
 
-	# 2. SunLight honey-gold tint & soft lower sunset angle + preserved shadow biases
+	# 2. SunLight honey-gold tint & soft fairytale sunset angle + preserved shadow biases
 	if _sun_light != null:
 		_sun_light.light_color = _dawn_sun_color.lerp(SUNSET_SUN_COLOR, _sunset_blend)
 		_sun_light.light_energy = lerpf(_dawn_sun_energy, SUNSET_SUN_ENERGY, _sunset_blend)
@@ -257,13 +292,15 @@ func _apply_blend(t: float) -> void:
 		)
 		_enforce_sun_shadow_biases()
 
-	# 3. Environment ambient & warm golden-rose volumetric fog
+	# 3. Environment ambient & warm golden-rose volumetric fog near horizon (no marble blowout)
 	if _env != null:
 		_env.ambient_light_color = _dawn_ambient_color.lerp(SUNSET_AMBIENT_COLOR, _sunset_blend)
 		_env.ambient_light_energy = lerpf(_dawn_ambient_energy, SUNSET_AMBIENT_ENERGY, _sunset_blend)
 		_env.volumetric_fog_albedo = _dawn_fog_albedo.lerp(SUNSET_FOG_ALBEDO, _sunset_blend)
 		_env.volumetric_fog_emission = _dawn_fog_emission.lerp(SUNSET_FOG_EMISSION, _sunset_blend)
 		_env.volumetric_fog_emission_energy = lerpf(_dawn_fog_emission_energy, SUNSET_FOG_EMISSION_ENERGY, _sunset_blend)
+		_env.volumetric_fog_density = lerpf(_dawn_fog_density, SUNSET_FOG_DENSITY, _sunset_blend)
+		_env.volumetric_fog_sky_affect = lerpf(_dawn_fog_sky_affect, SUNSET_FOG_SKY_AFFECT, _sunset_blend)
 
 	# 4. Soft sunset tint on CloudSea materials (all source_color -> Color)
 	for entry: Dictionary in _cloud_mat_entries:

@@ -1,7 +1,7 @@
 extends Control
 
 ## Interactive playable vignette for Lesson 1 Part 1: "Было всё, кроме времени".
-## Aesthetic: GRIS + Spiritfarer + Makoto Shinkai (1280x720 canvas_items, 60 FPS).
+## Aesthetic: Pixar & Disney (Soul, Up, Coco, Tangled, Inside Out) — 1280x720 canvas_items, 60 FPS.
 ## Includes automatic Google Flow .ogv video slots before each of the 4 chapters.
 
 const VIDEO_SLOTS: Array[String] = [
@@ -184,6 +184,7 @@ func _process(delta: float) -> void:
 	_update_shader_params(dt)
 	_update_spark_movement(dt, vp_size)
 	_update_ripples(dt)
+	_update_ambient_motes(dt, vp_size)
 
 	match _stage:
 		STAGE_CH1_WINTER:
@@ -957,16 +958,7 @@ func _start_chapter_3_eighth_winter() -> void:
 	_fade_in_from_veil(1.35)
 
 
-func _update_ch3_eighth_winter(dt: float, vp: Vector2) -> void:
-	# Drift quiet moonbeam dust motes
-	for m: Dictionary in _motes:
-		var mp: Vector2 = m["pos"] as Vector2
-		mp.y -= float(m["speed"]) * dt
-		mp.x += sin(_global_time * 0.5 + float(m["phase"])) * 6.0 * dt
-		if mp.y < -10.0:
-			mp = Vector2(randf() * vp.x, vp.y + 10.0)
-		m["pos"] = mp
-
+func _update_ch3_eighth_winter(dt: float, _vp: Vector2) -> void:
 	# Slowing heartbeat as child gives away warmth
 	_ch3_heartbeat_pulse = maxf(0.0, _ch3_heartbeat_pulse - dt * 2.4)
 	if not _ch3_final_sequence:
@@ -1137,18 +1129,21 @@ func _update_ch4_two_hands(dt: float, vp: Vector2) -> void:
 
 	_ch4_unite_anim = minf(1.0, _ch4_unite_anim + dt * 0.52)
 
-	# Spawn ascending golden petal vortex from center of joined hands
+	# Spawn ascending Tangled-style golden lanterns & petal vortex from joined hands
 	_ch4_vortex_timer -= dt
-	if _ch4_vortex_timer <= 0.0 and _ch4_vortex_petals.size() < 95:
-		_ch4_vortex_timer = 0.032
+	if _ch4_vortex_timer <= 0.0 and _ch4_vortex_petals.size() < 110:
+		_ch4_vortex_timer = 0.028
+		var is_lantern: bool = randf() < 0.30
 		_ch4_vortex_petals.append({
 			"angle": randf() * TAU,
-			"radius": 6.0 + randf() * 24.0,
+			"radius": (10.0 + randf() * 34.0) if is_lantern else (6.0 + randf() * 24.0),
 			"y_off": 0.0,
-			"rise_spd": 95.0 + randf() * 110.0,
-			"spin_spd": (1.6 + randf() * 1.8) * (1.0 if randf() < 0.5 else -1.0),
-			"size": 4.0 + randf() * 6.5,
-			"alpha": 0.95,
+			"rise_spd": (62.0 + randf() * 58.0) if is_lantern else (98.0 + randf() * 110.0),
+			"spin_spd": ((0.55 + randf() * 0.65) if is_lantern else (1.5 + randf() * 1.8)) * (1.0 if randf() < 0.5 else -1.0),
+			"size": (8.5 + randf() * 6.5) if is_lantern else (4.2 + randf() * 6.0),
+			"alpha": 0.96,
+			"is_lantern": is_lantern,
+			"bob_phase": randf() * TAU,
 		})
 
 	var i: int = _ch4_vortex_petals.size() - 1
@@ -1195,7 +1190,7 @@ func _complete_earth_life_and_return_to_akasha() -> void:
 
 
 # =============================================================================
-# CUSTOM PAINTERLY _draw() — GRIS + SPIRITFARER + MAKOTO SHINKAI
+# CUSTOM PIXAR / DISNEY CINEMATIC _draw() — SOUL · UP · COCO · TANGLED
 # =============================================================================
 
 func _on_stage_draw() -> void:
@@ -1214,224 +1209,707 @@ func _on_stage_draw() -> void:
 		STAGE_CH4_TWO_HANDS, STAGE_FINISHED:
 			_draw_ch4_two_hands(vp)
 
+	_draw_ambient_golden_dust(vp)
 	_draw_ripples()
 
 	# Draw the warm guiding child spark in interactive cursor chapters
 	if _stage == STAGE_CH1_WINTER or _stage == STAGE_CH2_BUBBLES or _stage == STAGE_CH2_WALLPAPER:
 		_draw_child_spark()
 
+	_draw_cinema_letterbox(vp)
+
+
+func _update_ambient_motes(dt: float, vp: Vector2) -> void:
+	for m: Dictionary in _motes:
+		var mp: Vector2 = m["pos"] as Vector2
+		var spd: float = float(m["speed"])
+		var ph: float = float(m["phase"])
+		mp.y -= spd * dt
+		mp.x += sin(_global_time * 0.55 + ph) * 9.5 * dt
+		if mp.y < -12.0:
+			mp = Vector2(randf() * vp.x, vp.y + 12.0)
+		elif mp.x < -12.0:
+			mp.x = vp.x + 12.0
+		elif mp.x > vp.x + 12.0:
+			mp.x = -12.0
+		m["pos"] = mp
+
+
+func _draw_ambient_golden_dust(vp: Vector2) -> void:
+	var dust_col: Color = Color(1.0, 0.90, 0.62, 0.34)
+	match _stage:
+		STAGE_CH1_WINTER:
+			dust_col = Color(0.76, 0.88, 1.0, 0.22).lerp(Color(1.0, 0.86, 0.48, 0.44), _ch1_warmth_anim)
+		STAGE_CH2_BUBBLES:
+			dust_col = Color(1.0, 0.96, 0.76, 0.42)
+		STAGE_CH2_WALLPAPER:
+			dust_col = Color(1.0, 0.89, 0.56, 0.44)
+		STAGE_CH2_SEA:
+			dust_col = Color(1.0, 0.84, 0.56, 0.38)
+		STAGE_CH3_EIGHTH_WINTER:
+			dust_col = Color(0.84, 0.91, 1.0, 0.30).lerp(Color(1.0, 0.88, 0.58, 0.38), _ch3_transfer * 0.65)
+		STAGE_CH4_TWO_HANDS, STAGE_FINISHED:
+			dust_col = Color(0.80, 0.84, 1.0, 0.20).lerp(Color(1.0, 0.90, 0.56, 0.48), _ch4_unite_anim)
+
+	for m: Dictionary in _motes:
+		var mp: Vector2 = m["pos"] as Vector2
+		if mp.y < 24.0 or mp.y > vp.y - 24.0:
+			continue
+		var ph: float = float(m["phase"])
+		var sz: float = float(m["size"])
+		var twinkle: float = 0.45 + 0.55 * sin(_global_time * 1.9 + ph)
+		var a: float = dust_col.a * twinkle
+		stage_canvas.draw_circle(mp, sz * 2.1, Color(dust_col.r, dust_col.g, dust_col.b, a * 0.24))
+		stage_canvas.draw_circle(mp, sz * 0.95, Color(1.0, 0.98, 0.90, a))
+
+
+func _draw_cinema_letterbox(vp: Vector2) -> void:
+	# Subtle Pixar/Disney widescreen cinema bars (drawn below UILayer, never blocks UI)
+	var bar_h: float = 24.0
+	var bar_col: Color = Color(0.016, 0.022, 0.055, 0.84)
+	var fade_col: Color = Color(0.016, 0.022, 0.055, 0.28)
+	var trim_col: Color = Color(0.98, 0.85, 0.52, 0.16)
+
+	stage_canvas.draw_rect(Rect2(0.0, 0.0, vp.x, bar_h), bar_col, true)
+	stage_canvas.draw_rect(Rect2(0.0, bar_h, vp.x, 7.0), fade_col, true)
+	stage_canvas.draw_line(Vector2(0.0, bar_h), Vector2(vp.x, bar_h), trim_col, 1.0, true)
+
+	stage_canvas.draw_rect(Rect2(0.0, vp.y - bar_h, vp.x, bar_h), bar_col, true)
+	stage_canvas.draw_rect(Rect2(0.0, vp.y - bar_h - 7.0, vp.x, 7.0), fade_col, true)
+	stage_canvas.draw_line(Vector2(0.0, vp.y - bar_h), Vector2(vp.x, vp.y - bar_h), trim_col, 1.0, true)
+
+
+func _draw_ellipse_poly(center: Vector2, rx: float, ry: float, col: Color, segs: int = 24, rot: float = 0.0) -> void:
+	var pts: PackedVector2Array = PackedVector2Array()
+	var c_rot: float = cos(rot)
+	var s_rot: float = sin(rot)
+	for i: int in range(segs):
+		var a: float = float(i) / float(segs) * TAU
+		var lx: float = cos(a) * rx
+		var ly: float = sin(a) * ry
+		var wx: float = center.x + lx * c_rot - ly * s_rot
+		var wy: float = center.y + lx * s_rot + ly * c_rot
+		pts.append(Vector2(wx, wy))
+	stage_canvas.draw_colored_polygon(pts, col)
+
+
+# =============================================================================
+# CHAPTER 1 — «ЗИМА В ДОМЕ» (PIXAR "UP" COZY INTERIOR)
+# =============================================================================
 
 func _draw_ch1_winter(vp: Vector2) -> void:
 	var w: float = _ch1_warmth_anim
 	var cx: float = vp.x * 0.5
 
-	# 1. Tall arched winter window in background
-	var win_w: float = vp.x * 0.28
-	var win_h: float = vp.y * 0.56
-	var win_x: float = cx - win_w * 0.5
-	var win_y: float = vp.y * 0.14
-	var win_bg: Color = Color(0.11, 0.17, 0.29, 0.72).lerp(Color(0.26, 0.22, 0.28, 0.62), w)
-	stage_canvas.draw_rect(Rect2(win_x, win_y + 52.0, win_w, win_h - 52.0), win_bg, true)
-	stage_canvas.draw_circle(Vector2(cx, win_y + 56.0), win_w * 0.5, win_bg)
+	# 1. Warm interior wallpaper wash & wainscoting
+	var wall_tint: Color = Color(0.06, 0.09, 0.16, 0.42).lerp(Color(0.28, 0.17, 0.12, 0.36), w)
+	stage_canvas.draw_rect(Rect2(0.0, 0.0, vp.x, vp.y * 0.84), wall_tint, true)
+	var stripe_col: Color = Color(0.20, 0.28, 0.42, 0.06).lerp(Color(0.96, 0.74, 0.44, 0.08), w)
+	var sx: float = 0.0
+	while sx < vp.x:
+		stage_canvas.draw_rect(Rect2(sx, 0.0, 22.0, vp.y * 0.84), stripe_col, true)
+		sx += 68.0
 
-	# Falling snowflakes inside window silhouette
+	# Wooden wainscoting & warm floor plane
+	var wood_wall: Color = Color(0.07, 0.09, 0.15, 0.90).lerp(Color(0.22, 0.13, 0.09, 0.92), w)
+	stage_canvas.draw_rect(Rect2(0.0, vp.y * 0.74, vp.x, vp.y * 0.12), wood_wall, true)
+	stage_canvas.draw_line(
+		Vector2(0.0, vp.y * 0.74),
+		Vector2(vp.x, vp.y * 0.74),
+		Color(0.24, 0.31, 0.44, 0.45).lerp(Color(0.84, 0.62, 0.38, 0.55), w),
+		2.0,
+		true
+	)
+
+	# 2. Cozy wooden bookshelf in dim left corner (Up-inspired home detail)
+	_draw_ch1_bookshelf(vp, w)
+
+	# 3. Sideboard & framed family silhouette in right corner
+	_draw_ch1_sideboard(vp, w)
+
+	# 4. Grand arched winter window with frosted curls & snowy pine silhouettes outside
+	var win_w: float = vp.x * 0.29
+	var win_h: float = vp.y * 0.54
+	var win_x: float = cx - win_w * 0.5
+	var win_y: float = vp.y * 0.13
+	var arch_r: float = win_w * 0.5
+	var arch_cy: float = win_y + arch_r * 0.42
+
+	var win_glass_top: Color = Color(0.09, 0.16, 0.30, 0.88).lerp(Color(0.18, 0.20, 0.32, 0.82), w)
+	var win_glass_bot: Color = Color(0.18, 0.28, 0.44, 0.78).lerp(Color(0.32, 0.26, 0.32, 0.72), w)
+	stage_canvas.draw_rect(Rect2(win_x, arch_cy, win_w, win_y + win_h - arch_cy), win_glass_top, true)
+	stage_canvas.draw_rect(Rect2(win_x, win_y + win_h * 0.56, win_w, win_h * 0.44), win_glass_bot, true)
+	stage_canvas.draw_circle(Vector2(cx, arch_cy), arch_r, win_glass_top)
+
+	# Distant snowy hill & pine trees outside the window
+	var pine_col: Color = Color(0.07, 0.12, 0.22, 0.85).lerp(Color(0.14, 0.15, 0.24, 0.75), w)
+	var sill_y: float = win_y + win_h
+	for p_i: int in range(5):
+		var px: float = win_x + win_w * (0.14 + float(p_i) * 0.18)
+		var ph: float = 34.0 + float((p_i * 19) % 24)
+		var pine: PackedVector2Array = PackedVector2Array([
+			Vector2(px, sill_y - ph),
+			Vector2(px - 18.0, sill_y),
+			Vector2(px + 18.0, sill_y),
+		])
+		stage_canvas.draw_colored_polygon(pine, pine_col)
+
+	# Softly drifting snowflakes inside window glass
 	for flake: Dictionary in _snowflakes:
 		var fp: Vector2 = flake["pos"] as Vector2
-		if fp.x > win_x + 8.0 and fp.x < win_x + win_w - 8.0 and fp.y > win_y + 12.0 and fp.y < win_y + win_h - 6.0:
-			var snow_a: float = lerpf(0.65, 0.22, w)
-			stage_canvas.draw_circle(fp, float(flake["size"]), Color(0.86, 0.92, 1.0, snow_a))
+		if fp.x > win_x + 10.0 and fp.x < win_x + win_w - 10.0 and fp.y > win_y + 14.0 and fp.y < sill_y - 6.0:
+			var snow_a: float = lerpf(0.72, 0.28, w)
+			stage_canvas.draw_circle(fp, float(flake["size"]), Color(0.90, 0.95, 1.0, snow_a))
 
-	# Delicate GRIS window mullions & arch frame
-	var frame_col: Color = Color(0.28, 0.36, 0.50, 0.75).lerp(Color(0.76, 0.58, 0.38, 0.72), w)
-	stage_canvas.draw_line(Vector2(cx, win_y), Vector2(cx, win_y + win_h), frame_col, 2.0, true)
-	stage_canvas.draw_line(Vector2(win_x, win_y + win_h * 0.44), Vector2(win_x + win_w, win_y + win_h * 0.44), frame_col, 2.0, true)
-	stage_canvas.draw_line(Vector2(win_x, win_y + win_h), Vector2(win_x + win_w, win_y + win_h), frame_col, 3.0, true)
-	stage_canvas.draw_arc(Vector2(cx, win_y + 56.0), win_w * 0.5, PI, TAU, 36, frame_col, 2.2, true)
-	stage_canvas.draw_line(Vector2(win_x, win_y + 56.0), Vector2(win_x, win_y + win_h), frame_col, 2.2, true)
-	stage_canvas.draw_line(Vector2(win_x + win_w, win_y + 56.0), Vector2(win_x + win_w, win_y + win_h), frame_col, 2.2, true)
+	# Delicate frost curls on the window corners (gently melt away as warmth grows)
+	var frost_a: float = clampf(1.0 - w * 1.15, 0.0, 1.0)
+	if frost_a > 0.02:
+		var frost_c: Color = Color(0.78, 0.90, 1.0, 0.42 * frost_a)
+		stage_canvas.draw_arc(Vector2(win_x + 16.0, sill_y - 16.0), 28.0, -PI * 0.5, 0.0, 14, frost_c, 2.0, true)
+		stage_canvas.draw_arc(Vector2(win_x + 28.0, sill_y - 26.0), 16.0, -PI * 0.65, 0.2, 12, frost_c, 1.5, true)
+		stage_canvas.draw_arc(Vector2(win_x + win_w - 16.0, sill_y - 16.0), 28.0, PI, PI * 1.5, 14, frost_c, 2.0, true)
+		stage_canvas.draw_arc(Vector2(win_x + win_w - 28.0, sill_y - 26.0), 16.0, PI - 0.2, PI * 1.65, 12, frost_c, 1.5, true)
+		stage_canvas.draw_arc(Vector2(cx, arch_cy), arch_r - 10.0, PI + 0.15, TAU - 0.15, 28, Color(0.80, 0.92, 1.0, 0.25 * frost_a), 2.5, true)
 
-	# Warm hearth glow over the center of the table as warmth grows
+	# Carved wooden window mullions & warm sill
+	var frame_col: Color = Color(0.22, 0.30, 0.44, 0.92).lerp(Color(0.58, 0.38, 0.24, 0.95), w)
+	var frame_hi: Color = Color(0.46, 0.60, 0.80, 0.48).lerp(Color(1.0, 0.82, 0.52, 0.65), w)
+	stage_canvas.draw_line(Vector2(cx, win_y - 2.0), Vector2(cx, sill_y), frame_col, 4.0, true)
+	stage_canvas.draw_line(Vector2(win_x, win_y + win_h * 0.46), Vector2(win_x + win_w, win_y + win_h * 0.46), frame_col, 4.0, true)
+	stage_canvas.draw_arc(Vector2(cx, arch_cy), arch_r, PI, TAU, 36, frame_col, 6.0, true)
+	stage_canvas.draw_line(Vector2(win_x, arch_cy), Vector2(win_x, sill_y), frame_col, 6.0, true)
+	stage_canvas.draw_line(Vector2(win_x + win_w, arch_cy), Vector2(win_x + win_w, sill_y), frame_col, 6.0, true)
+	stage_canvas.draw_rect(Rect2(win_x - 14.0, sill_y - 2.0, win_w + 28.0, 10.0), frame_col, true)
+	stage_canvas.draw_line(Vector2(win_x - 14.0, sill_y - 2.0), Vector2(win_x + win_w + 14.0, sill_y - 2.0), frame_hi, 1.8, true)
+
+	# 5. Soft draped curtains flanking the arched window
+	var curt_col: Color = Color(0.11, 0.16, 0.26, 0.92).lerp(Color(0.44, 0.24, 0.20, 0.94), w)
+	var curt_fold: Color = Color(0.18, 0.25, 0.38, 0.65).lerp(Color(0.68, 0.42, 0.30, 0.68), w)
+	var sway_c: float = sin(_global_time * 0.8) * 3.0
+	var left_curtain: PackedVector2Array = PackedVector2Array([
+		Vector2(win_x - 36.0, win_y + 18.0),
+		Vector2(win_x + 26.0, win_y + 18.0),
+		Vector2(win_x + 4.0 + sway_c, win_y + win_h * 0.56),
+		Vector2(win_x + 20.0 + sway_c * 0.6, sill_y + 42.0),
+		Vector2(win_x - 42.0, sill_y + 42.0),
+	])
+	stage_canvas.draw_colored_polygon(left_curtain, curt_col)
+	stage_canvas.draw_line(Vector2(win_x + 8.0, win_y + 22.0), Vector2(win_x - 4.0 + sway_c, win_y + win_h * 0.56), curt_fold, 3.0, true)
+
+	var right_curtain: PackedVector2Array = PackedVector2Array([
+		Vector2(win_x + win_w - 26.0, win_y + 18.0),
+		Vector2(win_x + win_w + 36.0, win_y + 18.0),
+		Vector2(win_x + win_w + 42.0, sill_y + 42.0),
+		Vector2(win_x + win_w - 20.0 - sway_c * 0.6, sill_y + 42.0),
+		Vector2(win_x + win_w - 4.0 - sway_c, win_y + win_h * 0.56),
+	])
+	stage_canvas.draw_colored_polygon(right_curtain, curt_col)
+	stage_canvas.draw_line(Vector2(win_x + win_w - 8.0, win_y + 22.0), Vector2(win_x + win_w + 4.0 - sway_c, win_y + win_h * 0.56), curt_fold, 3.0, true)
+
+	# Curtain rod
+	stage_canvas.draw_line(Vector2(win_x - 48.0, win_y + 16.0), Vector2(win_x + win_w + 48.0, win_y + 16.0), frame_col, 4.0, true)
+	stage_canvas.draw_circle(Vector2(win_x - 48.0, win_y + 16.0), 5.0, frame_hi)
+	stage_canvas.draw_circle(Vector2(win_x + win_w + 48.0, win_y + 16.0), 5.0, frame_hi)
+
+	# 6. Overhead hanging lampshade that blooms into a honey cone of light as warmth grows
+	var lamp_y: float = vp.y * 0.29
+	var lamp_sway: float = sin(_global_time * 0.9) * 2.5
+	var lamp_c: Vector2 = Vector2(cx + lamp_sway, lamp_y)
+	stage_canvas.draw_line(Vector2(cx, 24.0), lamp_c + Vector2(0.0, -18.0), Color(0.14, 0.16, 0.24, 0.85), 2.5, true)
+
+	# Honey volumetric light cone descending onto the table & parents
 	if w > 0.01:
-		var hearth_center: Vector2 = Vector2(cx, vp.y * 0.62)
-		_draw_soft_glow(hearth_center, 260.0 * w, Color(1.0, 0.78, 0.40, 0.28 * w))
+		var cone_outer: PackedVector2Array = PackedVector2Array([
+			lamp_c + Vector2(-34.0, 12.0),
+			lamp_c + Vector2(34.0, 12.0),
+			Vector2(cx + vp.x * 0.30, vp.y * 0.86),
+			Vector2(cx - vp.x * 0.30, vp.y * 0.86),
+		])
+		stage_canvas.draw_colored_polygon(cone_outer, Color(1.0, 0.80, 0.40, 0.11 * w))
+		var cone_inner: PackedVector2Array = PackedVector2Array([
+			lamp_c + Vector2(-22.0, 12.0),
+			lamp_c + Vector2(22.0, 12.0),
+			Vector2(cx + vp.x * 0.18, vp.y * 0.78),
+			Vector2(cx - vp.x * 0.18, vp.y * 0.78),
+		])
+		stage_canvas.draw_colored_polygon(cone_inner, Color(1.0, 0.88, 0.54, 0.14 * w))
+		_draw_soft_glow(lamp_c + Vector2(0.0, 14.0), 140.0 * w, Color(1.0, 0.82, 0.44, 0.38 * w))
 
-	# 2. Mother (left) and Father (right) silhouettes gently drawing closer with warmth
-	var lean_in: float = w * 46.0
-	var sil_col: Color = Color(0.06, 0.09, 0.16, 0.95).lerp(Color(0.14, 0.10, 0.12, 0.94), w)
-	var rim_col: Color = Color(0.55, 0.70, 0.90, 0.35).lerp(Color(1.0, 0.82, 0.48, 0.68), w)
+	# Lampshade dome
+	var shade_col: Color = Color(0.18, 0.23, 0.34, 0.95).lerp(Color(0.92, 0.66, 0.32, 0.96), w)
+	var shade_rim: Color = Color(0.45, 0.56, 0.72, 0.55).lerp(Color(1.0, 0.94, 0.72, 0.95), w)
+	var shade_poly: PackedVector2Array = PackedVector2Array([
+		lamp_c + Vector2(-18.0, -18.0),
+		lamp_c + Vector2(18.0, -18.0),
+		lamp_c + Vector2(44.0, 14.0),
+		lamp_c + Vector2(-44.0, 14.0),
+	])
+	stage_canvas.draw_colored_polygon(shade_poly, shade_col)
+	stage_canvas.draw_line(lamp_c + Vector2(-44.0, 14.0), lamp_c + Vector2(44.0, 14.0), shade_rim, 2.5, true)
+	# Warm glowing bulb tucked under shade
+	var bulb_col: Color = Color(0.45, 0.54, 0.68, 0.5).lerp(Color(1.0, 0.97, 0.84, 1.0), w)
+	stage_canvas.draw_circle(lamp_c + Vector2(0.0, 14.0), 7.5 + w * 3.0, bulb_col)
 
+	# Hearth glow blooming over the center of the table
+	if w > 0.01:
+		_draw_soft_glow(Vector2(cx, vp.y * 0.63), 255.0 * w, Color(1.0, 0.78, 0.38, 0.28 * w))
+
+	# 7. Pixar-proportioned Mother (left) and Father (right) turning & leaning toward the child's light
+	var lean_in: float = w * 50.0
 	var mother_base: Vector2 = Vector2(vp.x * 0.31 + lean_in, vp.y * 0.72)
-	_draw_parent_silhouette(mother_base, sil_col, rim_col, true, w)
+	_draw_pixar_parent_ch1(mother_base, true, w)
 
 	var father_base: Vector2 = Vector2(vp.x * 0.69 - lean_in, vp.y * 0.72)
-	_draw_parent_silhouette(father_base, sil_col, rim_col, false, w)
+	_draw_pixar_parent_ch1(father_base, false, w)
 
-	# 3. Minimalist dining table & floor plane
+	# 8. Dining table, two cozy mugs with rising steam, & warm floor
 	var table_y: float = vp.y * 0.70
-	var table_w: float = vp.x * 0.44
-	stage_canvas.draw_rect(Rect2(cx - table_w * 0.5, table_y, table_w, 9.0), sil_col, true)
-	stage_canvas.draw_line(Vector2(cx - table_w * 0.5, table_y), Vector2(cx + table_w * 0.5, table_y), rim_col, 1.5, true)
-	stage_canvas.draw_rect(Rect2(cx - table_w * 0.42, table_y + 9.0, 8.0, vp.y * 0.22), sil_col, true)
-	stage_canvas.draw_rect(Rect2(cx + table_w * 0.42 - 8.0, table_y + 9.0, 8.0, vp.y * 0.22), sil_col, true)
-	stage_canvas.draw_rect(Rect2(0.0, vp.y * 0.88, vp.x, vp.y * 0.14), Color(0.04, 0.06, 0.11, 0.95), true)
+	var table_w: float = vp.x * 0.45
+	var table_col: Color = Color(0.08, 0.11, 0.18, 0.96).lerp(Color(0.28, 0.16, 0.10, 0.98), w)
+	var table_top_hi: Color = Color(0.42, 0.56, 0.76, 0.42).lerp(Color(1.0, 0.84, 0.50, 0.85), w)
 
-	# 4. Three interactive cold points -> blooming golden embers
+	# Two mugs on the table (cream for mother, indigo-sage for father)
+	_draw_ch1_mug(Vector2(cx - table_w * 0.22, table_y - 1.0), Color(0.62, 0.68, 0.78, 0.88).lerp(Color(0.96, 0.86, 0.74, 0.96), w), true, w)
+	_draw_ch1_mug(Vector2(cx + table_w * 0.22, table_y - 1.0), Color(0.28, 0.38, 0.52, 0.88).lerp(Color(0.36, 0.52, 0.56, 0.96), w), false, w)
+
+	# Table top & legs
+	stage_canvas.draw_rect(Rect2(cx - table_w * 0.5, table_y, table_w, 12.0), table_col, true)
+	stage_canvas.draw_line(Vector2(cx - table_w * 0.5, table_y), Vector2(cx + table_w * 0.5, table_y), table_top_hi, 2.2, true)
+	stage_canvas.draw_rect(Rect2(cx - table_w * 0.42, table_y + 12.0, 10.0, vp.y * 0.20), table_col, true)
+	stage_canvas.draw_rect(Rect2(cx + table_w * 0.42 - 10.0, table_y + 12.0, 10.0, vp.y * 0.20), table_col, true)
+
+	# Warm floor with amber pool reflection
+	var floor_col: Color = Color(0.04, 0.06, 0.11, 0.96).lerp(Color(0.14, 0.08, 0.06, 0.96), w)
+	stage_canvas.draw_rect(Rect2(0.0, vp.y * 0.86, vp.x, vp.y * 0.16), floor_col, true)
+	if w > 0.05:
+		_draw_ellipse_poly(Vector2(cx, vp.y * 0.90), table_w * 0.48, 22.0, Color(1.0, 0.76, 0.36, 0.14 * w), 28)
+
+	# 9. Three interactive frost stars -> blooming golden hearth embers
 	for pt: Dictionary in _cold_points:
 		var p: Vector2 = pt["pos"] as Vector2
 		var g: float = float(pt["glow"])
 		var pulse: float = 0.5 + 0.5 * sin(_global_time * 2.6 + p.x * 0.01)
 		if g < 0.95:
-			var ice_col: Color = Color(0.62, 0.82, 0.98, (1.0 - g) * (0.45 + 0.35 * pulse))
-			stage_canvas.draw_arc(p, 24.0 + pulse * 10.0, 0.0, TAU, 32, ice_col, 1.6, true)
-			stage_canvas.draw_arc(p, 13.0, 0.0, TAU, 24, ice_col, 1.2, true)
-			# Small frost star
+			var ice_a: float = (1.0 - g) * (0.50 + 0.38 * pulse)
+			var ice_col: Color = Color(0.68, 0.88, 1.0, ice_a)
+			_draw_soft_glow(p, 38.0 + pulse * 10.0, Color(0.55, 0.82, 1.0, 0.18 * (1.0 - g)))
+			stage_canvas.draw_arc(p, 24.0 + pulse * 9.0, 0.0, TAU, 32, ice_col, 1.8, true)
+			stage_canvas.draw_arc(p, 13.0, 0.0, TAU, 24, ice_col, 1.3, true)
 			for a_i: int in range(6):
-				var ang: float = float(a_i) * PI / 3.0 + _global_time * 0.25
+				var ang: float = float(a_i) * PI / 3.0 + _global_time * 0.28
 				var dir: Vector2 = Vector2(cos(ang), sin(ang))
-				stage_canvas.draw_line(p - dir * 8.0, p + dir * 8.0, ice_col, 1.2, true)
+				stage_canvas.draw_line(p - dir * 9.0, p + dir * 9.0, ice_col, 1.4, true)
 		if g > 0.02:
-			_draw_soft_glow(p, 56.0 * g, Color(1.0, 0.82, 0.44, 0.48 * g))
-			stage_canvas.draw_circle(p, 5.5 * g, COLOR_IVORY)
+			_draw_soft_glow(p, 64.0 * g, Color(1.0, 0.82, 0.42, 0.52 * g))
+			stage_canvas.draw_circle(p, 6.2 * g, COLOR_IVORY)
 
 
-func _draw_parent_silhouette(base_pos: Vector2, fill_col: Color, rim_col: Color, is_mother: bool, warmth_amt: float) -> void:
+func _draw_ch1_bookshelf(vp: Vector2, w: float) -> void:
+	var bx: float = vp.x * 0.06
+	var by: float = vp.y * 0.28
+	var bw: float = vp.x * 0.13
+	var bh: float = vp.y * 0.46
+	var wood: Color = Color(0.06, 0.09, 0.15, 0.92).lerp(Color(0.20, 0.12, 0.09, 0.94), w)
+	var rim: Color = Color(0.32, 0.44, 0.62, 0.22).lerp(Color(1.0, 0.78, 0.44, 0.48), w)
+	stage_canvas.draw_rect(Rect2(bx, by, bw, bh), wood, true)
+	stage_canvas.draw_line(Vector2(bx + bw, by), Vector2(bx + bw, by + bh), rim, 2.0, true)
+
+	# Three shelves with softly colored books
+	var book_palette: Array[Color] = [
+		Color(0.45, 0.22, 0.22, 0.85),
+		Color(0.24, 0.36, 0.46, 0.85),
+		Color(0.56, 0.42, 0.24, 0.85),
+		Color(0.30, 0.42, 0.34, 0.85),
+	]
+	for sh_i: int in range(3):
+		var sy: float = by + bh * (0.28 + float(sh_i) * 0.26)
+		stage_canvas.draw_rect(Rect2(bx + 6.0, sy, bw - 12.0, 6.0), wood.lightened(0.08), true)
+		var cur_x: float = bx + 12.0
+		for b_i: int in range(6):
+			var bk_w: float = 10.0 + float((sh_i * 7 + b_i * 5) % 8)
+			var bk_h: float = 26.0 + float((sh_i * 11 + b_i * 9) % 18)
+			if cur_x + bk_w > bx + bw - 12.0:
+				break
+			var base_bk: Color = book_palette[(sh_i + b_i) % book_palette.size()]
+			var bk_col: Color = Color(0.09, 0.13, 0.22, 0.90).lerp(base_bk, 0.28 + w * 0.72)
+			stage_canvas.draw_rect(Rect2(cur_x, sy - bk_h, bk_w, bk_h), bk_col, true)
+			cur_x += bk_w + 3.0
+
+
+func _draw_ch1_sideboard(vp: Vector2, w: float) -> void:
+	var sx: float = vp.x * 0.82
+	var sy: float = vp.y * 0.56
+	var sw: float = vp.x * 0.12
+	var sh: float = vp.y * 0.28
+	var wood: Color = Color(0.06, 0.09, 0.15, 0.90).lerp(Color(0.21, 0.12, 0.09, 0.92), w)
+	var rim: Color = Color(0.32, 0.44, 0.62, 0.22).lerp(Color(1.0, 0.78, 0.44, 0.46), w)
+	stage_canvas.draw_rect(Rect2(sx, sy, sw, sh), wood, true)
+	stage_canvas.draw_line(Vector2(sx, sy), Vector2(sx + sw, sy), rim, 2.0, true)
+	# Small framed picture & ceramic vase on top
+	var frame_x: float = sx + sw * 0.22
+	stage_canvas.draw_rect(Rect2(frame_x, sy - 34.0, 26.0, 32.0), wood.lightened(0.14), true)
+	stage_canvas.draw_rect(Rect2(frame_x + 3.0, sy - 31.0, 20.0, 26.0), Color(0.22, 0.28, 0.40, 0.7).lerp(Color(0.92, 0.76, 0.52, 0.72), w), true)
+	_draw_ellipse_poly(Vector2(sx + sw * 0.70, sy - 14.0), 10.0, 14.0, Color(0.18, 0.26, 0.38, 0.85).lerp(Color(0.76, 0.48, 0.36, 0.88), w), 16)
+
+
+func _draw_ch1_mug(base_pos: Vector2, mug_col: Color, handle_left: bool, w: float) -> void:
+	# Saucer
+	_draw_ellipse_poly(base_pos, 18.0, 4.0, mug_col.darkened(0.22), 18)
+	# Mug body
+	stage_canvas.draw_rect(Rect2(base_pos.x - 11.0, base_pos.y - 20.0, 22.0, 19.0), mug_col, true)
+	_draw_ellipse_poly(base_pos + Vector2(0.0, -20.0), 11.0, 3.2, mug_col.lightened(0.15), 16)
+	# Handle
+	var h_dir: float = -1.0 if handle_left else 1.0
+	var arc_start: float = PI * 0.5 if handle_left else -PI * 0.5
+	var arc_end: float = PI * 1.5 if handle_left else PI * 0.5
+	stage_canvas.draw_arc(base_pos + Vector2(h_dir * 11.0, -10.5), 6.0, arc_start, arc_end, 12, mug_col, 2.5, true)
+	# Rising warm steam ribbons once house begins warming
+	if w > 0.14:
+		var steam_a: float = clampf((w - 0.14) / 0.86, 0.0, 1.0) * 0.52
+		for s_i: int in range(2):
+			var pts: PackedVector2Array = PackedVector2Array()
+			var x_off: float = -4.0 + float(s_i) * 8.0
+			for k: int in range(10):
+				var t: float = float(k) / 9.0
+				var sy: float = base_pos.y - 25.0 - t * (34.0 + w * 20.0)
+				var sx: float = base_pos.x + x_off + sin(_global_time * 2.2 + t * 4.5 + float(s_i) * 1.8) * (4.0 + t * 5.0)
+				pts.append(Vector2(sx, sy))
+			stage_canvas.draw_polyline(pts, Color(1.0, 0.94, 0.82, steam_a), 2.0, true)
+
+
+func _draw_pixar_parent_ch1(base_pos: Vector2, is_mother: bool, w: float) -> void:
+	# Soft breathing & turning gently toward the warm light in the center
 	var dir_sign: float = 1.0 if is_mother else -1.0
-	var head_lift: float = warmth_amt * 14.0
-	var lean_x: float = dir_sign * warmth_amt * 18.0
+	var breath: float = sin(_global_time * 1.45 + (0.0 if is_mother else 1.6)) * 2.2
+	var lean_x: float = dir_sign * w * 22.0
+	var head_lift: float = w * 13.0
 
-	# Torso & cloak/shoulders polygon
-	var shoulder_w: float = 34.0 if is_mother else 42.0
-	var torso_h: float = 112.0 if is_mother else 124.0
+	# Pixar color-script clothing: terracotta-cream for mother, deep indigo-sage for father
+	var cold_cloth: Color = Color(0.11, 0.15, 0.25, 0.96) if is_mother else Color(0.08, 0.12, 0.21, 0.96)
+	var warm_cloth: Color = Color(0.68, 0.36, 0.30, 0.98) if is_mother else Color(0.19, 0.31, 0.38, 0.98)
+	var cloth_col: Color = cold_cloth.lerp(warm_cloth, 0.24 + w * 0.76)
+	var collar_col: Color = Color(0.26, 0.34, 0.48, 0.92).lerp(
+		Color(0.95, 0.86, 0.72, 0.95) if is_mother else Color(0.58, 0.70, 0.68, 0.95),
+		0.22 + w * 0.78
+	)
+	var skin_col: Color = Color(0.24, 0.27, 0.38, 0.96).lerp(Color(0.90, 0.72, 0.58, 0.98), 0.20 + w * 0.80)
+	var hair_col: Color = Color(0.08, 0.10, 0.17, 0.98).lerp(
+		Color(0.32, 0.18, 0.14, 0.98) if is_mother else Color(0.16, 0.14, 0.15, 0.98),
+		0.25 + w * 0.75
+	)
+	var rim_col: Color = Color(0.62, 0.78, 0.98, 0.36).lerp(Color(1.0, 0.88, 0.52, 0.88), w)
+
+	# Rounded Pixar torso & shoulders
+	var sh_w: float = 38.0 if is_mother else 46.0
+	var torso_h: float = (108.0 if is_mother else 120.0) + breath
+	var shoulder_c: Vector2 = base_pos + Vector2(lean_x * 0.65, -torso_h * 0.84)
+
 	var torso: PackedVector2Array = PackedVector2Array([
-		base_pos + Vector2(-shoulder_w * 0.9, 10.0),
-		base_pos + Vector2(-shoulder_w * 0.72 + lean_x * 0.4, -torso_h * 0.78),
-		base_pos + Vector2(lean_x * 0.7, -torso_h),
-		base_pos + Vector2(shoulder_w * 0.72 + lean_x * 0.5, -torso_h * 0.76),
-		base_pos + Vector2(shoulder_w * 0.88, 10.0),
+		base_pos + Vector2(-sh_w * 0.95, 14.0),
+		base_pos + Vector2(-sh_w * 0.86 + lean_x * 0.45, -torso_h * 0.74),
+		shoulder_c + Vector2(0.0, -14.0),
+		base_pos + Vector2(sh_w * 0.86 + lean_x * 0.55, -torso_h * 0.74),
+		base_pos + Vector2(sh_w * 0.95, 14.0),
 	])
-	stage_canvas.draw_colored_polygon(torso, fill_col)
+	stage_canvas.draw_colored_polygon(torso, cloth_col)
+	_draw_ellipse_poly(shoulder_c, sh_w * 0.84, 24.0, cloth_col, 24)
 
-	# Head
-	var head_pos: Vector2 = base_pos + Vector2(lean_x + dir_sign * 4.0, -torso_h - 24.0 - head_lift * 0.35)
-	stage_canvas.draw_circle(head_pos, 21.0 if is_mother else 22.5, fill_col)
+	# Cozy cardigan shawl / shirt collar
+	_draw_ellipse_poly(shoulder_c + Vector2(dir_sign * 4.0, -10.0), 17.0 if is_mother else 20.0, 10.0, collar_col, 18)
 
-	# Hair bun for mother / collar line for father
+	# Soft reaching arm toward the table / child's warmth
+	var arm_start: Vector2 = shoulder_c + Vector2(dir_sign * sh_w * 0.52, 8.0)
+	var arm_end: Vector2 = base_pos + Vector2(dir_sign * (sh_w * 0.95 + w * 26.0), -12.0 - w * 6.0)
+	stage_canvas.draw_line(arm_start, arm_end, cloth_col.lightened(0.06), 14.0 if is_mother else 16.0, true)
+	stage_canvas.draw_circle(arm_end, 7.5, skin_col)
+
+	# Expressive rounded Pixar head
+	var head_r: float = 22.5 if is_mother else 24.0
+	var head_pos: Vector2 = base_pos + Vector2(lean_x + dir_sign * 6.0, -torso_h - 24.0 - head_lift * 0.30 + breath)
+	# Neck
+	stage_canvas.draw_line(shoulder_c + Vector2(dir_sign * 3.0, -8.0), head_pos + Vector2(0.0, 14.0), skin_col.darkened(0.12), 11.0, true)
+	# Face sphere
+	stage_canvas.draw_circle(head_pos, head_r, skin_col)
+
+	# Warm rosy cheek & gentle eye/smile hint facing center light
+	if w > 0.25:
+		var cheek_a: float = clampf((w - 0.25) / 0.75, 0.0, 1.0)
+		stage_canvas.draw_circle(head_pos + Vector2(dir_sign * 10.0, 4.0), 5.5, Color(0.95, 0.54, 0.46, 0.26 * cheek_a))
+		stage_canvas.draw_arc(
+			head_pos + Vector2(dir_sign * 9.0, 9.0),
+			6.0,
+			0.2 if is_mother else PI - 1.2,
+			1.2 if is_mother else PI - 0.2,
+			10,
+			Color(0.42, 0.22, 0.18, 0.55 * cheek_a),
+			1.6,
+			true
+		)
+
+	# Hair silhouette (soft bun for mother, warm tousled hair for father)
 	if is_mother:
-		stage_canvas.draw_circle(head_pos + Vector2(-dir_sign * 17.0, -6.0), 11.0, fill_col)
+		stage_canvas.draw_arc(head_pos + Vector2(-dir_sign * 2.0, -2.0), head_r + 1.5, PI * 0.75, TAU - 0.35, 22, hair_col, 9.0, true)
+		stage_canvas.draw_circle(head_pos + Vector2(-dir_sign * 21.0, -7.0), 12.0, hair_col)
+		stage_canvas.draw_arc(head_pos + Vector2(-dir_sign * 21.0, -7.0), 12.0, -0.8, 0.6, 12, rim_col, 1.8, true)
+	else:
+		stage_canvas.draw_arc(head_pos + Vector2(dir_sign * 1.0, -3.0), head_r + 1.5, PI + 0.30, TAU - 0.75, 22, hair_col, 9.5, true)
+		_draw_ellipse_poly(head_pos + Vector2(-dir_sign * 4.0, -head_r + 3.0), 18.0, 8.0, hair_col, 16)
 
-	# Soft inner rim highlight facing the center light
+	# Golden Pixar rim light along head & shoulder facing the center hearth
 	stage_canvas.draw_arc(
 		head_pos,
-		21.5 if is_mother else 23.0,
-		(-0.6 if is_mother else PI - 0.6),
-		(0.75 if is_mother else PI + 0.75),
-		16,
+		head_r + 1.0,
+		(-0.75 if is_mother else PI - 0.75),
+		(0.85 if is_mother else PI + 0.85),
+		18,
 		rim_col,
-		2.0,
+		2.6,
+		true
+	)
+	stage_canvas.draw_arc(
+		shoulder_c,
+		sh_w * 0.82,
+		(-0.95 if is_mother else PI - 0.35),
+		(0.35 if is_mother else PI + 0.95),
+		16,
+		Color(rim_col.r, rim_col.g, rim_col.b, rim_col.a * 0.78),
+		2.6,
 		true
 	)
 
 
+# =============================================================================
+# CHAPTER 2A — ВЕСНА 1: «САД И МЫЛЬНЫЕ ПУЗЫРИ» (PIXAR / TANGLED SUNLIT GARDEN)
+# =============================================================================
+
 func _draw_ch2_bubbles(vp: Vector2) -> void:
-	# 1. Soft painterly garden hills & sunlit meadow along the bottom
-	var hill_back: PackedVector2Array = PackedVector2Array()
-	hill_back.append(Vector2(0.0, vp.y))
-	for i: int in range(17):
-		var t: float = float(i) / 16.0
+	# 1. Lush sunlit Tangled tree canopies framing upper-left & upper-right with dappled light
+	_draw_tangled_tree_canopy(vp, true)
+	_draw_tangled_tree_canopy(vp, false)
+
+	# 2. Multi-layered sunlit rolling hills
+	var hill_far: PackedVector2Array = PackedVector2Array()
+	hill_far.append(Vector2(0.0, vp.y))
+	for i: int in range(19):
+		var t: float = float(i) / 18.0
 		var hx: float = t * vp.x
-		var hy: float = vp.y * 0.80 - sin(t * PI) * 42.0 - cos(t * PI * 2.2) * 14.0
-		hill_back.append(Vector2(hx, hy))
-	hill_back.append(Vector2(vp.x, vp.y))
-	stage_canvas.draw_colored_polygon(hill_back, Color(0.24, 0.43, 0.36, 0.55))
+		var hy: float = vp.y * 0.76 - sin(t * PI * 1.1) * 48.0 - cos(t * PI * 2.4) * 14.0
+		hill_far.append(Vector2(hx, hy))
+	hill_far.append(Vector2(vp.x, vp.y))
+	stage_canvas.draw_colored_polygon(hill_far, Color(0.32, 0.56, 0.44, 0.58))
+
+	var hill_mid: PackedVector2Array = PackedVector2Array()
+	hill_mid.append(Vector2(0.0, vp.y))
+	for i: int in range(19):
+		var t: float = float(i) / 18.0
+		var hx: float = t * vp.x
+		var hy: float = vp.y * 0.83 - sin(t * PI * 1.35 + 0.5) * 32.0
+		hill_mid.append(Vector2(hx, hy))
+	hill_mid.append(Vector2(vp.x, vp.y))
+	stage_canvas.draw_colored_polygon(hill_mid, Color(0.23, 0.46, 0.33, 0.84))
 
 	var hill_front: PackedVector2Array = PackedVector2Array()
 	hill_front.append(Vector2(0.0, vp.y))
-	for i: int in range(17):
-		var t: float = float(i) / 16.0
+	for i: int in range(19):
+		var t: float = float(i) / 18.0
 		var hx: float = t * vp.x
-		var hy: float = vp.y * 0.86 - sin(t * PI * 1.3 + 0.4) * 26.0
+		var hy: float = vp.y * 0.89 - sin(t * PI * 1.6 + 1.2) * 16.0
 		hill_front.append(Vector2(hx, hy))
 	hill_front.append(Vector2(vp.x, vp.y))
-	stage_canvas.draw_colored_polygon(hill_front, Color(0.15, 0.30, 0.25, 0.82))
+	stage_canvas.draw_colored_polygon(hill_front, Color(0.16, 0.34, 0.25, 0.94))
 
-	# Gentle swaying blades of grass
-	for g_i: int in range(36):
-		var gx: float = (float(g_i) / 35.0) * vp.x
-		var sway: float = sin(_global_time * 1.6 + float(g_i) * 0.5) * 9.0
-		var base_y: float = vp.y * 0.89 + sin(float(g_i) * 0.8) * 14.0
+	# 3. Flowering garden bush on the lower-right with pink-cream blossoms
+	_draw_flowering_bush(Vector2(vp.x * 0.84, vp.y * 0.84))
+
+	# 4. Swaying meadow grass & tiny spring wildflowers
+	for g_i: int in range(44):
+		var gx: float = (float(g_i) / 43.0) * vp.x
+		var sway: float = sin(_global_time * 1.7 + float(g_i) * 0.45) * 10.0
+		var base_y: float = vp.y * 0.89 + sin(float(g_i) * 0.85) * 13.0
+		var tip: Vector2 = Vector2(gx + sway, base_y - 20.0 - float(g_i % 3) * 8.0)
 		stage_canvas.draw_line(
 			Vector2(gx, base_y + 24.0),
-			Vector2(gx + sway, base_y - 18.0 - float(g_i % 3) * 8.0),
-			Color(0.22, 0.42, 0.31, 0.55),
-			2.0,
+			tip,
+			Color(0.28, 0.54, 0.34, 0.65),
+			2.2,
 			true
 		)
+		if g_i % 5 == 2:
+			var f_col: Color = Color(1.0, 0.92, 0.62, 0.85) if (g_i % 2 == 0) else Color(1.0, 0.84, 0.88, 0.85)
+			stage_canvas.draw_circle(tip, 3.6, f_col)
 
-	# 2. Silhouette of Mother spinning joyfully with the small child in lower-left garden
-	var m_pos: Vector2 = Vector2(vp.x * 0.22, vp.y * 0.84)
-	var spin_sway: float = sin(_global_time * 1.5) * 8.0
-	var garden_sil: Color = Color(0.13, 0.21, 0.22, 0.88)
-	var dress: PackedVector2Array = PackedVector2Array([
-		m_pos + Vector2(-46.0 - spin_sway * 0.5, 18.0),
-		m_pos + Vector2(-14.0, -76.0),
-		m_pos + Vector2(14.0, -76.0),
-		m_pos + Vector2(48.0 + spin_sway * 0.5, 18.0),
-	])
-	stage_canvas.draw_colored_polygon(dress, garden_sil)
-	stage_canvas.draw_circle(m_pos + Vector2(spin_sway * 0.2, -96.0), 16.0, garden_sil)
-	# Child held out in her arms
-	var c_pos: Vector2 = m_pos + Vector2(54.0 + spin_sway * 0.6, -54.0 + cos(_global_time * 1.5) * 6.0)
-	stage_canvas.draw_line(m_pos + Vector2(10.0, -68.0), c_pos + Vector2(-10.0, -4.0), garden_sil, 5.0, true)
-	stage_canvas.draw_circle(c_pos + Vector2(0.0, -16.0), 10.5, garden_sil)
-	stage_canvas.draw_circle(c_pos + Vector2(0.0, 2.0), 12.0, garden_sil)
+	# 5. Mother spinning joyfully with the small child in warm golden rim light
+	_draw_garden_mother_and_child(Vector2(vp.x * 0.23, vp.y * 0.84))
 
-	# 3. Drifting spring petals
+	# 6. Twirling spring petals (soft rotated ellipses)
 	for p_item: Dictionary in _petals:
 		var pp: Vector2 = p_item["pos"] as Vector2
 		var p_sz: float = float(p_item["size"])
-		stage_canvas.draw_circle(pp, p_sz, Color(1.0, 0.92, 0.90, 0.55))
+		var p_rot: float = float(p_item["rot"])
+		_draw_ellipse_poly(pp, p_sz * 1.5, p_sz * 0.72, Color(1.0, 0.90, 0.90, 0.72), 10, p_rot)
+		stage_canvas.draw_circle(pp, p_sz * 0.35, Color(1.0, 0.98, 0.94, 0.65))
 
-	# 4. Iridescent soap bubbles
+	# 7. Pixar iridescent soap bubbles with pastel rainbow shimmer & two crisp glossy highlights
 	for b: Dictionary in _bubbles:
-		var bp: Vector2 = b["pos"] as Vector2
-		var br: float = float(b["radius"])
-		var ba: float = float(b["alpha"])
-		var shift: float = float(b["hue_shift"])
-		var fill_c: Color = Color(0.92, 0.97, 1.0, 0.14 * ba)
-		var rim_a: Color = Color(0.75, 0.95, 1.0, 0.62 * ba)
-		var rim_b: Color = Color(1.0, 0.84, 0.90, 0.58 * ba)
-		var rim_c: Color = Color(1.0, 0.94, 0.68, 0.55 * ba)
-		stage_canvas.draw_circle(bp, br, fill_c)
-		stage_canvas.draw_arc(bp, br, shift * TAU, shift * TAU + PI * 0.85, 24, rim_a, 2.2, true)
-		stage_canvas.draw_arc(bp, br, shift * TAU + PI * 0.85, shift * TAU + PI * 1.55, 24, rim_b, 2.0, true)
-		stage_canvas.draw_arc(bp, br, shift * TAU + PI * 1.55, shift * TAU + TAU, 24, rim_c, 1.8, true)
-		# Specular highlight crescent
-		stage_canvas.draw_circle(bp + Vector2(-br * 0.34, -br * 0.34), br * 0.18, Color(1.0, 1.0, 1.0, 0.72 * ba))
-		stage_canvas.draw_circle(bp + Vector2(br * 0.32, br * 0.28), br * 0.08, Color(1.0, 0.96, 0.82, 0.45 * ba))
+		_draw_pixar_soap_bubble(b)
 
+
+func _draw_tangled_tree_canopy(vp: Vector2, is_left: bool) -> void:
+	var sign_x: float = 1.0 if is_left else -1.0
+	var trunk_x: float = vp.x * 0.05 if is_left else vp.x * 0.95
+	var trunk_col: Color = Color(0.24, 0.17, 0.14, 0.82)
+	var trunk_poly: PackedVector2Array = PackedVector2Array([
+		Vector2(trunk_x - 28.0, vp.y * 0.86),
+		Vector2(trunk_x - 16.0, vp.y * 0.22),
+		Vector2(trunk_x + 18.0, vp.y * 0.22),
+		Vector2(trunk_x + 34.0, vp.y * 0.86),
+	])
+	stage_canvas.draw_colored_polygon(trunk_poly, trunk_col)
+
+	var sway: float = sin(_global_time * 0.9 + (0.0 if is_left else 2.1)) * 5.0
+	var base_cx: float = vp.x * 0.10 if is_left else vp.x * 0.90
+	var deep_leaf: Color = Color(0.15, 0.35, 0.26, 0.78)
+	var mid_leaf: Color = Color(0.24, 0.49, 0.31, 0.72)
+	var sunlit_leaf: Color = Color(0.56, 0.74, 0.38, 0.56)
+
+	# Back deep foliage puffs
+	stage_canvas.draw_circle(Vector2(base_cx + sway * 0.5, vp.y * 0.12), 118.0, deep_leaf)
+	stage_canvas.draw_circle(Vector2(base_cx + sign_x * 96.0 + sway, vp.y * 0.16), 88.0, deep_leaf)
+	stage_canvas.draw_circle(Vector2(base_cx + sign_x * 38.0 + sway * 0.7, vp.y * 0.26), 82.0, deep_leaf)
+	# Mid lush puffs
+	stage_canvas.draw_circle(Vector2(base_cx + sign_x * 54.0 + sway, vp.y * 0.14), 76.0, mid_leaf)
+	stage_canvas.draw_circle(Vector2(base_cx + sign_x * 136.0 + sway * 1.1, vp.y * 0.20), 62.0, mid_leaf)
+	# Warm sunlit leaf highlights & dappled sun openings
+	stage_canvas.draw_circle(Vector2(base_cx + sign_x * 92.0 + sway, vp.y * 0.19), 44.0, sunlit_leaf)
+	stage_canvas.draw_circle(Vector2(base_cx + sign_x * 148.0 + sway * 1.2, vp.y * 0.24), 32.0, sunlit_leaf)
+	_draw_soft_glow(Vector2(base_cx + sign_x * 116.0, vp.y * 0.21), 54.0, Color(1.0, 0.96, 0.74, 0.24))
+
+
+func _draw_flowering_bush(pos: Vector2) -> void:
+	var sway: float = sin(_global_time * 1.3) * 3.0
+	stage_canvas.draw_circle(pos + Vector2(-42.0, 12.0), 48.0, Color(0.14, 0.32, 0.23, 0.92))
+	stage_canvas.draw_circle(pos + Vector2(18.0, 6.0), 56.0, Color(0.18, 0.38, 0.26, 0.94))
+	stage_canvas.draw_circle(pos + Vector2(68.0, 18.0), 44.0, Color(0.15, 0.34, 0.24, 0.92))
+	stage_canvas.draw_circle(pos + Vector2(-6.0 + sway, -12.0), 42.0, Color(0.25, 0.48, 0.32, 0.88))
+
+	var flower_offsets: Array[Vector2] = [
+		Vector2(-38.0, -4.0),
+		Vector2(-12.0, -24.0),
+		Vector2(18.0, -18.0),
+		Vector2(44.0, -6.0),
+		Vector2(6.0, 4.0),
+		Vector2(-24.0, 14.0),
+		Vector2(34.0, 14.0),
+		Vector2(64.0, 4.0),
+	]
+	for idx: int in range(flower_offsets.size()):
+		var fp: Vector2 = pos + flower_offsets[idx] + Vector2(sway * 0.6, 0.0)
+		var petal_c: Color = Color(1.0, 0.82, 0.86, 0.94) if (idx % 2 == 0) else Color(1.0, 0.92, 0.78, 0.94)
+		stage_canvas.draw_circle(fp, 7.5, petal_c)
+		stage_canvas.draw_circle(fp, 3.0, Color(1.0, 0.84, 0.42, 0.96))
+
+
+func _draw_garden_mother_and_child(m_pos: Vector2) -> void:
+	var spin_sway: float = sin(_global_time * 1.55) * 9.0
+	var breath: float = sin(_global_time * 1.8) * 2.0
+
+	# Mother in flowing terracotta-cream sundress with sunny golden rim light
+	var dress_col: Color = Color(0.76, 0.42, 0.34, 0.95)
+	var dress_hi: Color = Color(0.96, 0.74, 0.56, 0.65)
+	var skin_col: Color = Color(0.94, 0.76, 0.62, 0.98)
+	var hair_col: Color = Color(0.34, 0.20, 0.14, 0.98)
+	var sun_rim: Color = Color(1.0, 0.95, 0.72, 0.92)
+
+	var dress: PackedVector2Array = PackedVector2Array([
+		m_pos + Vector2(-54.0 - spin_sway * 0.6, 20.0),
+		m_pos + Vector2(-17.0, -76.0 + breath),
+		m_pos + Vector2(17.0, -76.0 + breath),
+		m_pos + Vector2(56.0 + spin_sway * 0.6, 20.0),
+	])
+	stage_canvas.draw_colored_polygon(dress, dress_col)
+	# Sunlit skirt fold
+	stage_canvas.draw_line(m_pos + Vector2(12.0, -72.0), m_pos + Vector2(44.0 + spin_sway * 0.5, 18.0), dress_hi, 5.0, true)
+
+	var m_head: Vector2 = m_pos + Vector2(spin_sway * 0.22, -96.0 + breath)
+	stage_canvas.draw_circle(m_head, 17.5, skin_col)
+	stage_canvas.draw_arc(m_head + Vector2(-2.0, -2.0), 18.0, PI * 0.70, TAU - 0.25, 20, hair_col, 8.0, true)
+	stage_canvas.draw_circle(m_head + Vector2(-16.0, -5.0), 10.0, hair_col)
+	# Warm sun rim light on mother
+	stage_canvas.draw_arc(m_head, 18.5, -1.1, 0.55, 16, sun_rim, 2.5, true)
+
+	# Joyful small child in amber-gold sweater lifted in her arms
+	var c_pos: Vector2 = m_pos + Vector2(56.0 + spin_sway * 0.65, -56.0 + cos(_global_time * 1.55) * 7.0)
+	_draw_soft_glow(c_pos + Vector2(0.0, -6.0), 42.0, Color(1.0, 0.88, 0.48, 0.34))
+	stage_canvas.draw_line(m_pos + Vector2(11.0, -68.0), c_pos + Vector2(-8.0, -2.0), skin_col, 7.0, true)
+	_draw_ellipse_poly(c_pos + Vector2(0.0, 2.0), 13.0, 14.0, Color(0.95, 0.72, 0.28, 0.96), 18)
+	stage_canvas.draw_circle(c_pos + Vector2(0.0, -16.0), 11.5, skin_col)
+	stage_canvas.draw_arc(c_pos + Vector2(0.0, -17.0), 12.0, PI + 0.2, TAU - 0.2, 14, Color(0.42, 0.25, 0.16, 0.95), 5.5, true)
+	stage_canvas.draw_arc(c_pos + Vector2(0.0, -16.0), 12.5, -1.0, 0.6, 14, sun_rim, 2.2, true)
+
+
+func _draw_pixar_soap_bubble(b: Dictionary) -> void:
+	var bp: Vector2 = b["pos"] as Vector2
+	var br: float = float(b["radius"])
+	var ba: float = float(b["alpha"])
+	var shift: float = float(b["hue_shift"]) + _global_time * 0.12
+
+	# Translucent soap film interior + soft pastel depth
+	stage_canvas.draw_circle(bp, br, Color(0.94, 0.98, 1.0, 0.14 * ba))
+	stage_canvas.draw_circle(bp + Vector2(br * 0.12, br * 0.14), br * 0.72, Color(0.84, 0.95, 1.0, 0.08 * ba))
+
+	# Pastel rainbow iridescent rim (4 smoothly shifting arcs)
+	var a0: float = shift * TAU
+	stage_canvas.draw_arc(bp, br, a0, a0 + PI * 0.58, 20, Color(0.68, 0.94, 1.0, 0.78 * ba), 2.8, true)
+	stage_canvas.draw_arc(bp, br, a0 + PI * 0.55, a0 + PI * 1.12, 20, Color(0.86, 0.76, 1.0, 0.74 * ba), 2.6, true)
+	stage_canvas.draw_arc(bp, br, a0 + PI * 1.08, a0 + PI * 1.62, 20, Color(1.0, 0.80, 0.88, 0.76 * ba), 2.6, true)
+	stage_canvas.draw_arc(bp, br, a0 + PI * 1.58, a0 + TAU + 0.05, 20, Color(1.0, 0.95, 0.66, 0.74 * ba), 2.4, true)
+
+	# Inner iridescent whisper
+	stage_canvas.draw_arc(bp, br * 0.86, a0 + 0.4, a0 + 1.9, 16, Color(1.0, 0.88, 0.94, 0.34 * ba), 2.0, true)
+
+	# Two crisp white glossy Pixar highlights + warm lower bounce reflection
+	_draw_ellipse_poly(bp + Vector2(-br * 0.36, -br * 0.36), br * 0.22, br * 0.12, Color(1.0, 1.0, 1.0, 0.90 * ba), 14, -0.75)
+	stage_canvas.draw_circle(bp + Vector2(-br * 0.12, -br * 0.52), br * 0.08, Color(1.0, 1.0, 1.0, 0.84 * ba))
+	stage_canvas.draw_arc(bp, br * 0.82, 0.35, 1.25, 12, Color(1.0, 0.95, 0.78, 0.52 * ba), 2.0, true)
+
+
+# =============================================================================
+# CHAPTER 2B — ВЕСНА 4: «СОЛНЦЕ НА ОБОЯХ» (UP / INSIDE OUT GOLDEN EVENING)
+# =============================================================================
 
 func _draw_ch2_wallpaper(vp: Vector2) -> void:
-	# 1. Subtle warm vertical wallpaper stripes & wainscoting baseboard
-	var stripe_col: Color = Color(1.0, 0.92, 0.76, 0.06)
-	var stripe_step: float = 54.0
+	# 1. Warm storybook wallpaper with stripes, delicate diamond motif & baseboard
+	var stripe_col: Color = Color(1.0, 0.92, 0.76, 0.08)
 	var x_pos: float = 0.0
 	while x_pos < vp.x:
-		stage_canvas.draw_rect(Rect2(x_pos, 0.0, 18.0, vp.y * 0.82), stripe_col, true)
-		x_pos += stripe_step
+		stage_canvas.draw_rect(Rect2(x_pos, 0.0, 20.0, vp.y * 0.82), stripe_col, true)
+		x_pos += 58.0
 
-	stage_canvas.draw_rect(Rect2(0.0, vp.y * 0.82, vp.x, vp.y * 0.18), Color(0.24, 0.15, 0.11, 0.92), true)
-	stage_canvas.draw_line(Vector2(0.0, vp.y * 0.82), Vector2(vp.x, vp.y * 0.82), Color(0.95, 0.76, 0.48, 0.32), 2.0, true)
+	# Subtle warm wood baseboard & floor
+	stage_canvas.draw_rect(Rect2(0.0, vp.y * 0.82, vp.x, vp.y * 0.18), Color(0.24, 0.14, 0.10, 0.95), true)
+	stage_canvas.draw_rect(Rect2(0.0, vp.y * 0.80, vp.x, 14.0), Color(0.32, 0.19, 0.13, 0.95), true)
+	stage_canvas.draw_line(Vector2(0.0, vp.y * 0.80), Vector2(vp.x, vp.y * 0.80), Color(1.0, 0.82, 0.52, 0.45), 2.2, true)
 
-	# Diagonal warm window light shaft
-	var shaft: PackedVector2Array = PackedVector2Array([
-		Vector2(vp.x * 0.04, 0.0),
-		Vector2(vp.x * 0.34, 0.0),
-		Vector2(vp.x * 0.68, vp.y * 0.82),
-		Vector2(vp.x * 0.22, vp.y * 0.82),
+	# 2. Slanted golden evening sunbeam window-square cast onto the wallpaper!
+	var win_quad: PackedVector2Array = PackedVector2Array([
+		Vector2(vp.x * 0.10, vp.y * 0.14),
+		Vector2(vp.x * 0.36, vp.y * 0.22),
+		Vector2(vp.x * 0.30, vp.y * 0.66),
+		Vector2(vp.x * 0.05, vp.y * 0.58),
 	])
-	stage_canvas.draw_colored_polygon(shaft, Color(1.0, 0.90, 0.64, 0.09))
+	stage_canvas.draw_colored_polygon(win_quad, Color(1.0, 0.90, 0.60, 0.18))
+	# Window mullion shadow cross inside the sunlit square
+	var mullion_col: Color = Color(0.48, 0.30, 0.22, 0.22)
+	stage_canvas.draw_line(Vector2(vp.x * 0.23, vp.y * 0.18), Vector2(vp.x * 0.175, vp.y * 0.62), mullion_col, 7.0, true)
+	stage_canvas.draw_line(Vector2(vp.x * 0.075, vp.y * 0.36), Vector2(vp.x * 0.33, vp.y * 0.44), mullion_col, 7.0, true)
 
-	# 2. Dotted golden sun guide circle on the wall
+	# 3. Cozy side table & warm glowing table lamp on the left
+	_draw_ch2_table_lamp(vp)
+
+	# 4. Toy shelf in upper-right with teddy bear, colorful blocks & picture books
+	_draw_ch2_toy_shelf(vp)
+
+	# 5. Dotted golden sun guide circle on the wall
 	var center: Vector2 = _get_wallpaper_sun_center(vp)
 	var guide_r: float = 104.0
 	if not _wall_sun_complete:
@@ -1439,11 +1917,16 @@ func _draw_ch2_wallpaper(vp: Vector2) -> void:
 		for i: int in range(28):
 			var a0: float = float(i) / 28.0 * TAU
 			var a1: float = a0 + 0.10
-			stage_canvas.draw_arc(center, guide_r, a0, a1, 4, Color(1.0, 0.88, 0.55, 0.30 + 0.22 * pulse), 2.2, true)
+			stage_canvas.draw_arc(center, guide_r, a0, a1, 4, Color(1.0, 0.88, 0.55, 0.34 + 0.24 * pulse), 2.4, true)
+
+	# Warm child crayon doodles softly emerging around the sun as player draws!
+	if _wall_sun_progress > 0.12:
+		var doodle_a: float = clampf((_wall_sun_progress - 0.12) / 0.78, 0.0, 1.0)
+		_draw_wallpaper_child_doodles(center, doodle_a)
 
 	# Glowing inner sun warmth growing with drawing progress
 	if _wall_sun_progress > 0.02:
-		_draw_soft_glow(center, 185.0 * _wall_sun_progress, Color(1.0, 0.84, 0.42, 0.38 * _wall_sun_progress))
+		_draw_soft_glow(center, 195.0 * _wall_sun_progress, Color(1.0, 0.84, 0.40, 0.40 * _wall_sun_progress))
 
 	# Hand-drawn chalk/pastel golden rays when completed
 	if _wall_sun_complete:
@@ -1451,156 +1934,371 @@ func _draw_ch2_wallpaper(vp: Vector2) -> void:
 			var ang: float = float(r_i) / 12.0 * TAU + _global_time * 0.08
 			var dir: Vector2 = Vector2(cos(ang), sin(ang))
 			var inner: Vector2 = center + dir * (guide_r + 18.0)
-			var outer: Vector2 = center + dir * (guide_r + 56.0 + sin(_global_time * 2.0 + float(r_i)) * 8.0)
-			stage_canvas.draw_line(inner, outer, Color(1.0, 0.90, 0.54, 0.78), 4.5, true)
+			var outer: Vector2 = center + dir * (guide_r + 58.0 + sin(_global_time * 2.0 + float(r_i)) * 8.0)
+			stage_canvas.draw_line(inner, outer, Color(1.0, 0.92, 0.56, 0.82), 5.0, true)
 
-	# 3. Player's drawn golden chalk strokes
+	# 6. Player's drawn golden pastel strokes
 	for stroke: PackedVector2Array in _wall_strokes:
 		if stroke.size() < 2:
 			continue
-		stage_canvas.draw_polyline(stroke, Color(1.0, 0.84, 0.40, 0.32), 14.0, true)
-		stage_canvas.draw_polyline(stroke, Color(1.0, 0.93, 0.64, 0.92), 6.0, true)
+		stage_canvas.draw_polyline(stroke, Color(1.0, 0.82, 0.36, 0.35), 16.0, true)
+		stage_canvas.draw_polyline(stroke, Color(1.0, 0.94, 0.66, 0.95), 6.5, true)
 
-	# 4. Father silhouette (right) transitioning from standing with briefcase to sitting beside the child
-	var sit_t: float = _wall_father_sit
-	var father_x: float = lerpf(vp.x * 0.77, vp.x * 0.67, sit_t)
-	var father_y: float = lerpf(vp.y * 0.82, vp.y * 0.85, sit_t)
-	var f_col: Color = Color(0.16, 0.10, 0.09, 0.94)
-	var body_h: float = lerpf(185.0, 118.0, sit_t)
+	# 7. Pixar Father (right) setting down his briefcase and sitting down with a warm smile
+	_draw_wallpaper_father(vp, _wall_father_sit)
 
-	var f_body: PackedVector2Array = PackedVector2Array([
-		Vector2(father_x - 36.0 - sit_t * 14.0, father_y),
-		Vector2(father_x - 28.0, father_y - body_h),
-		Vector2(father_x + 28.0, father_y - body_h),
-		Vector2(father_x + 34.0 + sit_t * 8.0, father_y),
+
+func _draw_ch2_table_lamp(vp: Vector2) -> void:
+	var tx: float = vp.x * 0.13
+	var ty: float = vp.y * 0.66
+	var wood: Color = Color(0.28, 0.16, 0.11, 0.95)
+	stage_canvas.draw_rect(Rect2(tx - 44.0, ty, 88.0, 10.0), wood, true)
+	stage_canvas.draw_rect(Rect2(tx - 34.0, ty + 10.0, 8.0, vp.y * 0.16), wood, true)
+	stage_canvas.draw_rect(Rect2(tx + 26.0, ty + 10.0, 8.0, vp.y * 0.16), wood, true)
+
+	# Ceramic lamp base & warm glowing shade
+	_draw_ellipse_poly(Vector2(tx, ty - 14.0), 12.0, 15.0, Color(0.42, 0.56, 0.54, 0.95), 16)
+	var shade_c: Vector2 = Vector2(tx, ty - 48.0)
+	_draw_soft_glow(shade_c + Vector2(0.0, 6.0), 96.0, Color(1.0, 0.84, 0.46, 0.30))
+	var shade: PackedVector2Array = PackedVector2Array([
+		shade_c + Vector2(-16.0, -18.0),
+		shade_c + Vector2(16.0, -18.0),
+		shade_c + Vector2(30.0, 16.0),
+		shade_c + Vector2(-30.0, 16.0),
 	])
-	stage_canvas.draw_colored_polygon(f_body, f_col)
-	stage_canvas.draw_circle(Vector2(father_x - sit_t * 6.0, father_y - body_h - 24.0), 21.0, f_col)
+	stage_canvas.draw_colored_polygon(shade, Color(0.98, 0.84, 0.56, 0.94))
+	stage_canvas.draw_line(shade_c + Vector2(-30.0, 16.0), shade_c + Vector2(30.0, 16.0), Color(1.0, 0.95, 0.78, 0.95), 2.2, true)
 
-	# Briefcase: held in hand initially, then set down gently on the floor to his right
+
+func _draw_ch2_toy_shelf(vp: Vector2) -> void:
+	var sx: float = vp.x * 0.72
+	var sy: float = vp.y * 0.24
+	var sw: float = vp.x * 0.20
+	var wood: Color = Color(0.32, 0.19, 0.13, 0.94)
+	stage_canvas.draw_rect(Rect2(sx, sy, sw, 10.0), wood, true)
+	stage_canvas.draw_line(Vector2(sx, sy), Vector2(sx + sw, sy), Color(0.96, 0.78, 0.52, 0.45), 1.8, true)
+
+	# Plush teddy bear silhouette on the left of the shelf
+	var bear_p: Vector2 = Vector2(sx + 38.0, sy - 16.0)
+	var bear_c: Color = Color(0.56, 0.35, 0.22, 0.94)
+	_draw_ellipse_poly(bear_p, 14.0, 16.0, bear_c, 16)
+	stage_canvas.draw_circle(bear_p + Vector2(0.0, -20.0), 11.5, bear_c)
+	stage_canvas.draw_circle(bear_p + Vector2(-9.0, -29.0), 4.5, bear_c)
+	stage_canvas.draw_circle(bear_p + Vector2(9.0, -29.0), 4.5, bear_c)
+	stage_canvas.draw_circle(bear_p + Vector2(0.0, -18.0), 4.2, Color(0.84, 0.66, 0.48, 0.92))
+
+	# Colorful wooden toy blocks in the middle
+	stage_canvas.draw_rect(Rect2(sx + 84.0, sy - 20.0, 20.0, 20.0), Color(0.84, 0.42, 0.34, 0.92), true)
+	stage_canvas.draw_rect(Rect2(sx + 107.0, sy - 20.0, 20.0, 20.0), Color(0.36, 0.58, 0.66, 0.92), true)
+	stage_canvas.draw_rect(Rect2(sx + 95.0, sy - 40.0, 20.0, 20.0), Color(0.94, 0.76, 0.34, 0.92), true)
+
+	# Small leaning storybook stack on the right
+	stage_canvas.draw_rect(Rect2(sx + 150.0, sy - 34.0, 12.0, 34.0), Color(0.32, 0.48, 0.38, 0.92), true)
+	stage_canvas.draw_rect(Rect2(sx + 165.0, sy - 28.0, 11.0, 28.0), Color(0.76, 0.48, 0.36, 0.92), true)
+	stage_canvas.draw_rect(Rect2(sx + 179.0, sy - 38.0, 12.0, 38.0), Color(0.30, 0.38, 0.56, 0.92), true)
+
+
+func _draw_wallpaper_child_doodles(sun_center: Vector2, alpha: float) -> void:
+	# Warm pastel crayon drawings emerging around the sun: little house, tree, and 3 holding hands
+	var chalk_warm: Color = Color(1.0, 0.89, 0.62, 0.56 * alpha)
+	var chalk_terra: Color = Color(0.98, 0.72, 0.54, 0.52 * alpha)
+	var chalk_leaf: Color = Color(0.74, 0.90, 0.64, 0.50 * alpha)
+
+	# 1. Little cozy house to the lower-left of the sun
+	var h_pos: Vector2 = sun_center + Vector2(-175.0, 128.0)
+	stage_canvas.draw_polyline(PackedVector2Array([
+		h_pos + Vector2(-26.0, 24.0),
+		h_pos + Vector2(-26.0, -8.0),
+		h_pos + Vector2(26.0, -8.0),
+		h_pos + Vector2(26.0, 24.0),
+		h_pos + Vector2(-26.0, 24.0),
+	]), chalk_warm, 2.6, true)
+	stage_canvas.draw_polyline(PackedVector2Array([
+		h_pos + Vector2(-32.0, -8.0),
+		h_pos + Vector2(0.0, -34.0),
+		h_pos + Vector2(32.0, -8.0),
+	]), chalk_terra, 2.8, true)
+	# Little glowing window & chimney puff
+	stage_canvas.draw_rect(Rect2(h_pos.x - 8.0, h_pos.y + 1.0, 16.0, 14.0), Color(1.0, 0.90, 0.58, 0.34 * alpha), true)
+	stage_canvas.draw_arc(h_pos + Vector2(18.0, -40.0), 6.0, 0.0, TAU, 10, chalk_warm, 1.8, true)
+	stage_canvas.draw_arc(h_pos + Vector2(24.0, -52.0), 8.0, 0.0, TAU, 10, chalk_warm, 1.6, true)
+
+	# 2. Fluffy child-drawn tree to the lower-right of the sun
+	var t_pos: Vector2 = sun_center + Vector2(158.0, 132.0)
+	stage_canvas.draw_line(t_pos + Vector2(0.0, 20.0), t_pos + Vector2(0.0, -14.0), chalk_terra, 4.0, true)
+	stage_canvas.draw_arc(t_pos + Vector2(0.0, -28.0), 20.0, 0.0, TAU, 18, chalk_leaf, 2.6, true)
+	stage_canvas.draw_arc(t_pos + Vector2(-14.0, -20.0), 14.0, 0.0, TAU, 14, chalk_leaf, 2.2, true)
+	stage_canvas.draw_arc(t_pos + Vector2(14.0, -20.0), 14.0, 0.0, TAU, 14, chalk_leaf, 2.2, true)
+
+	# 3. Three tiny stick-figure family holding hands right below the sun + little heart
+	var f_y: float = sun_center.y + 150.0
+	var f_xs: Array[float] = [sun_center.x - 36.0, sun_center.x, sun_center.x + 36.0]
+	var f_hs: Array[float] = [28.0, 19.0, 31.0]
+	for i: int in range(3):
+		var fx: float = f_xs[i]
+		var fh: float = f_hs[i]
+		var head_r: float = 7.0 if i != 1 else 5.8
+		stage_canvas.draw_arc(Vector2(fx, f_y - fh - head_r), head_r, 0.0, TAU, 12, chalk_warm, 2.2, true)
+		stage_canvas.draw_line(Vector2(fx, f_y - fh), Vector2(fx, f_y - 8.0), chalk_warm, 2.4, true)
+		stage_canvas.draw_line(Vector2(fx, f_y - 8.0), Vector2(fx - 7.0, f_y + 4.0), chalk_warm, 2.2, true)
+		stage_canvas.draw_line(Vector2(fx, f_y - 8.0), Vector2(fx + 7.0, f_y + 4.0), chalk_warm, 2.2, true)
+	# Holding hands line
+	stage_canvas.draw_line(Vector2(f_xs[0], f_y - 20.0), Vector2(f_xs[1], f_y - 14.0), chalk_warm, 2.2, true)
+	stage_canvas.draw_line(Vector2(f_xs[1], f_y - 14.0), Vector2(f_xs[2], f_y - 22.0), chalk_warm, 2.2, true)
+	# Tiny warm heart above the child
+	var heart_c: Vector2 = Vector2(sun_center.x, f_y - 44.0)
+	stage_canvas.draw_circle(heart_c + Vector2(-3.2, 0.0), 3.6, chalk_terra)
+	stage_canvas.draw_circle(heart_c + Vector2(3.2, 0.0), 3.6, chalk_terra)
+	stage_canvas.draw_colored_polygon(PackedVector2Array([
+		heart_c + Vector2(-6.6, 1.0),
+		heart_c + Vector2(6.6, 1.0),
+		heart_c + Vector2(0.0, 8.5),
+	]), chalk_terra)
+
+
+func _draw_wallpaper_father(vp: Vector2, sit_t: float) -> void:
+	var breath: float = sin(_global_time * 1.4) * 2.0
+	var father_x: float = lerpf(vp.x * 0.78, vp.x * 0.68, sit_t)
+	var father_y: float = lerpf(vp.y * 0.82, vp.y * 0.85, sit_t)
+	var body_h: float = lerpf(182.0, 114.0, sit_t) + breath
+
+	var jacket_col: Color = Color(0.18, 0.27, 0.36, 0.96)
+	var shirt_col: Color = Color(0.92, 0.88, 0.80, 0.95)
+	var skin_col: Color = Color(0.90, 0.72, 0.58, 0.98)
+	var hair_col: Color = Color(0.18, 0.14, 0.13, 0.98)
+	var sun_rim: Color = Color(1.0, 0.88, 0.52, 0.45 + sit_t * 0.45)
+
+	var sh_c: Vector2 = Vector2(father_x - sit_t * 6.0, father_y - body_h)
+	var f_body: PackedVector2Array = PackedVector2Array([
+		Vector2(father_x - 38.0 - sit_t * 18.0, father_y),
+		Vector2(father_x - 32.0 - sit_t * 6.0, father_y - body_h),
+		Vector2(father_x + 32.0, father_y - body_h),
+		Vector2(father_x + 36.0 + sit_t * 10.0, father_y),
+	])
+	stage_canvas.draw_colored_polygon(f_body, jacket_col)
+	_draw_ellipse_poly(sh_c, 36.0, 20.0, jacket_col, 22)
+	_draw_ellipse_poly(sh_c + Vector2(-4.0, -8.0), 15.0, 9.0, shirt_col, 16)
+
+	# Head turning toward the child's sun with a gentle smile as he sits
+	var head_p: Vector2 = Vector2(father_x - sit_t * 10.0, father_y - body_h - 24.0)
+	stage_canvas.draw_circle(head_p, 22.5, skin_col)
+	stage_canvas.draw_arc(head_p + Vector2(2.0, -2.0), 23.0, PI + 0.35, TAU - 0.55, 20, hair_col, 9.0, true)
+	_draw_ellipse_poly(head_p + Vector2(4.0, -19.0), 17.0, 7.5, hair_col, 16)
+
+	# Warm smile & relaxed eyes appearing as sit_t increases
+	if sit_t > 0.25:
+		var sm_a: float = clampf((sit_t - 0.25) / 0.75, 0.0, 1.0)
+		stage_canvas.draw_arc(head_p + Vector2(-9.0, 6.0), 7.5, 0.25, 1.45, 12, Color(0.40, 0.22, 0.16, 0.78 * sm_a), 2.0, true)
+		stage_canvas.draw_arc(head_p + Vector2(-10.0, -4.0), 4.2, PI + 0.3, TAU - 0.3, 10, Color(0.28, 0.16, 0.12, 0.72 * sm_a), 1.8, true)
+
+	# Warm golden rim light from the sun on the wallpaper
+	stage_canvas.draw_arc(head_p, 23.5, PI - 0.75, PI + 0.85, 18, sun_rim, 2.6, true)
+	stage_canvas.draw_arc(sh_c, 36.0, PI - 0.45, PI + 0.85, 14, Color(sun_rim.r, sun_rim.g, sun_rim.b, sun_rim.a * 0.78), 2.6, true)
+
+	# Leather briefcase gently set down on the floor to his right
 	var case_pos: Vector2 = Vector2(
-		lerpf(father_x + 36.0, vp.x * 0.82, sit_t),
+		lerpf(father_x + 38.0, vp.x * 0.83, sit_t),
 		lerpf(father_y - 72.0, vp.y * 0.79, sit_t)
 	)
-	stage_canvas.draw_rect(Rect2(case_pos.x - 22.0, case_pos.y - 16.0, 44.0, 30.0), Color(0.12, 0.08, 0.07, 0.95), true)
-	stage_canvas.draw_arc(case_pos + Vector2(0.0, -16.0), 8.0, PI, TAU, 12, Color(0.12, 0.08, 0.07, 0.95), 2.5, true)
+	stage_canvas.draw_rect(Rect2(case_pos.x - 23.0, case_pos.y - 16.0, 46.0, 32.0), Color(0.26, 0.15, 0.10, 0.96), true)
+	stage_canvas.draw_rect(Rect2(case_pos.x - 23.0, case_pos.y - 4.0, 46.0, 3.0), Color(0.86, 0.68, 0.36, 0.65), true)
+	stage_canvas.draw_arc(case_pos + Vector2(0.0, -16.0), 8.5, PI, TAU, 12, Color(0.26, 0.15, 0.10, 0.96), 2.8, true)
 
+
+# =============================================================================
+# CHAPTER 2C — ВЕСНА 7: «ВЕЧЕР У МОРЯ» (PIXAR GOLDEN SUNSET COAST)
+# =============================================================================
 
 func _draw_ch2_sea(vp: Vector2) -> void:
 	var horizon_y: float = vp.y * 0.56
 	var cx: float = vp.x * 0.5
 
-	# 1. Makoto Shinkai low sunset disc & horizon shimmer
-	var sun_y: float = horizon_y - 24.0 if not _sea_choice_made else horizon_y + 6.0
-	_draw_soft_glow(Vector2(cx, sun_y), 170.0, Color(1.0, 0.76, 0.44, 0.36))
-	stage_canvas.draw_circle(Vector2(cx, sun_y), 38.0, Color(1.0, 0.93, 0.74, 0.90))
+	# 1. Fluffy Pixar sunset clouds (plum-rose shadow beneath + luminous coral-gold tops)
+	_draw_sunset_cloud(Vector2(vp.x * 0.22 + sin(_global_time * 0.08) * 14.0, vp.y * 0.24), 1.05)
+	_draw_sunset_cloud(Vector2(vp.x * 0.76 + cos(_global_time * 0.07) * 16.0, vp.y * 0.21), 1.20)
+	_draw_sunset_cloud(Vector2(vp.x * 0.52 + sin(_global_time * 0.06 + 1.5) * 12.0, vp.y * 0.33), 0.82)
 
-	# 2. Sea base
-	stage_canvas.draw_rect(Rect2(0.0, horizon_y, vp.x, vp.y - horizon_y), Color(0.18, 0.16, 0.32, 0.92), true)
+	# 2. Distant gliding seagulls
+	for b_i: int in range(5):
+		var bx: float = fmod(vp.x * (0.18 + float(b_i) * 0.16) + _global_time * (14.0 + float(b_i) * 2.5), vp.x + 80.0) - 40.0
+		var by: float = vp.y * (0.28 + float(b_i % 3) * 0.065) + sin(_global_time * 2.0 + float(b_i) * 1.4) * 5.0
+		var flap: float = sin(_global_time * 4.2 + float(b_i) * 1.7) * 4.5
+		var span: float = 10.0 - float(b_i % 3) * 2.0
+		var gull_col: Color = Color(0.26, 0.16, 0.24, 0.72)
+		stage_canvas.draw_polyline(PackedVector2Array([
+			Vector2(bx - span, by - flap),
+			Vector2(bx, by + 2.0),
+			Vector2(bx + span, by - flap),
+		]), gull_col, 1.8, true)
 
-	# Shimmering vertical sunset reflection bars on the water
-	for r_i: int in range(18):
-		var t: float = float(r_i) / 17.0
-		var ry: float = lerpf(horizon_y + 6.0, vp.y * 0.82, t)
-		var bar_w: float = lerpf(78.0, 18.0, t) + sin(_global_time * 2.1 + float(r_i) * 0.9) * 14.0
-		var rx: float = cx + sin(_global_time * 1.4 + float(r_i) * 1.3) * (6.0 + t * 14.0)
-		stage_canvas.draw_line(
-			Vector2(rx - bar_w * 0.5, ry),
-			Vector2(rx + bar_w * 0.5, ry),
-			Color(1.0, 0.82, 0.52, lerpf(0.62, 0.18, t)),
-			lerpf(2.5, 4.5, t),
-			true
-		)
+	# 3. Radiant low sunset disc & layered peach-gold halo
+	var sun_y: float = horizon_y - 24.0 if not _sea_choice_made else horizon_y + 4.0
+	_draw_soft_glow(Vector2(cx, sun_y), 210.0, Color(1.0, 0.72, 0.42, 0.36))
+	_draw_soft_glow(Vector2(cx, sun_y), 110.0, Color(1.0, 0.88, 0.58, 0.45))
+	stage_canvas.draw_circle(Vector2(cx, sun_y), 42.0, Color(1.0, 0.95, 0.78, 0.95))
 
-	# 3. Five animated parallax ocean wave ribbons
-	for layer_i: int in range(5):
-		var lt: float = float(layer_i) / 4.0
-		var base_y: float = lerpf(horizon_y + 18.0, vp.y * 0.84, lt)
-		var amp: float = lerpf(3.5, 9.5, lt)
-		var wave_col: Color = Color(0.24, 0.19, 0.36, 0.55).lerp(Color(0.08, 0.08, 0.18, 0.92), lt)
-		var crest_col: Color = Color(1.0, 0.76, 0.54, lerpf(0.45, 0.18, lt))
+	# 4. Deep ocean base
+	stage_canvas.draw_rect(Rect2(0.0, horizon_y, vp.x, vp.y - horizon_y), Color(0.22, 0.17, 0.34, 0.94), true)
+
+	# 5. Six soft animated parallax ocean wave layers + shimmering golden sun path woven across them
+	for layer_i: int in range(6):
+		var lt: float = float(layer_i) / 5.0
+		var base_y: float = lerpf(horizon_y + 12.0, vp.y * 0.84, lt)
+		var amp: float = lerpf(3.0, 9.5, lt)
+		var wave_col: Color = Color(0.32, 0.22, 0.40, 0.62).lerp(Color(0.08, 0.09, 0.20, 0.94), lt)
+		var crest_col: Color = Color(1.0, 0.80, 0.52, lerpf(0.54, 0.22, lt))
 		var poly: PackedVector2Array = PackedVector2Array()
 		var crest: PackedVector2Array = PackedVector2Array()
 		poly.append(Vector2(0.0, vp.y))
-		for seg: int in range(33):
-			var st: float = float(seg) / 32.0
+		for seg: int in range(37):
+			var st: float = float(seg) / 36.0
 			var wx: float = st * vp.x
-			var wy: float = base_y + sin(st * TAU * (2.5 + lt) + _global_time * (0.8 + lt * 0.35) + float(layer_i)) * amp
+			var wy: float = base_y + sin(st * TAU * (2.4 + lt * 1.1) + _global_time * (0.75 + lt * 0.32) + float(layer_i) * 1.2) * amp
 			poly.append(Vector2(wx, wy))
 			crest.append(Vector2(wx, wy))
 		poly.append(Vector2(vp.x, vp.y))
 		stage_canvas.draw_colored_polygon(poly, wave_col)
-		stage_canvas.draw_polyline(crest, crest_col, 1.5, true)
+		stage_canvas.draw_polyline(crest, crest_col, 1.8, true)
 
-	# 4. Dark foreground shore & 3 silhouettes holding hands (Mother - Child - Father)
+		# Reflected golden sun shimmer bars between waves
+		for s_k: int in range(3):
+			var rt: float = clampf((float(layer_i * 3 + s_k)) / 17.0, 0.0, 1.0)
+			var ry: float = lerpf(horizon_y + 7.0, vp.y * 0.83, rt)
+			var bar_w: float = lerpf(104.0, 22.0, rt) + sin(_global_time * 2.3 + float(layer_i * 3 + s_k) * 0.9) * 16.0
+			var rx: float = cx + sin(_global_time * 1.4 + float(layer_i * 3 + s_k) * 1.3) * (6.0 + rt * 15.0)
+			stage_canvas.draw_line(
+				Vector2(rx - bar_w * 0.5, ry),
+				Vector2(rx + bar_w * 0.5, ry),
+				Color(1.0, 0.88, 0.56, lerpf(0.76, 0.24, rt)),
+				lerpf(2.8, 5.0, rt),
+				true
+			)
+
+	# 6. Warm foreground sunset shore & three Pixar silhouettes holding hands with golden rim light
 	var shore_y: float = vp.y * 0.85
-	stage_canvas.draw_rect(Rect2(0.0, shore_y, vp.x, vp.y - shore_y), Color(0.05, 0.05, 0.11, 0.98), true)
+	stage_canvas.draw_rect(Rect2(0.0, shore_y, vp.x, vp.y - shore_y), Color(0.07, 0.06, 0.13, 0.98), true)
+	stage_canvas.draw_line(Vector2(0.0, shore_y), Vector2(vp.x, shore_y), Color(1.0, 0.78, 0.48, 0.36), 2.0, true)
 
-	var sil: Color = Color(0.04, 0.04, 0.09, 0.98)
-	var m_x: float = cx - 64.0
+	var m_x: float = cx - 68.0
 	var c_x: float = cx
-	var f_x: float = cx + 64.0
+	var f_x: float = cx + 68.0
+	var rim_gold: Color = Color(1.0, 0.88, 0.54, 0.90)
 
-	# Mother
-	_draw_standing_silhouette(Vector2(m_x, shore_y + 8.0), 118.0, 22.0, sil, true)
-	# Child (7 years old, center)
-	_draw_standing_silhouette(Vector2(c_x, shore_y + 8.0), 68.0, 14.0, sil, false)
-	# Father
-	_draw_standing_silhouette(Vector2(f_x, shore_y + 8.0), 132.0, 25.0, sil, false)
+	# Warm radiant aura around the three holding hands
+	_draw_soft_glow(Vector2(c_x, shore_y - 44.0), 82.0, Color(1.0, 0.82, 0.46, 0.28))
 
-	# Joined hands between Mother-Child and Child-Father
-	stage_canvas.draw_line(Vector2(m_x + 12.0, shore_y - 54.0), Vector2(c_x - 10.0, shore_y - 36.0), sil, 5.0, true)
-	stage_canvas.draw_line(Vector2(c_x + 10.0, shore_y - 36.0), Vector2(f_x - 14.0, shore_y - 58.0), sil, 5.0, true)
-	# Gentle warm light around the joined hands
-	_draw_soft_glow(Vector2(c_x, shore_y - 40.0), 54.0, Color(1.0, 0.82, 0.48, 0.24))
+	# Mother (left, warm terracotta-plum tone in sunset silhouette + golden rim)
+	_draw_sea_pixar_figure(Vector2(m_x, shore_y + 8.0), 120.0, 23.0, Color(0.24, 0.12, 0.16, 0.98), rim_gold, true, 0.0)
+	# Child (7 years old, center, warm amber glow + golden rim)
+	_draw_sea_pixar_figure(Vector2(c_x, shore_y + 8.0), 70.0, 14.5, Color(0.32, 0.20, 0.14, 0.98), Color(1.0, 0.94, 0.68, 0.96), false, 1.3)
+	# Father (right, deep indigo-sage tone + golden rim)
+	_draw_sea_pixar_figure(Vector2(f_x, shore_y + 8.0), 134.0, 26.0, Color(0.10, 0.13, 0.22, 0.98), rim_gold, false, 2.4)
+
+	# Joined hands between Mother-Child and Child-Father with golden highlight
+	var hand_l_a: Vector2 = Vector2(m_x + 14.0, shore_y - 54.0)
+	var hand_l_b: Vector2 = Vector2(c_x - 10.0, shore_y - 36.0)
+	var hand_r_a: Vector2 = Vector2(c_x + 10.0, shore_y - 36.0)
+	var hand_r_b: Vector2 = Vector2(f_x - 16.0, shore_y - 58.0)
+	stage_canvas.draw_line(hand_l_a, hand_l_b, Color(0.16, 0.10, 0.14, 0.98), 6.0, true)
+	stage_canvas.draw_line(hand_r_a, hand_r_b, Color(0.14, 0.12, 0.18, 0.98), 6.0, true)
+	stage_canvas.draw_line(hand_l_a + Vector2(0.0, -2.0), hand_l_b + Vector2(0.0, -2.0), rim_gold, 1.8, true)
+	stage_canvas.draw_line(hand_r_a + Vector2(0.0, -2.0), hand_r_b + Vector2(0.0, -2.0), rim_gold, 1.8, true)
 
 
-func _draw_standing_silhouette(foot_pos: Vector2, height: float, half_w: float, col: Color, has_dress: bool) -> void:
-	var skirt_extra: float = 12.0 if has_dress else 0.0
+func _draw_sunset_cloud(pos: Vector2, scale_f: float) -> void:
+	var shadow_c: Color = Color(0.46, 0.25, 0.38, 0.44)
+	var lit_c: Color = Color(1.0, 0.78, 0.56, 0.48)
+	_draw_ellipse_poly(pos + Vector2(0.0, 8.0 * scale_f), 84.0 * scale_f, 22.0 * scale_f, shadow_c, 22)
+	_draw_ellipse_poly(pos + Vector2(-42.0 * scale_f, 6.0 * scale_f), 46.0 * scale_f, 18.0 * scale_f, shadow_c, 18)
+	_draw_ellipse_poly(pos + Vector2(46.0 * scale_f, 7.0 * scale_f), 48.0 * scale_f, 17.0 * scale_f, shadow_c, 18)
+	# Sunlit coral-gold cloud crown
+	_draw_ellipse_poly(pos + Vector2(-12.0 * scale_f, -6.0 * scale_f), 54.0 * scale_f, 19.0 * scale_f, lit_c, 20)
+	_draw_ellipse_poly(pos + Vector2(28.0 * scale_f, -4.0 * scale_f), 42.0 * scale_f, 16.0 * scale_f, lit_c, 18)
+
+
+func _draw_sea_pixar_figure(foot_pos: Vector2, height: float, half_w: float, col: Color, rim_col: Color, has_dress: bool, phase: float) -> void:
+	var breath: float = sin(_global_time * 1.4 + phase) * 1.6
+	var breeze: float = sin(_global_time * 1.9 + phase) * 4.0
+	var skirt_extra: float = 16.0 if has_dress else 0.0
+	var top_y: float = -height + breath
 	var body: PackedVector2Array = PackedVector2Array([
-		foot_pos + Vector2(-half_w - skirt_extra, 0.0),
-		foot_pos + Vector2(-half_w * 0.72, -height),
-		foot_pos + Vector2(half_w * 0.72, -height),
-		foot_pos + Vector2(half_w + skirt_extra, 0.0),
+		foot_pos + Vector2(-half_w - skirt_extra + (breeze if has_dress else 0.0), 0.0),
+		foot_pos + Vector2(-half_w * 0.78, top_y),
+		foot_pos + Vector2(half_w * 0.78, top_y),
+		foot_pos + Vector2(half_w + skirt_extra + (breeze * 0.6 if has_dress else 0.0), 0.0),
 	])
 	stage_canvas.draw_colored_polygon(body, col)
-	var head_r: float = half_w * 0.68
-	stage_canvas.draw_circle(foot_pos + Vector2(0.0, -height - head_r * 1.1), head_r, col)
+	_draw_ellipse_poly(foot_pos + Vector2(0.0, top_y + 4.0), half_w * 0.84, 11.0, col, 18)
+	var head_r: float = half_w * 0.70
+	var head_c: Vector2 = foot_pos + Vector2(0.0, top_y - head_r * 1.15)
+	stage_canvas.draw_circle(head_c, head_r, col)
+	if has_dress:
+		stage_canvas.draw_circle(head_c + Vector2(-head_r * 0.9, -head_r * 0.25), head_r * 0.52, col)
+	# Crisp golden sunset rim light along upper head & shoulders
+	stage_canvas.draw_arc(head_c, head_r + 1.0, PI + 0.15, TAU - 0.15, 18, rim_col, 2.4, true)
+	stage_canvas.draw_arc(foot_pos + Vector2(0.0, top_y + 4.0), half_w * 0.84, PI + 0.20, TAU - 0.20, 14, Color(rim_col.r, rim_col.g, rim_col.b, rim_col.a * 0.78), 2.2, true)
 
+
+# =============================================================================
+# CHAPTER 3 — «ВОСЬМАЯ ЗИМА» (PIXAR "SOUL" / "COCO" MOONLIT BEDROOM)
+# =============================================================================
 
 func _draw_ch3_eighth_winter(vp: Vector2) -> void:
 	var center: Vector2 = Vector2(vp.x * 0.5, vp.y * 0.50)
-	var left_palm: Vector2 = Vector2(vp.x * 0.28, vp.y * 0.52)
-	var right_palm: Vector2 = Vector2(vp.x * 0.72, vp.y * 0.52)
+	var left_palm: Vector2 = Vector2(vp.x * 0.28, vp.y * 0.53)
+	var right_palm: Vector2 = Vector2(vp.x * 0.72, vp.y * 0.53)
 
-	# 1. Diagonal silver moonbeam from upper-right window
+	# 1. Soft moonlit bedroom window in upper-right with gentle silver snow outside
+	var win_rect: Rect2 = Rect2(vp.x * 0.72, vp.y * 0.08, vp.x * 0.19, vp.y * 0.30)
+	stage_canvas.draw_rect(win_rect, Color(0.08, 0.14, 0.28, 0.72), true)
+	# Crescent moon visible outside the bedroom window
+	var moon_c: Vector2 = Vector2(win_rect.position.x + win_rect.size.x * 0.72, win_rect.position.y + win_rect.size.y * 0.30)
+	_draw_soft_glow(moon_c, 42.0, Color(0.80, 0.88, 1.0, 0.28))
+	stage_canvas.draw_circle(moon_c, 13.0, Color(0.94, 0.96, 1.0, 0.90))
+	stage_canvas.draw_circle(moon_c + Vector2(-5.5, -3.0), 11.5, Color(0.08, 0.14, 0.28, 0.95))
+	# Window frame cross
+	var wf_col: Color = Color(0.24, 0.34, 0.52, 0.65)
+	stage_canvas.draw_rect(win_rect, wf_col, false, 3.0)
+	stage_canvas.draw_line(Vector2(win_rect.position.x + win_rect.size.x * 0.5, win_rect.position.y), Vector2(win_rect.position.x + win_rect.size.x * 0.5, win_rect.position.y + win_rect.size.y), wf_col, 2.2, true)
+	stage_canvas.draw_line(Vector2(win_rect.position.x, win_rect.position.y + win_rect.size.y * 0.5), Vector2(win_rect.position.x + win_rect.size.x, win_rect.position.y + win_rect.size.y * 0.5), wf_col, 2.2, true)
+
+	# 2. Diagonal silver moonbeam streaming from the bedroom window
 	var moonbeam: PackedVector2Array = PackedVector2Array([
-		Vector2(vp.x * 0.68, 0.0),
-		Vector2(vp.x * 0.96, 0.0),
+		Vector2(win_rect.position.x, win_rect.position.y + win_rect.size.y * 0.25),
+		Vector2(win_rect.position.x + win_rect.size.x, win_rect.position.y + win_rect.size.y * 0.85),
 		Vector2(vp.x * 0.54, vp.y),
-		Vector2(vp.x * 0.24, vp.y),
+		Vector2(vp.x * 0.22, vp.y),
 	])
-	stage_canvas.draw_colored_polygon(moonbeam, Color(0.76, 0.86, 1.0, 0.055))
+	stage_canvas.draw_colored_polygon(moonbeam, Color(0.76, 0.86, 1.0, 0.065))
 
-	# Floating dust motes in moonlight
-	for m: Dictionary in _motes:
-		var mp: Vector2 = m["pos"] as Vector2
-		stage_canvas.draw_circle(mp, float(m["size"]), Color(0.84, 0.90, 1.0, 0.24))
+	# 3. Delicate hanging starry crib/bed mobile swaying softly overhead
+	_draw_ch3_star_mobile(Vector2(vp.x * 0.50, vp.y * 0.19))
 
-	# 2. Parents' warm cupped hands on left & right (glowing brighter as transfer progresses)
-	var palm_glow: float = 0.16 + _ch3_transfer * 0.84
-	_draw_soft_glow(left_palm, 95.0 + 70.0 * _ch3_transfer, Color(1.0, 0.80, 0.44, 0.34 * palm_glow))
-	_draw_soft_glow(right_palm, 95.0 + 70.0 * _ch3_transfer, Color(1.0, 0.80, 0.44, 0.34 * palm_glow))
+	# 4. Soft silhouette of cozy bed blanket along lower edge
+	var blanket: PackedVector2Array = PackedVector2Array()
+	blanket.append(Vector2(0.0, vp.y))
+	for bi: int in range(17):
+		var bt: float = float(bi) / 16.0
+		var bx: float = bt * vp.x
+		var by: float = vp.y * 0.84 - sin(bt * PI) * 26.0
+		blanket.append(Vector2(bx, by))
+	blanket.append(Vector2(vp.x, vp.y))
+	stage_canvas.draw_colored_polygon(blanket, Color(0.05, 0.08, 0.16, 0.88))
+
+	# 5. Parents' warm volumetric cupped hands on left & right (glowing brighter as transfer progresses)
+	var palm_glow: float = 0.20 + _ch3_transfer * 0.80
+	_draw_soft_glow(left_palm, 108.0 + 76.0 * _ch3_transfer, Color(1.0, 0.82, 0.44, 0.38 * palm_glow))
+	_draw_soft_glow(right_palm, 108.0 + 76.0 * _ch3_transfer, Color(1.0, 0.82, 0.44, 0.38 * palm_glow))
 	_draw_cupped_hand(left_palm, 1.0, palm_glow)
 	_draw_cupped_hand(right_palm, -1.0, palm_glow)
 
-	# 3. Delicate golden transfer threads & particles flowing from child's heart to parents' palms
+	# 6. Delicate golden transfer threads & particles flowing from child's heart to parents' palms
 	if _ch3_holding and not _ch3_final_sequence:
-		var thread_col: Color = Color(1.0, 0.88, 0.56, 0.38)
-		_draw_curved_thread(center, left_palm, -26.0, thread_col)
-		_draw_curved_thread(center, left_palm, 22.0, thread_col)
-		_draw_curved_thread(center, right_palm, -26.0, thread_col)
-		_draw_curved_thread(center, right_palm, 22.0, thread_col)
+		var thread_col: Color = Color(1.0, 0.89, 0.56, 0.44)
+		_draw_curved_thread(center, left_palm, -28.0, thread_col)
+		_draw_curved_thread(center, left_palm, 24.0, thread_col)
+		_draw_curved_thread(center, right_palm, -28.0, thread_col)
+		_draw_curved_thread(center, right_palm, 24.0, thread_col)
 
 	for sp: Dictionary in _ch3_stream_particles:
 		var t: float = float(sp["t"])
@@ -1611,55 +2309,118 @@ func _draw_ch3_eighth_winter(vp: Vector2) -> void:
 		var q1: Vector2 = mid_p.lerp(target_p, t)
 		var pos: Vector2 = q0.lerp(q1, t)
 		var a: float = sin(t * PI)
-		stage_canvas.draw_circle(pos, float(sp["size"]), Color(1.0, 0.91, 0.62, a * 0.90))
+		var psz: float = float(sp["size"])
+		stage_canvas.draw_circle(pos, psz * 2.0, Color(1.0, 0.84, 0.46, a * 0.30))
+		stage_canvas.draw_circle(pos, psz, Color(1.0, 0.95, 0.72, a * 0.94))
 
-	# 4. Child's luminous heart-light in center (becomes softer, smaller & weightless as warmth is given)
+	# 7. Child's luminous heart-light in center (becomes softer, smaller & weightless as warmth is given)
 	var heart_pos: Vector2 = center + Vector2(0.0, -_ch3_ember_rise - _ch3_transfer * 18.0)
 	var remaining: float = clampf(1.0 - _ch3_transfer * 0.78, 0.16, 1.0)
 	var beat_scale: float = 1.0 + _ch3_heartbeat_pulse * 0.16 * remaining
-	var base_r: float = lerpf(42.0, 14.0, _ch3_transfer) * beat_scale
+	var base_r: float = lerpf(44.0, 15.0, _ch3_transfer) * beat_scale
 	var fade_final: float = clampf(1.0 - _ch3_ember_rise * 0.012, 0.0, 1.0)
 
-	_draw_soft_glow(heart_pos, base_r * 3.8, Color(1.0, 0.84, 0.48, 0.36 * remaining * fade_final))
-	stage_canvas.draw_circle(heart_pos, base_r * 0.58, Color(1.0, 0.94, 0.74, 0.85 * remaining * fade_final))
-	stage_canvas.draw_circle(heart_pos, base_r * 0.28, Color(1.0, 0.99, 0.92, 0.95 * fade_final))
+	_draw_soft_glow(heart_pos, base_r * 4.0, Color(1.0, 0.84, 0.46, 0.40 * remaining * fade_final))
+	stage_canvas.draw_circle(heart_pos, base_r * 0.62, Color(1.0, 0.94, 0.72, 0.88 * remaining * fade_final))
+	stage_canvas.draw_circle(heart_pos, base_r * 0.30, Color(1.0, 0.99, 0.94, 0.98 * fade_final))
 
 	# Quiet circular progress arc around the heart while holding
 	if not _ch3_final_sequence and _ch3_transfer > 0.01:
 		stage_canvas.draw_arc(
 			heart_pos,
-			64.0,
+			66.0,
 			-PI * 0.5,
 			-PI * 0.5 + TAU * _ch3_transfer,
 			48,
-			Color(1.0, 0.88, 0.56, 0.55),
-			2.0,
+			Color(1.0, 0.89, 0.56, 0.62),
+			2.4,
 			true
 		)
 
 
-func _draw_cupped_hand(palm_pos: Vector2, facing_dir: float, warmth_glow: float) -> void:
-	# Stylized GRIS luminous cupped palm & wrist silhouette
-	var line_col: Color = Color(0.66, 0.76, 0.92, 0.48).lerp(Color(1.0, 0.88, 0.58, 0.92), warmth_glow)
-	var fill_col: Color = Color(0.10, 0.15, 0.26, 0.75).lerp(Color(0.32, 0.22, 0.16, 0.72), warmth_glow)
+func _draw_ch3_star_mobile(anchor: Vector2) -> void:
+	var sway: float = sin(_global_time * 0.85) * 8.0
+	var string_col: Color = Color(0.76, 0.84, 0.98, 0.42)
+	var gold_charm: Color = Color(1.0, 0.90, 0.60, 0.86)
+	var silver_charm: Color = Color(0.84, 0.92, 1.0, 0.82)
 
-	var wrist: Vector2 = palm_pos + Vector2(-facing_dir * 125.0, 54.0)
-	var heel: Vector2 = palm_pos + Vector2(-facing_dir * 42.0, 32.0)
-	var tip_low: Vector2 = palm_pos + Vector2(facing_dir * 48.0, 18.0)
-	var tip_mid: Vector2 = palm_pos + Vector2(facing_dir * 54.0, -8.0)
-	var thumb_tip: Vector2 = palm_pos + Vector2(facing_dir * 18.0, -34.0)
-	var wrist_top: Vector2 = palm_pos + Vector2(-facing_dir * 118.0, 16.0)
+	# Suspension thread & curved wooden mobile arch
+	stage_canvas.draw_line(Vector2(anchor.x, 24.0), anchor + Vector2(sway * 0.3, 0.0), string_col, 1.5, true)
+	var bar_l: Vector2 = anchor + Vector2(-78.0 + sway * 0.6, 16.0)
+	var bar_r: Vector2 = anchor + Vector2(78.0 + sway * 0.6, 16.0)
+	stage_canvas.draw_line(bar_l, anchor + Vector2(sway * 0.3, 0.0), Color(0.68, 0.76, 0.90, 0.55), 2.4, true)
+	stage_canvas.draw_line(anchor + Vector2(sway * 0.3, 0.0), bar_r, Color(0.68, 0.76, 0.90, 0.55), 2.4, true)
 
-	var hand_poly: PackedVector2Array = PackedVector2Array([
-		wrist, heel, tip_low, tip_mid, thumb_tip, wrist_top
+	# Center crescent charm
+	var c_end: Vector2 = anchor + Vector2(sway * 0.9, 58.0)
+	stage_canvas.draw_line(anchor + Vector2(sway * 0.3, 0.0), c_end, string_col, 1.2, true)
+	_draw_soft_glow(c_end, 20.0, Color(1.0, 0.90, 0.58, 0.24))
+	stage_canvas.draw_circle(c_end, 9.0, gold_charm)
+	stage_canvas.draw_circle(c_end + Vector2(4.0, -2.0), 7.8, Color(0.05, 0.09, 0.18, 0.94))
+
+	# Four swaying twinkling stars
+	var star_xs: Array[float] = [-74.0, -34.0, 34.0, 74.0]
+	var star_lens: Array[float] = [44.0, 62.0, 56.0, 40.0]
+	for s_i: int in range(4):
+		var sx: float = star_xs[s_i]
+		var top_p: Vector2 = anchor + Vector2(sx + sway * 0.5, 16.0 * (absf(sx) / 78.0))
+		var bob: float = sin(_global_time * 1.4 + float(s_i) * 1.5) * 4.5
+		var end_p: Vector2 = top_p + Vector2(bob, star_lens[s_i])
+		stage_canvas.draw_line(top_p, end_p, string_col, 1.1, true)
+		var col: Color = gold_charm if (s_i % 2 == 0) else silver_charm
+		_draw_four_point_star(end_p, 6.5 if (s_i % 2 == 0) else 5.2, col)
+
+
+func _draw_four_point_star(pos: Vector2, rad: float, col: Color) -> void:
+	var inner: float = rad * 0.32
+	var pts: PackedVector2Array = PackedVector2Array([
+		pos + Vector2(0.0, -rad),
+		pos + Vector2(inner, -inner),
+		pos + Vector2(rad, 0.0),
+		pos + Vector2(inner, inner),
+		pos + Vector2(0.0, rad),
+		pos + Vector2(-inner, inner),
+		pos + Vector2(-rad, 0.0),
+		pos + Vector2(-inner, -inner),
 	])
-	stage_canvas.draw_colored_polygon(hand_poly, fill_col)
-	stage_canvas.draw_polyline(
-		PackedVector2Array([wrist_top, thumb_tip, tip_mid, tip_low, heel, wrist]),
-		line_col,
-		2.2,
-		true
-	)
+	stage_canvas.draw_colored_polygon(pts, col)
+
+
+func _draw_cupped_hand(palm_pos: Vector2, facing_dir: float, warmth_glow: float) -> void:
+	# Soft volumetric Pixar-style cupped palm & rounded fingers with warm inner glow
+	var rim_col: Color = Color(0.72, 0.84, 0.98, 0.62).lerp(Color(1.0, 0.90, 0.56, 0.96), warmth_glow)
+	var fill_col: Color = Color(0.14, 0.20, 0.34, 0.88).lerp(Color(0.62, 0.40, 0.28, 0.90), warmth_glow)
+	var inner_lit: Color = Color(0.28, 0.38, 0.54, 0.55).lerp(Color(0.98, 0.78, 0.46, 0.78), warmth_glow)
+
+	# Forearm / wrist entering gently from screen side
+	var wrist_far: Vector2 = palm_pos + Vector2(-facing_dir * 160.0, 56.0)
+	var wrist_near: Vector2 = palm_pos + Vector2(-facing_dir * 42.0, 22.0)
+	stage_canvas.draw_line(wrist_far, wrist_near, fill_col, 30.0, true)
+	stage_canvas.draw_line(wrist_far + Vector2(0.0, -14.0), wrist_near + Vector2(0.0, -14.0), rim_col, 2.2, true)
+
+	# Rounded palm cushion
+	_draw_ellipse_poly(palm_pos + Vector2(-facing_dir * 8.0, 12.0), 42.0, 24.0, fill_col, 22, facing_dir * -0.18)
+	_draw_ellipse_poly(palm_pos + Vector2(facing_dir * 4.0, 4.0), 28.0, 13.0, inner_lit, 18, facing_dir * -0.15)
+
+	# Soft curled fingers cradling the warmth
+	var f1_a: Vector2 = palm_pos + Vector2(facing_dir * 18.0, 16.0)
+	var f1_b: Vector2 = palm_pos + Vector2(facing_dir * 54.0, 6.0)
+	var f2_a: Vector2 = palm_pos + Vector2(facing_dir * 20.0, 4.0)
+	var f2_b: Vector2 = palm_pos + Vector2(facing_dir * 58.0, -10.0)
+	var th_a: Vector2 = palm_pos + Vector2(-facing_dir * 8.0, -4.0)
+	var th_b: Vector2 = palm_pos + Vector2(facing_dir * 22.0, -28.0)
+
+	stage_canvas.draw_line(f1_a, f1_b, fill_col, 13.0, true)
+	stage_canvas.draw_circle(f1_b, 6.5, fill_col)
+	stage_canvas.draw_line(f2_a, f2_b, fill_col.lightened(0.08), 12.0, true)
+	stage_canvas.draw_circle(f2_b, 6.0, fill_col.lightened(0.08))
+	stage_canvas.draw_line(th_a, th_b, fill_col.lightened(0.12), 12.0, true)
+	stage_canvas.draw_circle(th_b, 6.0, fill_col.lightened(0.12))
+
+	# Golden rim highlight along upper thumb & fingertips
+	stage_canvas.draw_line(th_a + Vector2(0.0, -5.0), th_b + Vector2(0.0, -4.0), rim_col, 2.4, true)
+	stage_canvas.draw_line(f2_a + Vector2(0.0, -5.0), f2_b + Vector2(0.0, -4.0), rim_col, 2.2, true)
+	stage_canvas.draw_circle(f2_b, 6.4, Color(rim_col.r, rim_col.g, rim_col.b, 0.45))
 
 
 func _draw_curved_thread(a: Vector2, b: Vector2, bend_y: float, col: Color) -> void:
@@ -1669,53 +2430,52 @@ func _draw_curved_thread(a: Vector2, b: Vector2, bend_y: float, col: Color) -> v
 		var t: float = float(i) / 16.0
 		var p: Vector2 = a.lerp(mid, t).lerp(mid.lerp(b, t), t)
 		pts.append(p)
-	stage_canvas.draw_polyline(pts, col, 1.8, true)
+	stage_canvas.draw_polyline(pts, col, 2.2, true)
 
+
+# =============================================================================
+# CHAPTER 4 — «РАЗЛОМ И ДВЕ РУКИ В ТЕМНОТЕ» (TANGLED LANTERNS & TWO HANDS)
+# =============================================================================
 
 func _draw_ch4_two_hands(vp: Vector2) -> void:
-	var cy: float = vp.y * 0.54
+	var cy: float = vp.y * 0.55
 	var cx: float = vp.x * 0.5
 	var u: float = _ch4_unite_anim
 	var ease_u: float = u * u * (3.0 - 2.0 * u)
 
-	# Gap between the two trembling lines closes from 140px to 0px
-	var half_gap: float = lerpf(88.0, 0.0, ease_u)
-	var tremble: float = lerpf(5.5, 0.4, ease_u)
+	# 1. Velvet night stars twinkling softly in the background
+	for st_i: int in range(36):
+		var sx: float = fmod(float(st_i * 197 + 53), 1240.0) / 1240.0 * vp.x
+		var sy: float = fmod(float(st_i * 113 + 29), 520.0) / 720.0 * vp.y + 30.0
+		var tw: float = 0.35 + 0.65 * sin(_global_time * 1.8 + float(st_i) * 1.3)
+		stage_canvas.draw_circle(Vector2(sx, sy), 1.4 + float(st_i % 3) * 0.6, Color(0.95, 0.94, 1.0, 0.36 * tw))
 
-	var left_pts: PackedVector2Array = PackedVector2Array()
-	var right_pts: PackedVector2Array = PackedVector2Array()
-	var segs: int = 24
-	for i: int in range(segs + 1):
-		var t: float = float(i) / float(segs)
-		var lx: float = lerpf(vp.x * 0.08, cx - half_gap, t)
-		var ly: float = cy + sin(t * 9.0 + _global_time * 4.5) * tremble * t
-		left_pts.append(Vector2(lx, ly))
+	# 2. Two warmly rendered reaching hands (Mother left, Father right) finding & clasping each other
+	var half_gap: float = lerpf(92.0, -10.0, ease_u)
+	var tremble: float = lerpf(4.8, 0.4, ease_u)
+	var l_trem: Vector2 = Vector2(0.0, sin(_global_time * 4.4) * tremble)
+	var r_trem: Vector2 = Vector2(0.0, cos(_global_time * 4.0) * tremble)
 
-		var rx: float = lerpf(vp.x * 0.92, cx + half_gap, t)
-		var ry: float = cy + cos(t * 9.5 + _global_time * 4.1) * tremble * t
-		right_pts.append(Vector2(rx, ry))
+	var left_hand_p: Vector2 = Vector2(cx - half_gap - 28.0, cy) + l_trem
+	var right_hand_p: Vector2 = Vector2(cx + half_gap + 28.0, cy) + r_trem
 
-	var mother_col: Color = Color(0.95, 0.78, 0.72, 0.78).lerp(COLOR_GOLD, ease_u)
-	var father_col: Color = Color(0.76, 0.84, 0.98, 0.78).lerp(COLOR_GOLD, ease_u)
+	var mother_glow: Color = Color(0.98, 0.74, 0.66, 0.85).lerp(COLOR_GOLD, ease_u)
+	var father_glow: Color = Color(0.74, 0.84, 1.0, 0.85).lerp(COLOR_GOLD, ease_u)
 
-	# Outer soft aura along both lines
-	stage_canvas.draw_polyline(left_pts, Color(mother_col.r, mother_col.g, mother_col.b, 0.22), 10.0, true)
-	stage_canvas.draw_polyline(right_pts, Color(father_col.r, father_col.g, father_col.b, 0.22), 10.0, true)
-	# Crisp luminous threads
-	stage_canvas.draw_polyline(left_pts, mother_col, 2.8, true)
-	stage_canvas.draw_polyline(right_pts, father_col, 2.8, true)
+	_draw_ch4_reaching_hand(left_hand_p, 1.0, mother_glow, ease_u, true)
+	_draw_ch4_reaching_hand(right_hand_p, -1.0, father_glow, ease_u, false)
 
-	# Glowing fingertips at the ends of the two lines
-	var left_tip: Vector2 = left_pts[left_pts.size() - 1]
-	var right_tip: Vector2 = right_pts[right_pts.size() - 1]
-	_draw_soft_glow(left_tip, 36.0 + 30.0 * ease_u, Color(mother_col.r, mother_col.g, mother_col.b, 0.45))
-	_draw_soft_glow(right_tip, 36.0 + 30.0 * ease_u, Color(father_col.r, father_col.g, father_col.b, 0.45))
-	stage_canvas.draw_circle(left_tip, 4.5, COLOR_IVORY)
-	stage_canvas.draw_circle(right_tip, 4.5, COLOR_IVORY)
+	# Warm radiant clasp glow at the fingertips / joined palms
+	var clasp_c: Vector2 = Vector2(cx, cy)
+	if not _ch4_united:
+		_draw_soft_glow(left_hand_p + Vector2(46.0, -2.0), 42.0, Color(mother_glow.r, mother_glow.g, mother_glow.b, 0.38))
+		_draw_soft_glow(right_hand_p + Vector2(-46.0, -2.0), 42.0, Color(father_glow.r, father_glow.g, father_glow.b, 0.38))
+	else:
+		_draw_soft_glow(clasp_c, 220.0 * ease_u, Color(1.0, 0.86, 0.48, 0.50 * ease_u))
+		_draw_soft_glow(clasp_c, 92.0 * ease_u, Color(1.0, 0.96, 0.80, 0.62 * ease_u))
 
-	# Central golden bloom & ascending vortex of petals once united
+	# 3. Tangled-style ascending stream of golden lanterns & petals carrying the Soul upward
 	if _ch4_united:
-		_draw_soft_glow(Vector2(cx, cy), 190.0 * ease_u, Color(1.0, 0.87, 0.52, 0.48 * ease_u))
 		for pt: Dictionary in _ch4_vortex_petals:
 			var ang: float = float(pt["angle"])
 			var rad: float = float(pt["radius"])
@@ -1723,30 +2483,95 @@ func _draw_ch4_two_hands(vp: Vector2) -> void:
 			var sz: float = float(pt["size"])
 			var a: float = float(pt["alpha"])
 			var px: float = cx + cos(ang) * rad
-			var py: float = cy - y_off + sin(ang) * rad * 0.25
-			var p_col: Color = Color(1.0, 0.89, 0.56, a * 0.92)
-			var dir: Vector2 = Vector2(cos(ang), sin(ang))
-			var perp: Vector2 = Vector2(-dir.y, dir.x)
-			var petal_poly: PackedVector2Array = PackedVector2Array([
-				Vector2(px, py) + dir * sz * 1.4,
-				Vector2(px, py) + perp * sz * 0.55,
-				Vector2(px, py) - dir * sz * 1.1,
-				Vector2(px, py) - perp * sz * 0.55,
-			])
-			stage_canvas.draw_colored_polygon(petal_poly, p_col)
+			var py: float = cy - y_off + sin(ang) * rad * 0.24
+			var is_lantern: bool = bool(pt.get("is_lantern", false))
+
+			if is_lantern:
+				var bob_x: float = sin(_global_time * 2.2 + float(pt.get("bob_phase", 0.0))) * 6.0
+				_draw_tangled_lantern(Vector2(px + bob_x, py), sz, a)
+			else:
+				var p_col: Color = Color(1.0, 0.90, 0.56, a * 0.92)
+				var dir: Vector2 = Vector2(cos(ang), sin(ang))
+				var perp: Vector2 = Vector2(-dir.y, dir.x)
+				var petal_poly: PackedVector2Array = PackedVector2Array([
+					Vector2(px, py) + dir * sz * 1.45,
+					Vector2(px, py) + perp * sz * 0.58,
+					Vector2(px, py) - dir * sz * 1.15,
+					Vector2(px, py) - perp * sz * 0.58,
+				])
+				stage_canvas.draw_colored_polygon(petal_poly, p_col)
+
+
+func _draw_ch4_reaching_hand(palm_p: Vector2, dir_sign: float, glow_col: Color, unite_t: float, is_mother: bool) -> void:
+	var fill_base: Color = Color(0.32, 0.20, 0.22, 0.94) if is_mother else Color(0.16, 0.22, 0.34, 0.94)
+	var fill_col: Color = fill_base.lerp(Color(0.76, 0.54, 0.34, 0.96), 0.25 + unite_t * 0.75)
+	var rim_col: Color = Color(glow_col.r, glow_col.g, glow_col.b, 0.92)
+	var arm_thick: float = 22.0 if is_mother else 27.0
+
+	# Soft aura behind the arm & hand
+	_draw_soft_glow(palm_p + Vector2(dir_sign * 16.0, 0.0), 68.0 + 36.0 * unite_t, Color(glow_col.r, glow_col.g, glow_col.b, 0.22))
+
+	# Arm reaching in from edge of darkness
+	var arm_start: Vector2 = palm_p + Vector2(-dir_sign * 520.0, 26.0)
+	var wrist_p: Vector2 = palm_p + Vector2(-dir_sign * 34.0, 6.0)
+	stage_canvas.draw_line(arm_start, wrist_p, fill_col, arm_thick, true)
+	stage_canvas.draw_line(arm_start + Vector2(0.0, -arm_thick * 0.45), wrist_p + Vector2(0.0, -arm_thick * 0.45), rim_col, 2.2, true)
+
+	# Rounded palm
+	_draw_ellipse_poly(palm_p, 34.0 if is_mother else 38.0, 19.0 if is_mother else 22.0, fill_col, 20)
+
+	# Expressive reaching / intertwining fingers
+	var curl: float = unite_t * 10.0
+	var f_top: Vector2 = palm_p + Vector2(dir_sign * 52.0, -10.0 + curl * 0.5)
+	var f_mid: Vector2 = palm_p + Vector2(dir_sign * 56.0, 2.0 + curl * 0.3)
+	var f_low: Vector2 = palm_p + Vector2(dir_sign * 46.0, 14.0 - curl * 0.2)
+	var thumb_p: Vector2 = palm_p + Vector2(dir_sign * 20.0, -24.0 + curl * 0.6)
+
+	var f_w: float = 9.0 if is_mother else 11.0
+	stage_canvas.draw_line(palm_p + Vector2(dir_sign * 14.0, -8.0), f_top, fill_col.lightened(0.08), f_w, true)
+	stage_canvas.draw_circle(f_top, f_w * 0.5, fill_col.lightened(0.08))
+	stage_canvas.draw_line(palm_p + Vector2(dir_sign * 16.0, 2.0), f_mid, fill_col.lightened(0.04), f_w, true)
+	stage_canvas.draw_circle(f_mid, f_w * 0.5, fill_col.lightened(0.04))
+	stage_canvas.draw_line(palm_p + Vector2(dir_sign * 12.0, 10.0), f_low, fill_col, f_w * 0.9, true)
+	stage_canvas.draw_circle(f_low, f_w * 0.45, fill_col)
+	stage_canvas.draw_line(palm_p + Vector2(-dir_sign * 4.0, -8.0), thumb_p, fill_col.lightened(0.10), f_w, true)
+	stage_canvas.draw_circle(thumb_p, f_w * 0.5, fill_col.lightened(0.10))
+
+	# Luminous golden rim along upper contour & fingertips
+	stage_canvas.draw_line(palm_p + Vector2(-dir_sign * 4.0, -12.0), thumb_p + Vector2(0.0, -4.0), rim_col, 2.2, true)
+	stage_canvas.draw_line(palm_p + Vector2(dir_sign * 14.0, -12.0), f_top + Vector2(0.0, -3.5), rim_col, 2.2, true)
+	stage_canvas.draw_circle(f_mid, 3.6, Color(1.0, 0.96, 0.84, 0.85))
+
+
+func _draw_tangled_lantern(pos: Vector2, sz: float, alpha: float) -> void:
+	# Soft outer Tangled halo
+	_draw_soft_glow(pos, sz * 3.0, Color(1.0, 0.78, 0.34, 0.30 * alpha))
+	# Rounded warm paper lantern body
+	var body: PackedVector2Array = PackedVector2Array([
+		pos + Vector2(-sz * 0.65, -sz * 0.85),
+		pos + Vector2(sz * 0.65, -sz * 0.85),
+		pos + Vector2(sz * 0.48, sz * 0.80),
+		pos + Vector2(-sz * 0.48, sz * 0.80),
+	])
+	stage_canvas.draw_colored_polygon(body, Color(0.98, 0.70, 0.28, 0.86 * alpha))
+	# Bright glowing flame core at the base of the lantern
+	_draw_ellipse_poly(pos + Vector2(0.0, sz * 0.18), sz * 0.42, sz * 0.50, Color(1.0, 0.95, 0.70, 0.92 * alpha), 12)
+	stage_canvas.draw_circle(pos + Vector2(0.0, sz * 0.38), sz * 0.24, Color(1.0, 1.0, 0.92, 0.98 * alpha))
+	# Subtle top rim
+	stage_canvas.draw_line(pos + Vector2(-sz * 0.65, -sz * 0.85), pos + Vector2(sz * 0.65, -sz * 0.85), Color(0.72, 0.42, 0.18, 0.72 * alpha), 1.5, true)
 
 
 func _draw_child_spark() -> void:
-	# Graceful luminous ribbon trail
+	# Graceful Pixar golden firefly-spark with luminous ribbon trail
 	var n: int = _spark_trail.size()
 	for i: int in range(n):
 		var t: float = float(i) / maxf(float(n), 1.0)
-		stage_canvas.draw_circle(_spark_trail[i], 2.0 + t * 5.5, Color(1.0, 0.88, 0.54, t * 0.34))
+		stage_canvas.draw_circle(_spark_trail[i], 2.2 + t * 5.8, Color(1.0, 0.88, 0.52, t * 0.38))
 
 	var pulse: float = 1.0 + 0.12 * sin(_global_time * 4.2)
-	_draw_soft_glow(_spark_pos, 34.0 * pulse, Color(1.0, 0.85, 0.48, 0.38))
-	stage_canvas.draw_circle(_spark_pos, 7.5 * pulse, Color(1.0, 0.93, 0.68, 0.92))
-	stage_canvas.draw_circle(_spark_pos, 3.8, Color(1.0, 0.99, 0.94, 1.0))
+	_draw_soft_glow(_spark_pos, 38.0 * pulse, Color(1.0, 0.84, 0.44, 0.42))
+	stage_canvas.draw_circle(_spark_pos, 8.0 * pulse, Color(1.0, 0.94, 0.68, 0.94))
+	stage_canvas.draw_circle(_spark_pos, 4.0, Color(1.0, 0.99, 0.95, 1.0))
 
 
 func _draw_soft_glow(pos: Vector2, radius: float, col: Color) -> void:
@@ -2021,23 +2846,44 @@ func _on_return_main_menu_pressed() -> void:
 
 
 func _style_ui_elements() -> void:
-	# Soft dark translucent scrim behind poetic narration for guaranteed legibility
+	# Warm velvet storytelling narration card with gentle golden Pixar glow & crisp legibility
 	var narr_box: StyleBoxFlat = StyleBoxFlat.new()
-	narr_box.bg_color = Color(0.025, 0.055, 0.125, 0.56)
-	narr_box.border_color = Color(0.964706, 0.827451, 0.419608, 0.28)
+	narr_box.bg_color = Color(0.055, 0.068, 0.138, 0.72)
+	narr_box.border_color = Color(0.988, 0.855, 0.490, 0.48)
 	narr_box.border_width_top = 1
 	narr_box.border_width_bottom = 1
-	narr_box.set_corner_radius_all(6)
+	narr_box.border_width_left = 1
+	narr_box.border_width_right = 1
+	narr_box.set_corner_radius_all(12)
+	narr_box.shadow_color = Color(0.98, 0.78, 0.36, 0.14)
+	narr_box.shadow_size = 14
 	narration_panel.add_theme_stylebox_override("panel", narr_box)
 
-	# Art Deco pause card
+	# Keep hint labels cleanly inside the 24px cinema letterbox frame on 1280x720
+	if esc_hint_label != null:
+		esc_hint_label.offset_top = 30.0
+		esc_hint_label.offset_bottom = 54.0
+	if controls_hint_label != null:
+		controls_hint_label.offset_top = -52.0
+		controls_hint_label.offset_bottom = -28.0
+
+	# Soft warm drop shadows on header & hints so text stays crisp over bright spring/sunset skies
+	var text_shadow: Color = Color(0.02, 0.03, 0.07, 0.78)
+	for lbl: Label in [chapter_roman_label, chapter_title_label, poetic_label, sub_poetic_label, controls_hint_label, esc_hint_label]:
+		if lbl != null:
+			lbl.add_theme_color_override("font_shadow_color", text_shadow)
+			lbl.add_theme_constant_override("shadow_offset_x", 0)
+			lbl.add_theme_constant_override("shadow_offset_y", 2)
+			lbl.add_theme_constant_override("shadow_outline_size", 4)
+
+	# Warm cinematic pause card
 	var p_box: StyleBoxFlat = StyleBoxFlat.new()
-	p_box.bg_color = COLOR_INDIGO_CARD
+	p_box.bg_color = Color(0.048, 0.066, 0.148, 0.95)
 	p_box.border_color = COLOR_GOLD
 	p_box.set_border_width_all(2)
-	p_box.set_corner_radius_all(4)
-	p_box.shadow_color = Color(0.0, 0.0, 0.0, 0.5)
-	p_box.shadow_size = 24
+	p_box.set_corner_radius_all(12)
+	p_box.shadow_color = Color(0.98, 0.80, 0.40, 0.22)
+	p_box.shadow_size = 26
 	pause_card.add_theme_stylebox_override("panel", p_box)
 
 	_apply_art_deco_button_theme(btn_resume)
@@ -2048,7 +2894,7 @@ func _style_ui_elements() -> void:
 func _create_art_deco_button(label_text: String, min_width: float) -> Button:
 	var btn: Button = Button.new()
 	btn.text = label_text
-	btn.custom_minimum_size = Vector2(min_width, 44.0)
+	btn.custom_minimum_size = Vector2(min_width, 46.0)
 	btn.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	_apply_art_deco_button_theme(btn)
 	return btn
@@ -2057,24 +2903,28 @@ func _create_art_deco_button(label_text: String, min_width: float) -> Button:
 func _apply_art_deco_button_theme(btn: Button) -> void:
 	btn.add_theme_font_size_override("font_size", 16)
 	btn.add_theme_color_override("font_color", COLOR_IVORY)
-	btn.add_theme_color_override("font_hover_color", COLOR_GOLD)
+	btn.add_theme_color_override("font_hover_color", Color(1.0, 0.94, 0.68, 1.0))
 	btn.add_theme_color_override("font_pressed_color", COLOR_INDIGO)
-	btn.add_theme_color_override("font_focus_color", COLOR_GOLD)
+	btn.add_theme_color_override("font_focus_color", Color(1.0, 0.94, 0.68, 1.0))
 
 	var normal_s: StyleBoxFlat = StyleBoxFlat.new()
-	normal_s.bg_color = Color(0.047, 0.110, 0.239, 0.88)
-	normal_s.border_color = COLOR_GOLD_SOFT
+	normal_s.bg_color = Color(0.075, 0.098, 0.205, 0.86)
+	normal_s.border_color = Color(0.98, 0.84, 0.46, 0.68)
 	normal_s.set_border_width_all(1)
-	normal_s.set_corner_radius_all(3)
-	normal_s.content_margin_left = 20.0
-	normal_s.content_margin_right = 20.0
-	normal_s.content_margin_top = 10.0
-	normal_s.content_margin_bottom = 10.0
+	normal_s.set_corner_radius_all(10)
+	normal_s.shadow_color = Color(0.0, 0.0, 0.0, 0.34)
+	normal_s.shadow_size = 8
+	normal_s.content_margin_left = 22.0
+	normal_s.content_margin_right = 22.0
+	normal_s.content_margin_top = 11.0
+	normal_s.content_margin_bottom = 11.0
 
 	var hover_s: StyleBoxFlat = normal_s.duplicate() as StyleBoxFlat
-	hover_s.bg_color = Color(0.10, 0.18, 0.34, 0.96)
+	hover_s.bg_color = Color(0.16, 0.17, 0.30, 0.95)
 	hover_s.border_color = COLOR_GOLD
 	hover_s.set_border_width_all(2)
+	hover_s.shadow_color = Color(1.0, 0.84, 0.44, 0.28)
+	hover_s.shadow_size = 14
 
 	var pressed_s: StyleBoxFlat = normal_s.duplicate() as StyleBoxFlat
 	pressed_s.bg_color = COLOR_GOLD

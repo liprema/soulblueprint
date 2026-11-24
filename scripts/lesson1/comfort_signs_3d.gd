@@ -26,7 +26,9 @@ const THREAD_COLOR_1: Color = Color("#D9B2A8")  # Warmer peach-silver
 const THREAD_COLOR_2: Color = Color("#F2C488")  # Warm amber rose-gold
 const THREAD_COLOR_3: Color = Color("#FFD878")  # Pure radiant Unconditional Love gold
 
-const THREAD_SEGMENTS: int = 44
+const THREAD_SEGMENTS: int = 56
+const BEACON_BASE_ALPHA: float = 0.16
+const LANTERN_MOTE_COUNT: int = 48
 
 var _lesson1_active: bool = false
 var _is_built: bool = false
@@ -36,11 +38,14 @@ var _anim_time: float = 0.0
 
 # Per-sign state dictionaries keyed by sign_id
 var _sign_defs: Array[Dictionary] = []
-var _sign_nodes: Dictionary = {}       # sign_id -> Dictionary of Node3D / OmniLight3D / GPUParticles3D
+var _sign_nodes: Dictionary = {}       # sign_id -> Dictionary of Node3D / OmniLight3D / GPUParticles3D / Beacon
 var _collected_map: Dictionary = {}    # sign_id -> bool
 var _collect_blend: Dictionary = {}    # sign_id -> float (0.0 uncollected -> 1.0 collected serene)
 
-# Parents' Thread of Pain (ImmediateMesh ribbon + companion harmonic spiral)
+# Ambient Tangled / Soul floating golden lantern-firefly motes (active only in Lesson 1)
+var _lantern_motes: GPUParticles3D = null
+
+# Parents' Thread of Pain (ImmediateMesh luminous ribbon + companion harmonic filament + gossamer aura)
 var _thread_root: Node3D = null
 var _thread_mesh_inst: MeshInstance3D = null
 var _thread_imm_mesh: ImmediateMesh = null
@@ -65,7 +70,9 @@ func setup(mirror_pos: Vector3) -> void:
 	if _sign_defs.is_empty():
 		_init_sign_definitions()
 	if not _is_built:
-		_build_all_signs()
+		var shared_mote_tex: GradientTexture2D = _create_radial_mote_texture()
+		_build_all_signs(shared_mote_tex)
+		_build_sunset_lantern_motes(shared_mote_tex)
 		_build_mirror_thread()
 		_is_built = true
 	_update_thread_targets()
@@ -73,13 +80,15 @@ func setup(mirror_pos: Vector3) -> void:
 	set_process(_lesson1_active)
 
 
-## Activates or deactivates Lesson 1 3D signs and the Parents' Thread of Pain.
+## Activates or deactivates Lesson 1 3D signs, floating lantern motes, and the Parents' Thread of Pain.
 func set_lesson1_active(active: bool) -> void:
 	_lesson1_active = active
 	if active and not _is_built:
 		setup(_mirror_pos)
 	visible = _lesson1_active
 	set_process(_lesson1_active)
+	if _lantern_motes != null:
+		_lantern_motes.emitting = _lesson1_active
 	for def_dict: Dictionary in _sign_defs:
 		var s_id: String = str(def_dict.get("id", ""))
 		var refs: Dictionary = _sign_nodes.get(s_id, {}) as Dictionary
@@ -97,6 +106,7 @@ func sync_progress(found_ids: Array[String], sent_count: int) -> void:
 		_collected_map[s_id] = is_found
 		_collect_blend[s_id] = 1.0 if is_found else 0.0
 		_apply_sign_visual_state(s_id, is_found)
+		_snap_sign_beacon_state(s_id, is_found)
 	set_sent_count(sent_count)
 	_thread_current_color = _thread_target_color
 	_thread_tremor_current = _thread_tremor_target
@@ -168,9 +178,9 @@ func _process(delta: float) -> void:
 	if not _lesson1_active:
 		return
 	_anim_time += delta
-	var blend_step: float = clampf(delta * 2.6, 0.0, 1.0)
+	var blend_step: float = clampf(delta * 2.4, 0.0, 1.0)
 
-	# 1. Animate each Comfort Sign shrine
+	# 1. Animate each Comfort Sign shrine & its fairytale golden light beacon
 	for i: int in range(_sign_defs.size()):
 		var def_dict: Dictionary = _sign_defs[i]
 		var s_id: String = str(def_dict.get("id", ""))
@@ -187,8 +197,8 @@ func _process(delta: float) -> void:
 		var phase: float = float(i) * 2.094395
 		var pivot: Node3D = refs.get("pivot", null) as Node3D
 		if pivot != null:
-			var hover_amp: float = lerpf(0.11, 0.035, cur_blend)
-			var hover_speed: float = lerpf(1.75, 1.05, cur_blend)
+			var hover_amp: float = lerpf(0.115, 0.035, cur_blend)
+			var hover_speed: float = lerpf(1.70, 1.05, cur_blend)
 			var base_y: float = lerpf(1.22, 1.06, cur_blend)
 			pivot.position.y = base_y + sin(_anim_time * hover_speed + phase) * hover_amp
 			var spin_speed: float = lerpf(0.42, 0.14, cur_blend)
@@ -197,22 +207,33 @@ func _process(delta: float) -> void:
 
 		var light_node: OmniLight3D = refs.get("light", null) as OmniLight3D
 		if light_node != null:
-			var base_energy: float = lerpf(1.65, 0.42, cur_blend)
-			var pulse_amp: float = lerpf(0.24, 0.05, cur_blend)
-			light_node.light_energy = base_energy + sin(_anim_time * 2.2 + phase) * pulse_amp
-			light_node.omni_range = lerpf(8.5, 4.5, cur_blend)
+			var base_energy: float = lerpf(1.85, 0.42, cur_blend)
+			var pulse_amp: float = lerpf(0.26, 0.05, cur_blend)
+			light_node.light_energy = base_energy + sin(_anim_time * 2.1 + phase) * pulse_amp
+			light_node.omni_range = lerpf(9.2, 4.5, cur_blend)
 
 		var halo_ring: MeshInstance3D = refs.get("halo_ring", null) as MeshInstance3D
 		if halo_ring != null:
 			halo_ring.rotation.y -= delta * lerpf(0.55, 0.18, cur_blend)
 
+		var beacon: MeshInstance3D = refs.get("beacon", null) as MeshInstance3D
+		var beacon_mat: StandardMaterial3D = refs.get("beacon_mat", null) as StandardMaterial3D
+		if beacon != null and beacon_mat != null:
+			var beacon_rgb: Color = refs.get("beacon_rgb", Color("#FFE49E")) as Color
+			var shimmer: float = 1.0 + sin(_anim_time * 1.65 + phase) * 0.10
+			var beacon_alpha: float = clampf(BEACON_BASE_ALPHA * (1.0 - cur_blend) * shimmer, 0.0, 0.22)
+			beacon_mat.albedo_color = Color(beacon_rgb.r, beacon_rgb.g, beacon_rgb.b, beacon_alpha)
+			beacon.visible = beacon_alpha > 0.003
+			if beacon.visible:
+				beacon.rotation.y += delta * 0.16
+
 	# 2. Animate Parents' Thread of Pain
-	_thread_current_color = _thread_current_color.lerp(_thread_target_color, clampf(delta * 2.0, 0.0, 1.0))
-	_thread_tremor_current = lerpf(_thread_tremor_current, _thread_tremor_target, clampf(delta * 2.2, 0.0, 1.0))
+	_thread_current_color = _thread_current_color.lerp(_thread_target_color, clampf(delta * 1.8, 0.0, 1.0))
+	_thread_tremor_current = lerpf(_thread_tremor_current, _thread_tremor_target, clampf(delta * 2.0, 0.0, 1.0))
 
 	if _thread_pulse_progress >= 0.0:
-		_thread_pulse_progress += delta * 0.72
-		if _thread_pulse_progress > 1.35:
+		_thread_pulse_progress += delta * 0.65
+		if _thread_pulse_progress > 1.38:
 			_thread_pulse_progress = -1.0
 
 	_rebuild_mirror_thread_mesh()
@@ -258,21 +279,31 @@ func _init_sign_definitions() -> void:
 		_collect_blend[s_id] = 0.0
 
 
-func _build_all_signs() -> void:
+func _build_all_signs(mote_tex: GradientTexture2D) -> void:
 	var gold_mat: StandardMaterial3D = StandardMaterial3D.new()
 	gold_mat.albedo_color = Color("#E6C47A")
 	gold_mat.metallic = 0.85
 	gold_mat.roughness = 0.28
 	gold_mat.emission_enabled = true
 	gold_mat.emission = Color("#FFD988")
-	gold_mat.emission_energy_multiplier = 0.25
+	gold_mat.emission_energy_multiplier = 0.30
 
 	var marble_mat: StandardMaterial3D = StandardMaterial3D.new()
 	marble_mat.albedo_color = Color("#F5F2EC")
 	marble_mat.roughness = 0.34
 	marble_mat.metallic = 0.04
 
-	var mote_tex: GradientTexture2D = _create_radial_mote_texture()
+	var beacon_tex: GradientTexture2D = _create_beacon_gradient_texture()
+	var mote_ramp: GradientTexture1D = _create_golden_mote_color_ramp()
+
+	var beacon_cyl: CylinderMesh = CylinderMesh.new()
+	beacon_cyl.top_radius = 0.14
+	beacon_cyl.bottom_radius = 0.42
+	beacon_cyl.height = 9.5
+	beacon_cyl.radial_segments = 20
+	beacon_cyl.rings = 1
+	beacon_cyl.cap_top = false
+	beacon_cyl.cap_bottom = false
 
 	for def_dict: Dictionary in _sign_defs:
 		var s_id: String = str(def_dict.get("id", ""))
@@ -287,7 +318,7 @@ func _build_all_signs() -> void:
 		shrine_root.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 		add_child(shrine_root)
 
-		# Subtle low marble & gold floor medallion anchoring the floating sign (seated -0.02m to prevent Z-fighting)
+		# Subtle low marble & gold floor medallion anchoring the floating sign (seated cleanly on floor)
 		var base_cyl: CylinderMesh = CylinderMesh.new()
 		base_cyl.top_radius = 0.72
 		base_cyl.bottom_radius = 0.84
@@ -313,6 +344,26 @@ func _build_all_signs() -> void:
 		halo_ring.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 		shrine_root.add_child(halo_ring)
 
+		# Slender vertical golden light beacon (Pixar/Disney fairytale waypoint, fades out on collection)
+		var beacon_rgb: Color = Color("#FFE298").lerp(light_col, 0.30)
+		var beacon_mat: StandardMaterial3D = StandardMaterial3D.new()
+		beacon_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		beacon_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		beacon_mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+		beacon_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+		beacon_mat.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED
+		beacon_mat.albedo_texture = beacon_tex
+		beacon_mat.albedo_color = Color(beacon_rgb.r, beacon_rgb.g, beacon_rgb.b, BEACON_BASE_ALPHA)
+
+		var beacon_mesh: MeshInstance3D = MeshInstance3D.new()
+		beacon_mesh.name = "SignLightBeacon"
+		beacon_mesh.mesh = beacon_cyl
+		beacon_mesh.material_override = beacon_mat
+		beacon_mesh.position = Vector3(0.0, 5.0, 0.0)
+		beacon_mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		beacon_mesh.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
+		shrine_root.add_child(beacon_mesh)
+
 		# Floating animated pivot holding the sculpted baroque GLB
 		var pivot: Node3D = Node3D.new()
 		pivot.name = "FloatingSignPivot"
@@ -324,6 +375,7 @@ func _build_all_signs() -> void:
 		loaded_model.scale = Vector3.ONE * model_scale
 		# Center model vertically around pivot (GLB base is at Y=0, height ~1.0m)
 		loaded_model.position = Vector3(0.0, -0.48 * model_scale, 0.0)
+		loaded_model.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 		pivot.add_child(loaded_model)
 
 		# Local shadowless OmniLight3D (60 FPS friendly)
@@ -331,46 +383,50 @@ func _build_all_signs() -> void:
 		sign_light.name = "SignAuraLight"
 		sign_light.position = Vector3(0.0, 1.45, 0.0)
 		sign_light.light_color = light_col
-		sign_light.light_energy = 1.65
-		sign_light.omni_range = 8.5
-		sign_light.omni_attenuation = 1.45
+		sign_light.light_energy = 1.85
+		sign_light.omni_range = 9.2
+		sign_light.omni_attenuation = 1.42
 		sign_light.shadow_enabled = false
+		sign_light.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 		shrine_root.add_child(sign_light)
 
 		# Delicate rising golden motes (active only while uncollected)
 		var proc_mat: ParticleProcessMaterial = ParticleProcessMaterial.new()
 		proc_mat.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
-		proc_mat.emission_sphere_radius = 0.65
+		proc_mat.emission_sphere_radius = 0.68
 		proc_mat.direction = Vector3(0.0, 1.0, 0.0)
-		proc_mat.spread = 22.0
-		proc_mat.initial_velocity_min = 0.25
-		proc_mat.initial_velocity_max = 0.65
-		proc_mat.gravity = Vector3(0.0, 0.18, 0.0)
+		proc_mat.spread = 24.0
+		proc_mat.initial_velocity_min = 0.24
+		proc_mat.initial_velocity_max = 0.62
+		proc_mat.gravity = Vector3(0.0, 0.16, 0.0)
 		proc_mat.scale_min = 0.45
-		proc_mat.scale_max = 1.15
-		proc_mat.color = Color("#FFE294")
+		proc_mat.scale_max = 1.20
+		proc_mat.color = Color("#FFE69E")
+		proc_mat.color_ramp = mote_ramp
 
 		var mote_mat: StandardMaterial3D = StandardMaterial3D.new()
 		mote_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 		mote_mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
 		mote_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 		mote_mat.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+		mote_mat.vertex_color_use_as_albedo = true
 		mote_mat.albedo_texture = mote_tex
-		mote_mat.albedo_color = Color("#FFE8A6")
+		mote_mat.albedo_color = Color("#FFF0BE")
 		mote_mat.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED
 
 		var mote_quad: QuadMesh = QuadMesh.new()
-		mote_quad.size = Vector2(0.11, 0.11)
+		mote_quad.size = Vector2(0.12, 0.12)
 		mote_quad.material = mote_mat
 
 		var particles: GPUParticles3D = GPUParticles3D.new()
 		particles.name = "GoldenRisingMotes"
 		particles.position = Vector3(0.0, 1.10, 0.0)
 		particles.amount = 28
-		particles.lifetime = 2.8
+		particles.lifetime = 2.9
 		particles.preprocess = 1.2
 		particles.emitting = false
 		particles.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		particles.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 		particles.process_material = proc_mat
 		particles.draw_pass_1 = mote_quad
 		shrine_root.add_child(particles)
@@ -379,9 +435,64 @@ func _build_all_signs() -> void:
 			"root": shrine_root,
 			"pivot": pivot,
 			"halo_ring": halo_ring,
+			"beacon": beacon_mesh,
+			"beacon_mat": beacon_mat,
+			"beacon_rgb": beacon_rgb,
 			"light": sign_light,
 			"particles": particles,
 		}
+
+
+## Builds lightweight Tangled / Soul golden lantern-firefly motes drifting upward over the Court & Ballroom.
+func _build_sunset_lantern_motes(mote_tex: GradientTexture2D) -> void:
+	var proc_mat: ParticleProcessMaterial = ParticleProcessMaterial.new()
+	proc_mat.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
+	proc_mat.emission_box_extents = Vector3(32.0, 5.5, 32.0)
+	proc_mat.direction = Vector3(0.0, 1.0, 0.0)
+	proc_mat.spread = 32.0
+	proc_mat.initial_velocity_min = 0.22
+	proc_mat.initial_velocity_max = 0.56
+	proc_mat.gravity = Vector3(0.0, 0.08, 0.0)
+	proc_mat.damping_min = 0.02
+	proc_mat.damping_max = 0.06
+	proc_mat.turbulence_enabled = true
+	proc_mat.turbulence_noise_strength = 0.34
+	proc_mat.turbulence_noise_scale = 2.4
+	proc_mat.turbulence_influence_min = 0.08
+	proc_mat.turbulence_influence_max = 0.18
+	proc_mat.scale_min = 0.55
+	proc_mat.scale_max = 1.40
+	proc_mat.color = Color("#FFE69A")
+	proc_mat.color_ramp = _create_golden_mote_color_ramp()
+
+	var lantern_mat: StandardMaterial3D = StandardMaterial3D.new()
+	lantern_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	lantern_mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	lantern_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	lantern_mat.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	lantern_mat.vertex_color_use_as_albedo = true
+	lantern_mat.albedo_texture = mote_tex
+	lantern_mat.albedo_color = Color("#FFEBAA")
+	lantern_mat.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED
+
+	var lantern_quad: QuadMesh = QuadMesh.new()
+	lantern_quad.size = Vector2(0.32, 0.32)
+	lantern_quad.material = lantern_mat
+
+	_lantern_motes = GPUParticles3D.new()
+	_lantern_motes.name = "SunsetLanternMotes"
+	# Spans Formal Arrival Court (Z=-236.5), Ballroom & Earth Mirror (Z=-278), and Salons (X=±27.5, Z=-287)
+	_lantern_motes.position = _mirror_pos + Vector3(0.0, 2.5, 16.0)
+	_lantern_motes.amount = LANTERN_MOTE_COUNT
+	_lantern_motes.lifetime = 6.5
+	_lantern_motes.preprocess = 3.0
+	_lantern_motes.emitting = false
+	_lantern_motes.visibility_aabb = AABB(Vector3(-38.0, -8.0, -38.0), Vector3(76.0, 26.0, 76.0))
+	_lantern_motes.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_lantern_motes.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
+	_lantern_motes.process_material = proc_mat
+	_lantern_motes.draw_pass_1 = lantern_quad
+	add_child(_lantern_motes)
 
 
 func _load_sign_model(model_path: String, fallback_color: Color, gold_mat: StandardMaterial3D) -> Node3D:
@@ -430,6 +541,19 @@ func _apply_sign_visual_state(sign_id: String, is_collected: bool) -> void:
 	var particles: GPUParticles3D = refs.get("particles", null) as GPUParticles3D
 	if particles != null:
 		particles.emitting = _lesson1_active and not is_collected
+
+
+func _snap_sign_beacon_state(sign_id: String, is_collected: bool) -> void:
+	var refs: Dictionary = _sign_nodes.get(sign_id, {}) as Dictionary
+	if refs.is_empty():
+		return
+	var beacon: MeshInstance3D = refs.get("beacon", null) as MeshInstance3D
+	var beacon_mat: StandardMaterial3D = refs.get("beacon_mat", null) as StandardMaterial3D
+	if beacon != null and beacon_mat != null:
+		var beacon_rgb: Color = refs.get("beacon_rgb", Color("#FFE49E")) as Color
+		var target_alpha: float = 0.0 if is_collected else BEACON_BASE_ALPHA
+		beacon_mat.albedo_color = Color(beacon_rgb.r, beacon_rgb.g, beacon_rgb.b, target_alpha)
+		beacon.visible = not is_collected
 
 
 # ---------------------------------------------------------------------------
@@ -481,17 +605,20 @@ func _rebuild_mirror_thread_mesh() -> void:
 		return
 	_thread_imm_mesh.clear_surfaces()
 
+	var sway_x: float = sin(_anim_time * 0.65) * 0.24
+	var sway_y: float = cos(_anim_time * 0.52) * 0.14
 	var start_pos: Vector3 = _mirror_pos + Vector3(0.0, MIRROR_CENTER_HEIGHT, 0.35)
-	var ctrl_a: Vector3 = _mirror_pos + Vector3(1.8, MIRROR_CENTER_HEIGHT - 0.8, 3.6)
-	var ctrl_b: Vector3 = _mirror_pos + Vector3(-1.4, 2.5, 6.8)
+	var ctrl_a: Vector3 = _mirror_pos + Vector3(1.8 + sway_x * 0.5, MIRROR_CENTER_HEIGHT - 0.75 + sway_y, 3.6)
+	var ctrl_b: Vector3 = _mirror_pos + Vector3(-1.45 - sway_x * 0.65, 2.55 - sway_y * 0.6, 6.8)
 	var end_pos: Vector3 = _mirror_pos + Vector3(0.0, 1.55, 9.6)
 
 	var cam: Camera3D = get_viewport().get_camera_3d()
 	var cam_pos: Vector3 = cam.global_position if cam != null else (_mirror_pos + Vector3(0.0, 5.0, 16.0))
 
-	# Draw primary luminous ribbon + thinner intertwined companion filament
-	_append_thread_strand(start_pos, ctrl_a, ctrl_b, end_pos, cam_pos, 0.085, 0.0, 1.0)
-	_append_thread_strand(start_pos, ctrl_a, ctrl_b, end_pos, cam_pos, 0.042, 2.2, 0.65)
+	# Draw soft outer gossamer halo + luminous primary ribbon + intertwined companion harmonic filament
+	_append_thread_strand(start_pos, ctrl_a, ctrl_b, end_pos, cam_pos, 0.19, 0.0, 0.26)
+	_append_thread_strand(start_pos, ctrl_a, ctrl_b, end_pos, cam_pos, 0.088, 0.0, 1.0)
+	_append_thread_strand(start_pos, ctrl_a, ctrl_b, end_pos, cam_pos, 0.044, 2.2, 0.68)
 
 
 func _append_thread_strand(
@@ -507,6 +634,8 @@ func _append_thread_strand(
 	var pts: Array[Vector3] = []
 	pts.resize(THREAD_SEGMENTS + 1)
 
+	var calm_factor: float = clampf(1.0 - _thread_tremor_current, 0.0, 1.0)
+
 	for i: int in range(THREAD_SEGMENTS + 1):
 		var t: float = float(i) / float(THREAD_SEGMENTS)
 		var omt: float = 1.0 - t
@@ -517,15 +646,16 @@ func _append_thread_strand(
 			+ p3 * (t * t * t)
 		)
 
-		# Gentle helical spiral & emotion-driven tremor (anxious at 0 -> calm & steady at 3)
+		# Silky helical spiral & emotion-driven tremor (anxious at 0 -> lyrical serene breath at 3)
 		var env: float = sin(t * PI)
-		var spiral_ang: float = t * TAU * 2.2 - _anim_time * 1.15 + phase_offset
-		var spiral_r: float = (0.14 + 0.08 * _thread_tremor_current) * env
-		var tremor_x: float = sin(_anim_time * 9.5 + t * 24.0 + phase_offset) * 0.055 * _thread_tremor_current * env
-		var tremor_y: float = cos(_anim_time * 8.2 + t * 19.0 + phase_offset) * 0.045 * _thread_tremor_current * env
+		var spiral_ang: float = t * TAU * 2.15 - _anim_time * lerpf(1.22, 0.85, calm_factor) + phase_offset
+		var spiral_r: float = (0.13 + 0.085 * _thread_tremor_current) * env
+		var tremor_x: float = sin(_anim_time * 9.2 + t * 23.0 + phase_offset) * 0.052 * _thread_tremor_current * env
+		var tremor_y: float = cos(_anim_time * 7.8 + t * 18.0 + phase_offset) * 0.044 * _thread_tremor_current * env
+		var serene_lift: float = sin(_anim_time * 1.45 - t * PI * 2.0 + phase_offset * 0.5) * 0.065 * calm_factor * env
 
 		bez.x += cos(spiral_ang) * spiral_r + tremor_x
-		bez.y += sin(spiral_ang) * spiral_r * 0.72 + tremor_y
+		bez.y += sin(spiral_ang) * spiral_r * 0.72 + tremor_y + serene_lift
 		pts[i] = bez
 
 	_thread_imm_mesh.surface_begin(Mesh.PRIMITIVE_TRIANGLE_STRIP)
@@ -561,19 +691,20 @@ func _append_thread_strand(
 		if _thread_pulse_progress >= 0.0:
 			var wave_pos: float = 1.0 - _thread_pulse_progress
 			var dist_wave: float = absf(t - wave_pos)
-			pulse_boost = maxf(0.0, 1.0 - dist_wave / 0.22)
-			pulse_boost = pulse_boost * pulse_boost
+			pulse_boost = maxf(0.0, 1.0 - dist_wave / 0.25)
+			pulse_boost = pulse_boost * pulse_boost * (3.0 - 2.0 * pulse_boost)
 
 		var taper: float = smoothstep(0.0, 0.14, t) * smoothstep(1.0, 0.78, t)
-		var half_w: float = base_width * (0.45 + 0.55 * taper + pulse_boost * 0.95)
+		var breath_w: float = 1.0 + sin(_anim_time * 2.0 - t * 5.0) * 0.08
+		var half_w: float = base_width * (0.45 + 0.55 * taper + pulse_boost * 1.10) * breath_w
 
-		var col_base: Color = _thread_current_color.lerp(Color("#FFF2B8"), pulse_boost * 0.85)
-		var brightness: float = 1.15 + pulse_boost * 1.45
+		var col_base: Color = _thread_current_color.lerp(Color("#FFF6CC"), pulse_boost * 0.88)
+		var brightness: float = 1.18 + pulse_boost * 1.55
 		var vert_col: Color = Color(
 			col_base.r * brightness,
 			col_base.g * brightness,
 			col_base.b * brightness,
-			clampf(taper * alpha_scale * (0.78 + pulse_boost * 0.22), 0.0, 1.0)
+			clampf(taper * alpha_scale * (0.80 + pulse_boost * 0.20), 0.0, 1.0)
 		)
 
 		_thread_imm_mesh.surface_set_color(vert_col)
@@ -586,18 +717,55 @@ func _append_thread_strand(
 
 func _create_radial_mote_texture() -> GradientTexture2D:
 	var grad: Gradient = Gradient.new()
-	grad.offsets = PackedFloat32Array([0.0, 0.38, 0.78, 1.0])
+	grad.offsets = PackedFloat32Array([0.0, 0.34, 0.72, 1.0])
 	grad.colors = PackedColorArray([
 		Color(1.0, 1.0, 1.0, 1.0),
-		Color(1.0, 1.0, 1.0, 0.65),
-		Color(1.0, 1.0, 1.0, 0.16),
-		Color(1.0, 1.0, 1.0, 0.0),
+		Color(1.0, 0.96, 0.86, 0.70),
+		Color(1.0, 0.88, 0.68, 0.18),
+		Color(1.0, 0.85, 0.60, 0.0),
 	])
 	var tex: GradientTexture2D = GradientTexture2D.new()
-	tex.width = 48
-	tex.height = 48
+	tex.width = 64
+	tex.height = 64
 	tex.fill = GradientTexture2D.FILL_RADIAL
 	tex.fill_from = Vector2(0.5, 0.5)
 	tex.fill_to = Vector2(0.5, 0.0)
+	tex.gradient = grad
+	return tex
+
+
+func _create_golden_mote_color_ramp() -> GradientTexture1D:
+	var grad: Gradient = Gradient.new()
+	grad.offsets = PackedFloat32Array([0.0, 0.18, 0.58, 0.85, 1.0])
+	grad.colors = PackedColorArray([
+		Color(1.0, 0.94, 0.74, 0.0),
+		Color(1.0, 0.92, 0.66, 0.92),
+		Color(1.0, 0.82, 0.48, 0.85),
+		Color(1.0, 0.70, 0.48, 0.42),
+		Color(1.0, 0.66, 0.48, 0.0),
+	])
+	var ramp: GradientTexture1D = GradientTexture1D.new()
+	ramp.width = 64
+	ramp.gradient = grad
+	return ramp
+
+
+func _create_beacon_gradient_texture() -> GradientTexture2D:
+	# CylinderMesh V=0 is top rim, V=1 is bottom rim -> fades seamlessly at top & floor
+	var grad: Gradient = Gradient.new()
+	grad.offsets = PackedFloat32Array([0.0, 0.32, 0.76, 0.94, 1.0])
+	grad.colors = PackedColorArray([
+		Color(1.0, 1.0, 1.0, 0.0),
+		Color(1.0, 0.97, 0.88, 0.34),
+		Color(1.0, 0.94, 0.78, 0.95),
+		Color(1.0, 0.92, 0.76, 0.60),
+		Color(1.0, 0.92, 0.76, 0.0),
+	])
+	var tex: GradientTexture2D = GradientTexture2D.new()
+	tex.width = 16
+	tex.height = 128
+	tex.fill = GradientTexture2D.FILL_LINEAR
+	tex.fill_from = Vector2(0.5, 0.0)
+	tex.fill_to = Vector2(0.5, 1.0)
 	tex.gradient = grad
 	return tex

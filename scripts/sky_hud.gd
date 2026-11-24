@@ -14,6 +14,7 @@ const COLOR_BRONZE_GOLD := Color(0.619608, 0.454902, 0.156863, 1.0) # #9E7428 an
 const COLOR_AZURE := Color(0.141176, 0.345098, 0.65098, 1.0) # #2458A6 royal azure
 const COLOR_SAPPHIRE := Color(0.101961, 0.180392, 0.321569, 1.0) # #1A2E52 sapphire ink
 const COLOR_PEARL := Color(0.975, 0.985, 1.0, 0.88) # frosted cloud-pearl card
+const COLOR_DIALOGUE_CREAM := Color(0.996, 0.986, 0.958, 0.93) # warm Disney/Pixar creamy-pearl dialogue card
 const COLOR_PEARL_PILL := Color(0.985, 0.99, 1.0, 0.78) # subtle HUD pill
 const COLOR_IVORY := Color(1.0, 0.992, 0.965, 1.0) # warm sunlit pearl-ivory
 const COLOR_SHADOW := Color(0.16, 0.28, 0.52, 0.16) # soft luminous drop shadow
@@ -31,6 +32,7 @@ const PIP_COUNT := 5
 @onready var _chapter_divider: Control = $RootControl/ChapterTitleContainer/VBox/DividerControl
 @onready var _chapter_title: Label = $RootControl/ChapterTitleContainer/VBox/TitleLabel
 @onready var _dialogue_panel: PanelContainer = $RootControl/DialoguePanel
+@onready var _dialogue_margin: MarginContainer = $RootControl/DialoguePanel/Margin
 @onready var _dialogue_vbox: VBoxContainer = $RootControl/DialoguePanel/Margin/VBox
 @onready var _dialogue_overlay: Control = $RootControl/DialoguePanel/ArtDecoOverlay
 @onready var _speaker_label: Label = $RootControl/DialoguePanel/Margin/VBox/SpeakerLabel
@@ -52,6 +54,8 @@ var _mirror_vision_panel: PanelContainer
 var _mirror_vision_title: Label
 var _mirror_vision_divider: Control
 var _mirror_vision_body: Label
+var _dialogue_filigree_glow: StyleBoxFlat
+var _dialogue_filigree_inner: StyleBoxFlat
 
 var _time: float = 0.0
 var _current_energy: float = 5.0
@@ -219,13 +223,33 @@ func show_dialogue_step(speaker: String, line: String, accent_color: Color, choi
 	if _choices_tween and _choices_tween.is_valid():
 		_choices_tween.kill()
 
+	# Immediately hide any floating interaction prompt or mirror vision card so nothing overlaps dialogue text
+	if _interaction_tween and _interaction_tween.is_valid():
+		_interaction_tween.kill()
+	_interaction_visible = false
+	if _interaction_panel != null:
+		_interaction_panel.visible = false
+		_interaction_panel.modulate.a = 0.0
+
+	if _mirror_vision_tween and _mirror_vision_tween.is_valid():
+		_mirror_vision_tween.kill()
+	if _mirror_vision_panel != null:
+		_mirror_vision_panel.visible = false
+		_mirror_vision_panel.modulate.a = 0.0
+
 	_dialogue_active = true
 	_dialogue_accent = _adapt_accent_for_light_panel(accent_color)
 	_current_choices = choices.duplicate()
 
 	_set_controls_hint_visible(false)
 
-	_speaker_label.text = speaker
+	var clean_speaker: String = speaker.strip_edges()
+	if clean_speaker.is_empty():
+		_speaker_label.text = ""
+	elif clean_speaker.begins_with("✦"):
+		_speaker_label.text = clean_speaker
+	else:
+		_speaker_label.text = "✦  %s" % clean_speaker
 	_speaker_label.add_theme_color_override("font_color", _dialogue_accent)
 	_dialogue_text.text = line
 	_dialogue_text.visible_characters = 0
@@ -236,11 +260,11 @@ func show_dialogue_step(speaker: String, line: String, accent_color: Color, choi
 	_continue_label.visible = false
 
 	# Reset panel frame to compact baseline so it expands cleanly upward if choices appear
-	_dialogue_panel.offset_left = -320.0
-	_dialogue_panel.offset_right = 320.0
-	_dialogue_panel.offset_top = -152.0
+	_dialogue_panel.offset_left = -332.0
+	_dialogue_panel.offset_right = 332.0
+	_dialogue_panel.offset_top = -160.0
 	_dialogue_panel.offset_bottom = -28.0
-	_dialogue_panel.size = Vector2(640.0, 124.0)
+	_dialogue_panel.size = Vector2(664.0, 132.0)
 
 	_dialogue_panel.visible = true
 	_dialogue_panel.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -298,11 +322,15 @@ func hide_dialogue() -> void:
 func show_interaction_prompt(text: String) -> void:
 	if _interaction_panel == null or _interaction_label == null:
 		return
-	if _interaction_visible and _interaction_label.text == text:
+	var cleaned_text: String = text.strip_edges()
+	if cleaned_text.is_empty() or _dialogue_active:
+		hide_interaction_prompt()
+		return
+	if _interaction_visible and _interaction_label.text == cleaned_text:
 		return
 
 	_interaction_visible = true
-	_interaction_label.text = text
+	_interaction_label.text = cleaned_text
 	_interaction_panel.visible = true
 
 	if _interaction_tween and _interaction_tween.is_valid():
@@ -406,7 +434,11 @@ func hide_comfort_signs_counter() -> void:
 ## Displays a soft cinematic translucent light-gold vision card in the upper third of the screen
 ## when the Soul sends a Comfort Sign to parents through the Mirror of Earth.
 func show_mirror_vision(title: String, body: String, duration: float = 5.5) -> void:
+	if _dialogue_active:
+		return
 	if _mirror_vision_panel == null or _mirror_vision_title == null or _mirror_vision_body == null:
+		return
+	if title.strip_edges().is_empty() and body.strip_edges().is_empty():
 		return
 
 	if _mirror_vision_tween and _mirror_vision_tween.is_valid():
@@ -468,6 +500,59 @@ func hide_flight_hint() -> void:
 # ---------------------------------------------------------------------------
 
 func _build_extended_ui() -> void:
+	# Fairytale Disney/Pixar dialogue panel styling (warm creamy-pearl, 24px corners, generous air)
+	var dialogue_style: StyleBoxFlat = StyleBoxFlat.new()
+	dialogue_style.bg_color = COLOR_DIALOGUE_CREAM
+	dialogue_style.border_width_left = 2
+	dialogue_style.border_width_top = 2
+	dialogue_style.border_width_right = 2
+	dialogue_style.border_width_bottom = 2
+	dialogue_style.border_color = Color(COLOR_GOLD_BRIGHT.r, COLOR_GOLD_BRIGHT.g, COLOR_GOLD_BRIGHT.b, 0.96)
+	dialogue_style.corner_radius_top_left = 24
+	dialogue_style.corner_radius_top_right = 24
+	dialogue_style.corner_radius_bottom_right = 24
+	dialogue_style.corner_radius_bottom_left = 24
+	dialogue_style.shadow_color = Color(0.45, 0.34, 0.16, 0.22)
+	dialogue_style.shadow_size = 24
+	dialogue_style.shadow_offset = Vector2(0.0, 7.0)
+	_dialogue_panel.add_theme_stylebox_override("panel", dialogue_style)
+
+	if _dialogue_margin != null:
+		_dialogue_margin.add_theme_constant_override("margin_left", 34)
+		_dialogue_margin.add_theme_constant_override("margin_right", 34)
+		_dialogue_margin.add_theme_constant_override("margin_top", 24)
+		_dialogue_margin.add_theme_constant_override("margin_bottom", 22)
+
+	_dialogue_vbox.add_theme_constant_override("separation", 9)
+	_speaker_label.add_theme_font_size_override("font_size", 16)
+	_dialogue_text.add_theme_font_size_override("font_size", 16)
+	_dialogue_text.add_theme_constant_override("line_spacing", 5)
+
+	# Cached rounded filigree strokes for _draw_dialogue_overlay() double-glow border
+	_dialogue_filigree_glow = StyleBoxFlat.new()
+	_dialogue_filigree_glow.bg_color = Color(0.0, 0.0, 0.0, 0.0)
+	_dialogue_filigree_glow.border_width_left = 3
+	_dialogue_filigree_glow.border_width_top = 3
+	_dialogue_filigree_glow.border_width_right = 3
+	_dialogue_filigree_glow.border_width_bottom = 3
+	_dialogue_filigree_glow.border_color = Color(COLOR_GOLD_BRIGHT.r, COLOR_GOLD_BRIGHT.g, COLOR_GOLD_BRIGHT.b, 0.28)
+	_dialogue_filigree_glow.corner_radius_top_left = 20
+	_dialogue_filigree_glow.corner_radius_top_right = 20
+	_dialogue_filigree_glow.corner_radius_bottom_right = 20
+	_dialogue_filigree_glow.corner_radius_bottom_left = 20
+
+	_dialogue_filigree_inner = StyleBoxFlat.new()
+	_dialogue_filigree_inner.bg_color = Color(0.0, 0.0, 0.0, 0.0)
+	_dialogue_filigree_inner.border_width_left = 1
+	_dialogue_filigree_inner.border_width_top = 1
+	_dialogue_filigree_inner.border_width_right = 1
+	_dialogue_filigree_inner.border_width_bottom = 1
+	_dialogue_filigree_inner.border_color = Color(COLOR_GOLD.r, COLOR_GOLD.g, COLOR_GOLD.b, 0.62)
+	_dialogue_filigree_inner.corner_radius_top_left = 19
+	_dialogue_filigree_inner.corner_radius_top_right = 19
+	_dialogue_filigree_inner.corner_radius_bottom_right = 19
+	_dialogue_filigree_inner.corner_radius_bottom_left = 19
+
 	# Choice button container inside DialoguePanel VBox
 	_choices_container = VBoxContainer.new()
 	_choices_container.name = "ChoicesContainer"
@@ -502,21 +587,21 @@ func _build_extended_ui() -> void:
 	_interaction_panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
 
 	var prompt_style: StyleBoxFlat = StyleBoxFlat.new()
-	prompt_style.bg_color = Color(0.985, 0.99, 1.0, 0.84)
+	prompt_style.bg_color = Color(0.996, 0.986, 0.958, 0.90)
 	prompt_style.border_width_left = 2
 	prompt_style.border_width_top = 2
 	prompt_style.border_width_right = 2
 	prompt_style.border_width_bottom = 2
-	prompt_style.border_color = Color(COLOR_GOLD.r, COLOR_GOLD.g, COLOR_GOLD.b, 0.9)
-	prompt_style.corner_radius_top_left = 18
-	prompt_style.corner_radius_top_right = 18
-	prompt_style.corner_radius_bottom_right = 18
-	prompt_style.corner_radius_bottom_left = 18
-	prompt_style.shadow_color = COLOR_SHADOW
-	prompt_style.shadow_size = 12
+	prompt_style.border_color = Color(COLOR_GOLD.r, COLOR_GOLD.g, COLOR_GOLD.b, 0.92)
+	prompt_style.corner_radius_top_left = 20
+	prompt_style.corner_radius_top_right = 20
+	prompt_style.corner_radius_bottom_right = 20
+	prompt_style.corner_radius_bottom_left = 20
+	prompt_style.shadow_color = Color(0.45, 0.34, 0.16, 0.18)
+	prompt_style.shadow_size = 14
 	prompt_style.shadow_offset = Vector2(0.0, 4.0)
-	prompt_style.content_margin_left = 20.0
-	prompt_style.content_margin_right = 20.0
+	prompt_style.content_margin_left = 22.0
+	prompt_style.content_margin_right = 22.0
 	prompt_style.content_margin_top = 8.0
 	prompt_style.content_margin_bottom = 8.0
 	_interaction_panel.add_theme_stylebox_override("panel", prompt_style)
@@ -637,16 +722,16 @@ func _build_extended_ui() -> void:
 	_mirror_vision_panel.grow_vertical = Control.GROW_DIRECTION_END
 
 	var vision_style: StyleBoxFlat = StyleBoxFlat.new()
-	vision_style.bg_color = Color(0.996, 0.984, 0.945, 0.90)
+	vision_style.bg_color = Color(0.996, 0.986, 0.958, 0.92)
 	vision_style.border_width_left = 2
 	vision_style.border_width_top = 2
 	vision_style.border_width_right = 2
 	vision_style.border_width_bottom = 2
 	vision_style.border_color = Color(COLOR_GOLD_BRIGHT.r, COLOR_GOLD_BRIGHT.g, COLOR_GOLD_BRIGHT.b, 0.94)
-	vision_style.corner_radius_top_left = 20
-	vision_style.corner_radius_top_right = 20
-	vision_style.corner_radius_bottom_right = 20
-	vision_style.corner_radius_bottom_left = 20
+	vision_style.corner_radius_top_left = 22
+	vision_style.corner_radius_top_right = 22
+	vision_style.corner_radius_bottom_right = 22
+	vision_style.corner_radius_bottom_left = 22
 	vision_style.shadow_color = Color(COLOR_GOLD.r, COLOR_GOLD.g, COLOR_GOLD.b, 0.28)
 	vision_style.shadow_size = 20
 	vision_style.shadow_offset = Vector2(0.0, 6.0)
@@ -659,6 +744,7 @@ func _build_extended_ui() -> void:
 	var vision_vbox: VBoxContainer = VBoxContainer.new()
 	vision_vbox.name = "VisionVBox"
 	vision_vbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	vision_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	vision_vbox.alignment = BoxContainer.ALIGNMENT_CENTER
 	vision_vbox.add_theme_constant_override("separation", 6)
 	_mirror_vision_panel.add_child(vision_vbox)
@@ -666,6 +752,8 @@ func _build_extended_ui() -> void:
 	_mirror_vision_title = Label.new()
 	_mirror_vision_title.name = "VisionTitleLabel"
 	_mirror_vision_title.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_mirror_vision_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_mirror_vision_title.custom_minimum_size = Vector2(520.0, 0.0)
 	_mirror_vision_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_mirror_vision_title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_mirror_vision_title.add_theme_font_size_override("font_size", 15)
@@ -682,6 +770,8 @@ func _build_extended_ui() -> void:
 	_mirror_vision_body = Label.new()
 	_mirror_vision_body.name = "VisionBodyLabel"
 	_mirror_vision_body.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_mirror_vision_body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_mirror_vision_body.custom_minimum_size = Vector2(520.0, 0.0)
 	_mirror_vision_body.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_mirror_vision_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_mirror_vision_body.add_theme_font_size_override("font_size", 15)
@@ -689,6 +779,9 @@ func _build_extended_ui() -> void:
 	vision_vbox.add_child(_mirror_vision_body)
 
 	_root_control.add_child(_mirror_vision_panel)
+
+	# Guarantee DialoguePanel always renders on top of all prompts and floating HUD cards
+	_root_control.move_child(_dialogue_panel, _root_control.get_child_count() - 1)
 
 
 func _set_controls_hint_visible(should_show: bool) -> void:
@@ -1070,9 +1163,18 @@ func _draw_dialogue_overlay() -> void:
 	if rect_size.x < 48.0 or rect_size.y < 36.0:
 		return
 
-	# Subtle antique-gold inner filigree accents tucked neatly inside the 20px rounded corners
-	var inset: float = 12.0
-	var dot_col := Color(COLOR_GOLD.r, COLOR_GOLD.g, COLOR_GOLD.b, 0.62)
+	# Soft warm golden double-filigree glow hugging the 24px rounded corners
+	if _dialogue_filigree_glow != null:
+		var glow_rect: Rect2 = Rect2(Vector2(4.0, 4.0), rect_size - Vector2(8.0, 8.0))
+		_dialogue_overlay.draw_style_box(_dialogue_filigree_glow, glow_rect)
+	if _dialogue_filigree_inner != null:
+		var inner_rect: Rect2 = Rect2(Vector2(7.0, 7.0), rect_size - Vector2(14.0, 14.0))
+		_dialogue_overlay.draw_style_box(_dialogue_filigree_inner, inner_rect)
+
+	# Delicate antique-gold corner sparkles tucked neatly inside the 24px rounded corners
+	var inset: float = 16.0
+	var dot_col: Color = Color(COLOR_GOLD.r, COLOR_GOLD.g, COLOR_GOLD.b, 0.72)
+	var dot_core_col: Color = Color(COLOR_IVORY.r, COLOR_IVORY.g, COLOR_IVORY.b, 0.85)
 	var corners: Array[Vector2] = [
 		Vector2(inset, inset),
 		Vector2(rect_size.x - inset, inset),
@@ -1080,15 +1182,17 @@ func _draw_dialogue_overlay() -> void:
 		Vector2(rect_size.x - inset, rect_size.y - inset),
 	]
 	for corner: Vector2 in corners:
-		_dialogue_overlay.draw_colored_polygon(_make_diamond(corner, 2.8, 2.8), dot_col)
+		_dialogue_overlay.draw_colored_polygon(_make_diamond(corner, 3.0, 3.0), dot_col)
+		_dialogue_overlay.draw_colored_polygon(_make_diamond(corner, 1.3, 1.3), dot_core_col)
 
-	# Top-center Baroque gold & pearl diamond crest
-	var crest_pos := Vector2(rect_size.x * 0.5, 1.5)
-	var crest_rim := _make_diamond(crest_pos, 6.2, 6.2)
+	# Top-center fairytale golden-pearl crest with soft sunlit halo
+	var crest_pos: Vector2 = Vector2(rect_size.x * 0.5, 2.0)
+	_dialogue_overlay.draw_circle(crest_pos, 11.5, Color(COLOR_GOLD_BRIGHT.r, COLOR_GOLD_BRIGHT.g, COLOR_GOLD_BRIGHT.b, 0.22))
+	var crest_rim: PackedVector2Array = _make_four_point_star(crest_pos, 7.6, 2.6)
 	_dialogue_overlay.draw_colored_polygon(crest_rim, COLOR_BRONZE_GOLD)
-	var crest := _make_diamond(crest_pos, 4.8, 4.8)
+	var crest: PackedVector2Array = _make_four_point_star(crest_pos, 6.2, 2.1)
 	_dialogue_overlay.draw_colored_polygon(crest, COLOR_GOLD_BRIGHT)
-	var crest_core := _make_diamond(crest_pos, 2.2, 2.2)
+	var crest_core: PackedVector2Array = _make_diamond(crest_pos, 2.3, 2.3)
 	_dialogue_overlay.draw_colored_polygon(crest_core, COLOR_IVORY)
 
 
