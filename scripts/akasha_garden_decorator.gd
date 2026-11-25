@@ -168,7 +168,7 @@ func _process(delta: float) -> void:
 ## Populates the entire Prologue world with terrain-grounded reflecting turquoise lakes,
 ## lily pads, lotuses, subtle waterfall mist plumes, verdant & sakura groves, Rotunda potted urns,
 ## GPU-instanced grass & 4-color flowerbeds, cascading ivy curtains, and serene butterflies.
-func populate_garden(architecture: Node3D = null) -> void:
+func populate_garden(architecture: Node3D = null, cathedral_only: bool = false) -> void:
 	if _is_populated:
 		return
 	_is_populated = true
@@ -178,16 +178,18 @@ func populate_garden(architecture: Node3D = null) -> void:
 	_build_castle_meadow_index(architecture)
 
 	var island_positions: Array[Vector3] = _resolve_island_positions(architecture)
+	var empty_islands: Array[Vector3] = []
 
-	_decorate_starting_plaza()
-	_decorate_twin_viaducts()
-	_decorate_floating_islands(island_positions)
-	_build_reflecting_lakes_and_ponds(island_positions)
+	if not cathedral_only:
+		_decorate_starting_plaza()
+		_decorate_twin_viaducts()
+		_decorate_floating_islands(island_positions)
+	_build_reflecting_lakes_and_ponds(island_positions, cathedral_only)
 	_decorate_cathedral_sanctuary()
 	_build_waterfall_mist_plumes()
 	_populate_meadow_grass_and_flowerbeds(architecture)
 	_flush_multimesh_batches()
-	_build_fluttering_butterflies(island_positions)
+	_build_fluttering_butterflies(empty_islands if cathedral_only else island_positions)
 
 
 func _load_prop_scenes() -> void:
@@ -1173,7 +1175,7 @@ func _decorate_cathedral_sanctuary() -> void:
 # 4. Terrain-Validated Reflecting Lakes, Lotus Pools & Central Sky-Island Pond Ring
 # ---------------------------------------------------------------------------
 
-func _build_reflecting_lakes_and_ponds(island_positions: Array[Vector3]) -> void:
+func _build_reflecting_lakes_and_ponds(island_positions: Array[Vector3], cathedral_only: bool = false) -> void:
 	var root: Node3D = Node3D.new()
 	root.name = "ReflectingLakesAndPonds"
 	add_child(root)
@@ -1219,19 +1221,20 @@ func _build_reflecting_lakes_and_ponds(island_positions: Array[Vector3]) -> void
 			"rz": rz,
 		})
 
-	# Central Sky-Island Sanctuary Pond Ring on the Central Axial Island (0.0, 6.53, -106.0)
-	var central_island: Vector3 = Vector3(0.0, 6.5, -106.0)
-	if island_positions.size() >= 3:
-		central_island = island_positions[2]
-	_create_sanctuary_pond_ring(
-		root,
-		"CentralIslandPondRing",
-		Vector3(central_island.x, central_island.y + 0.03, central_island.z),
-		3.45,
-		5.15,
-		22,
-		9
-	)
+	if not cathedral_only:
+		# Central Sky-Island Sanctuary Pond Ring on the Central Axial Island (0.0, 6.53, -106.0)
+		var central_island: Vector3 = Vector3(0.0, 6.5, -106.0)
+		if island_positions.size() >= 3:
+			central_island = island_positions[2]
+		_create_sanctuary_pond_ring(
+			root,
+			"CentralIslandPondRing",
+			Vector3(central_island.x, central_island.y + 0.03, central_island.z),
+			3.45,
+			5.15,
+			22,
+			9
+		)
 
 
 func _create_sculpted_oval_lake(

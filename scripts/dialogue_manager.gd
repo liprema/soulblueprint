@@ -12,6 +12,7 @@ signal dialogue_ended(sequence_id: String)
 
 const DEFAULT_DIALOGUE_PATH: String = "res://data/dialogues/prologue_contract.json"
 const LESSON1_DIALOGUE_PATH: String = "res://data/dialogues/lesson1_return.json"
+const CITY_DIALOGUE_PATH: String = "res://data/dialogues/city_quests.json"
 const DEFAULT_ACCENT: Color = Color(0.964706, 0.827451, 0.419608, 1.0) # #F6D36B
 
 @export var dialogue_file_path: String = DEFAULT_DIALOGUE_PATH
@@ -30,6 +31,8 @@ func _ready() -> void:
 	load_dialogue_file(dialogue_file_path)
 	if FileAccess.file_exists(LESSON1_DIALOGUE_PATH):
 		merge_dialogue_file(LESSON1_DIALOGUE_PATH)
+	if FileAccess.file_exists(CITY_DIALOGUE_PATH):
+		merge_dialogue_file(CITY_DIALOGUE_PATH)
 
 
 ## Loads and parses a dialogue JSON resource from disk.
@@ -106,6 +109,8 @@ func start_sequence(sequence_id: String) -> bool:
 		load_dialogue_file(dialogue_file_path)
 		if FileAccess.file_exists(LESSON1_DIALOGUE_PATH):
 			merge_dialogue_file(LESSON1_DIALOGUE_PATH)
+		if FileAccess.file_exists(CITY_DIALOGUE_PATH):
+			merge_dialogue_file(CITY_DIALOGUE_PATH)
 
 	if not _sequences.has(sequence_id):
 		push_warning("DialogueManager: unknown dialogue sequence '%s'" % sequence_id)

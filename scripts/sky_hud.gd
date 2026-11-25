@@ -54,6 +54,12 @@ var _mirror_vision_panel: PanelContainer
 var _mirror_vision_title: Label
 var _mirror_vision_divider: Control
 var _mirror_vision_body: Label
+var _quest_tracker_panel: PanelContainer
+var _quest_tracker_title: Label
+var _quest_tracker_objective: Label
+var _quest_tracker_hint: Label
+var _district_banner_panel: PanelContainer
+var _district_banner_label: Label
 var _dialogue_filigree_glow: StyleBoxFlat
 var _dialogue_filigree_inner: StyleBoxFlat
 
@@ -80,6 +86,8 @@ var _interaction_tween: Tween
 var _lantern_tween: Tween
 var _comfort_tween: Tween
 var _mirror_vision_tween: Tween
+var _quest_tracker_tween: Tween
+var _district_banner_tween: Tween
 
 
 func _ready() -> void:
@@ -104,10 +112,10 @@ func _ready() -> void:
 	# Subtle bottom-left control hints pill fades in gently during gameplay
 	_flight_hint.visible = false
 	if _controls_hint_label != null:
-		_controls_hint_label.text = "WASD — Движение  ·  Пробел — Взлёт  ·  Shift — Ускорение  ·  Q — Зов Света  ·  E — Поговорить"
+		_controls_hint_label.text = "WASD — Движение  ·  Пробел — Взлёт  ·  Shift — Ускорение  ·  E — Поговорить  ·  Q — Зов Света  ·  M — Карта"
 	if _controls_hint_pill != null:
 		_controls_hint_pill.grow_horizontal = Control.GROW_DIRECTION_END
-		_controls_hint_pill.offset_right = 700.0
+		_controls_hint_pill.offset_right = 790.0
 	_controls_hint_pill.visible = true
 	_controls_hint_pill.modulate.a = 0.0
 	_hint_tween = create_tween()
@@ -236,6 +244,12 @@ func show_dialogue_step(speaker: String, line: String, accent_color: Color, choi
 	if _mirror_vision_panel != null:
 		_mirror_vision_panel.visible = false
 		_mirror_vision_panel.modulate.a = 0.0
+
+	if _district_banner_tween and _district_banner_tween.is_valid():
+		_district_banner_tween.kill()
+	if _district_banner_panel != null:
+		_district_banner_panel.visible = false
+		_district_banner_panel.modulate.a = 0.0
 
 	_dialogue_active = true
 	_dialogue_accent = _adapt_accent_for_light_panel(accent_color)
@@ -465,6 +479,67 @@ func show_mirror_vision(title: String, body: String, duration: float = 5.5) -> v
 	_mirror_vision_tween.tween_property(_mirror_vision_panel, "modulate:a", 0.0, fade_out_time) \
 		.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
 	_mirror_vision_tween.tween_callback(func() -> void: _mirror_vision_panel.visible = false)
+
+
+## Updates and shows the compact top-left creamy-gold active quest tracker panel.
+func update_quest_tracker(title: String, objective: String) -> void:
+	if _quest_tracker_panel == null or _quest_tracker_title == null or _quest_tracker_objective == null:
+		return
+	var clean_title: String = title.strip_edges()
+	var clean_obj: String = objective.strip_edges()
+	if clean_title.is_empty() and clean_obj.is_empty():
+		hide_quest_tracker()
+		return
+
+	_quest_tracker_title.text = "✦ %s" % clean_title
+	_quest_tracker_objective.text = clean_obj
+	_quest_tracker_panel.visible = true
+
+	if _quest_tracker_tween and _quest_tracker_tween.is_valid():
+		_quest_tracker_tween.kill()
+
+	_quest_tracker_tween = create_tween()
+	_quest_tracker_tween.tween_property(_quest_tracker_panel, "modulate:a", 0.96, 0.35) \
+		.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+
+
+## Smoothly fades out and hides the top-left active quest tracker panel.
+func hide_quest_tracker() -> void:
+	if _quest_tracker_panel == null or not _quest_tracker_panel.visible:
+		return
+	if _quest_tracker_tween and _quest_tracker_tween.is_valid():
+		_quest_tracker_tween.kill()
+
+	_quest_tracker_tween = create_tween()
+	_quest_tracker_tween.tween_property(_quest_tracker_panel, "modulate:a", 0.0, 0.3) \
+		.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+	_quest_tracker_tween.tween_callback(func() -> void: _quest_tracker_panel.visible = false)
+
+
+## Displays a delicate district entrance banner below the WingEmblem (2.6s total fade-in/hold/out).
+func show_district_banner(district_name: String) -> void:
+	if _dialogue_active:
+		return
+	if _district_banner_panel == null or _district_banner_label == null:
+		return
+	var clean_name: String = district_name.strip_edges()
+	if clean_name.is_empty():
+		return
+
+	if _district_banner_tween and _district_banner_tween.is_valid():
+		_district_banner_tween.kill()
+
+	_district_banner_label.text = "✦  %s  ✦" % clean_name
+	_district_banner_panel.visible = true
+	_district_banner_panel.modulate.a = 0.0
+
+	_district_banner_tween = create_tween()
+	_district_banner_tween.tween_property(_district_banner_panel, "modulate:a", 0.94, 0.45) \
+		.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	_district_banner_tween.tween_interval(1.55)
+	_district_banner_tween.tween_property(_district_banner_panel, "modulate:a", 0.0, 0.60) \
+		.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+	_district_banner_tween.tween_callback(func() -> void: _district_banner_panel.visible = false)
 
 
 ## Cleanly toggles visibility of the entire HUD root (for Main Menu / cutscenes).
@@ -779,6 +854,120 @@ func _build_extended_ui() -> void:
 	vision_vbox.add_child(_mirror_vision_body)
 
 	_root_control.add_child(_mirror_vision_panel)
+
+	# Top-left compact creamy-gold Active Quest Tracker panel (x = 20..340, y = 20..92, clear of center WingEmblem)
+	_quest_tracker_panel = PanelContainer.new()
+	_quest_tracker_panel.name = "QuestTrackerPanel"
+	_quest_tracker_panel.visible = false
+	_quest_tracker_panel.modulate.a = 0.0
+	_quest_tracker_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_quest_tracker_panel.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	_quest_tracker_panel.offset_left = 20.0
+	_quest_tracker_panel.offset_right = 340.0
+	_quest_tracker_panel.offset_top = 20.0
+	_quest_tracker_panel.offset_bottom = 92.0
+	_quest_tracker_panel.grow_horizontal = Control.GROW_DIRECTION_END
+	_quest_tracker_panel.grow_vertical = Control.GROW_DIRECTION_END
+
+	var quest_style: StyleBoxFlat = StyleBoxFlat.new()
+	quest_style.bg_color = Color(0.996, 0.986, 0.958, 0.88)
+	quest_style.border_width_left = 2
+	quest_style.border_width_top = 2
+	quest_style.border_width_right = 2
+	quest_style.border_width_bottom = 2
+	quest_style.border_color = Color(COLOR_GOLD.r, COLOR_GOLD.g, COLOR_GOLD.b, 0.90)
+	quest_style.corner_radius_top_left = 16
+	quest_style.corner_radius_top_right = 16
+	quest_style.corner_radius_bottom_right = 16
+	quest_style.corner_radius_bottom_left = 16
+	quest_style.shadow_color = Color(0.45, 0.34, 0.16, 0.18)
+	quest_style.shadow_size = 12
+	quest_style.shadow_offset = Vector2(0.0, 3.0)
+	quest_style.content_margin_left = 14.0
+	quest_style.content_margin_right = 14.0
+	quest_style.content_margin_top = 8.0
+	quest_style.content_margin_bottom = 8.0
+	_quest_tracker_panel.add_theme_stylebox_override("panel", quest_style)
+
+	var quest_vbox: VBoxContainer = VBoxContainer.new()
+	quest_vbox.name = "QuestTrackerVBox"
+	quest_vbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	quest_vbox.add_theme_constant_override("separation", 3)
+	_quest_tracker_panel.add_child(quest_vbox)
+
+	_quest_tracker_title = Label.new()
+	_quest_tracker_title.name = "QuestTrackerTitle"
+	_quest_tracker_title.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_quest_tracker_title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_quest_tracker_title.add_theme_font_size_override("font_size", 13)
+	_quest_tracker_title.add_theme_color_override("font_color", COLOR_BRONZE_GOLD)
+	quest_vbox.add_child(_quest_tracker_title)
+
+	_quest_tracker_objective = Label.new()
+	_quest_tracker_objective.name = "QuestTrackerObjective"
+	_quest_tracker_objective.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_quest_tracker_objective.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_quest_tracker_objective.add_theme_font_size_override("font_size", 12)
+	_quest_tracker_objective.add_theme_color_override("font_color", COLOR_SAPPHIRE)
+	quest_vbox.add_child(_quest_tracker_objective)
+
+	_quest_tracker_hint = Label.new()
+	_quest_tracker_hint.name = "QuestTrackerMapHint"
+	_quest_tracker_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_quest_tracker_hint.text = "[M] Карта Города"
+	_quest_tracker_hint.add_theme_font_size_override("font_size", 10)
+	_quest_tracker_hint.add_theme_color_override("font_color", Color(COLOR_AZURE.r, COLOR_AZURE.g, COLOR_AZURE.b, 0.82))
+	quest_vbox.add_child(_quest_tracker_hint)
+
+	_root_control.add_child(_quest_tracker_panel)
+
+	# Delicate district entrance banner centered gently beneath WingEmblem
+	_district_banner_panel = PanelContainer.new()
+	_district_banner_panel.name = "DistrictBannerPanel"
+	_district_banner_panel.visible = false
+	_district_banner_panel.modulate.a = 0.0
+	_district_banner_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_district_banner_panel.anchor_left = 0.5
+	_district_banner_panel.anchor_right = 0.5
+	_district_banner_panel.anchor_top = 0.0
+	_district_banner_panel.anchor_bottom = 0.0
+	_district_banner_panel.offset_left = -210.0
+	_district_banner_panel.offset_right = 210.0
+	_district_banner_panel.offset_top = 86.0
+	_district_banner_panel.offset_bottom = 118.0
+	_district_banner_panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_district_banner_panel.grow_vertical = Control.GROW_DIRECTION_END
+
+	var banner_style: StyleBoxFlat = StyleBoxFlat.new()
+	banner_style.bg_color = Color(0.996, 0.986, 0.958, 0.84)
+	banner_style.border_width_left = 1
+	banner_style.border_width_top = 1
+	banner_style.border_width_right = 1
+	banner_style.border_width_bottom = 1
+	banner_style.border_color = Color(COLOR_GOLD.r, COLOR_GOLD.g, COLOR_GOLD.b, 0.80)
+	banner_style.corner_radius_top_left = 16
+	banner_style.corner_radius_top_right = 16
+	banner_style.corner_radius_bottom_right = 16
+	banner_style.corner_radius_bottom_left = 16
+	banner_style.shadow_color = COLOR_SHADOW
+	banner_style.shadow_size = 10
+	banner_style.shadow_offset = Vector2(0.0, 2.0)
+	banner_style.content_margin_left = 18.0
+	banner_style.content_margin_right = 18.0
+	banner_style.content_margin_top = 5.0
+	banner_style.content_margin_bottom = 5.0
+	_district_banner_panel.add_theme_stylebox_override("panel", banner_style)
+
+	_district_banner_label = Label.new()
+	_district_banner_label.name = "DistrictBannerLabel"
+	_district_banner_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_district_banner_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_district_banner_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_district_banner_label.add_theme_font_size_override("font_size", 13)
+	_district_banner_label.add_theme_color_override("font_color", COLOR_SAPPHIRE)
+	_district_banner_panel.add_child(_district_banner_label)
+
+	_root_control.add_child(_district_banner_panel)
 
 	# Guarantee DialoguePanel always renders on top of all prompts and floating HUD cards
 	_root_control.move_child(_dialogue_panel, _root_control.get_child_count() - 1)

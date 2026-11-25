@@ -8,7 +8,7 @@ const SAVE_FILENAME: String = "soulblueprint_save.json"
 const TEMP_SAVE_FILENAME: String = "soulblueprint_save.json.tmp"
 const TEMP_SAVE_PATH: String = "user://soulblueprint_save.json.tmp"
 
-const DEFAULT_PLAYER_POS: Vector3 = Vector3(0.0, 1.3, 36.0)
+const DEFAULT_PLAYER_POS: Vector3 = Vector3(0.0, 0.25, 52.0)
 const VALID_PROLOGUE_STAGES := [
 	"intro",
 	"exploring",
@@ -38,6 +38,7 @@ var has_custom_player_pos: bool = false
 var lesson1_stage: String = "not_started"
 var lesson1_signs_found: Array[String] = []
 var lesson1_signs_sent: Array[String] = []
+var quest_state: Dictionary = {}
 
 
 func _ready() -> void:
@@ -149,6 +150,10 @@ func load_game() -> bool:
 				if not sign_id.is_empty() and not lesson1_signs_sent.has(sign_id):
 					lesson1_signs_sent.append(sign_id)
 
+	var quest_val: Variant = data.get("quest_state", {})
+	if quest_val is Dictionary:
+		quest_state = (quest_val as Dictionary).duplicate(true)
+
 	if lesson1_stage == "complete":
 		spark_evolution_level = maxi(spark_evolution_level, 2)
 
@@ -159,6 +164,12 @@ func load_game() -> bool:
 
 
 func save_game() -> void:
+	var qm: Node = get_node_or_null("/root/QuestManager")
+	if qm != null and qm.has_method("export_state"):
+		var exported: Variant = qm.call("export_state")
+		if exported is Dictionary:
+			quest_state = (exported as Dictionary).duplicate(true)
+
 	var payload: Dictionary = {
 		"version": 1,
 		"prologue_stage": prologue_stage,
@@ -175,6 +186,7 @@ func save_game() -> void:
 		"lesson1_stage": lesson1_stage,
 		"lesson1_signs_found": lesson1_signs_found,
 		"lesson1_signs_sent": lesson1_signs_sent,
+		"quest_state": quest_state,
 	}
 
 	var serialized: String = JSON.stringify(payload, "\t")
@@ -319,6 +331,7 @@ func _reset_state_to_defaults() -> void:
 	lesson1_stage = "not_started"
 	lesson1_signs_found.clear()
 	lesson1_signs_sent.clear()
+	quest_state.clear()
 
 
 func _apply_audio_mute_state() -> void:

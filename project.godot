@@ -11,6 +11,7 @@ config/features=PackedStringArray("4.3", "Forward Plus")
 
 SaveManager="*res://scripts/autoload/save_manager.gd"
 SceneFlowManager="*res://scripts/autoload/scene_flow_manager.gd"
+QuestManager="*res://scripts/autoload/quest_manager.gd"
 
 [display]
 
