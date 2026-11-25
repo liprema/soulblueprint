@@ -17,6 +17,7 @@ const WATER_SHADER_PATH: String = "res://shaders/akasha_water.gdshader"
 const PIXAR_TERRACE_PLAZA_SHADER_PATH: String = "res://shaders/pixar_terrace_plaza.gdshader"
 const PIXAR_WATERFALL_SHADER_PATH: String = "res://shaders/pixar_waterfall.gdshader"
 const PIXAR_BUILDING_FACADE_SHADER_PATH: String = "res://shaders/pixar_building_facade.gdshader"
+const STYLIZED_TREE_FOLIAGE_SHADER_PATH: String = "res://shaders/stylized_tree_foliage.gdshader"
 
 const MODEL_SCHOOL_PATH: String = "res://assets/models/city/school_of_souls.glb"
 const MODEL_LIBRARY_PATH: String = "res://assets/models/city/orion_library.glb"
@@ -40,7 +41,9 @@ const PIXAR_HOUSE_OCHRE_PATH: String = "res://assets/models/city/pixar/house_och
 const PIXAR_HOUSE_TERRACOTTA_PATH: String = "res://assets/models/city/pixar/house_terracotta_terrace.glb"
 const PIXAR_HOUSE_CREAM_SPIRE_PATH: String = "res://assets/models/city/pixar/house_cream_spire.glb"
 const PIXAR_CLIFF_ROCK_PATH: String = "res://assets/models/city/pixar/cliff_terrace_rock.glb"
-const PIXAR_TREE_LUSH_PATH: String = "res://assets/models/city/pixar/pixar_tree_lush.glb"
+const TREE_BLOSSOM_PATH: String = "res://assets/models/city/trees/akasha_tree_blossom.glb"
+const TREE_WILLOW_PATH: String = "res://assets/models/city/trees/akasha_tree_willow.glb"
+const TREE_BONSAI_PATH: String = "res://assets/models/city/trees/akasha_tree_bonsai.glb"
 const PIXAR_BOAT_PATH: String = "res://assets/models/city/pixar/pixar_boat.glb"
 
 const VENUE_CAFE_PATH: String = "res://assets/models/city/venues/venue_starlight_cafe.glb"
@@ -77,8 +80,10 @@ const DISTRICT_QUERY_RADIUS: float = 28.0
 
 # Shared materials (reused across meshes for 60 FPS on macOS Retina)
 var _facade_shader: Shader = null
+var _tree_foliage_shader: Shader = null
 var _facade_mat_cache: Dictionary = {}
 var _mat_meadow: Material = null
+var _mat_park_lawn: StandardMaterial3D = null
 var _mat_marble_road: Material = null
 var _mat_marble_plaza: Material = null
 var _mat_marble_wall: Material = null
@@ -95,14 +100,19 @@ var _mat_beacon_beam: StandardMaterial3D = null
 var _mat_beacon_crystal: StandardMaterial3D = null
 var _mat_beacon_ring: StandardMaterial3D = null
 
-# Pixar palette materials (terraces, cliffs, autumn/emerald trees, colorful fallbacks)
+# Harmonized Akasha palette materials (terraces, cliffs, painterly trees, soft facades)
 var _mat_terrace_stone: Material = null
 var _mat_arch_recess: StandardMaterial3D = null
 var _mat_cliff_rock: StandardMaterial3D = null
 var _mat_foliage_green: StandardMaterial3D = null
 var _mat_foliage_gold: StandardMaterial3D = null
 var _mat_foliage_sakura: StandardMaterial3D = null
+var _mat_tree_blossom: Material = null
+var _mat_tree_willow_gold: Material = null
+var _mat_tree_willow_lavender: Material = null
+var _mat_tree_bonsai_azure: Material = null
 var _mat_trunk_wood: StandardMaterial3D = null
+var _mat_trunk_silver: StandardMaterial3D = null
 var _mat_wall_cream: Material = null
 var _mat_wall_ochre: Material = null
 var _mat_wall_peach: Material = null
@@ -128,12 +138,20 @@ var _scene_house_ochre: PackedScene = null
 var _scene_house_terracotta: PackedScene = null
 var _scene_house_cream_spire: PackedScene = null
 var _scene_cliff_rock: PackedScene = null
-var _scene_tree_lush: PackedScene = null
+var _scene_tree_blossom: PackedScene = null
+var _scene_tree_willow: PackedScene = null
+var _scene_tree_bonsai: PackedScene = null
 var _scene_boat: PackedScene = null
 
-# Unified 5-type Pixar house batches (inner wall-to-wall quarters + 5-tier terraces)
+# Unified 5-type house batches + 4 painterly fairytale tree batches + pocket park furniture
 var _city_house_batches: Dictionary = {}
 var _placed_inner_houses: Array[Vector2] = []
+var _tree_blossom_xforms: Array[Transform3D] = []
+var _tree_willow_gold_xforms: Array[Transform3D] = []
+var _tree_willow_lavender_xforms: Array[Transform3D] = []
+var _tree_bonsai_azure_xforms: Array[Transform3D] = []
+var _park_bench_xforms: Array[Transform3D] = []
+var _park_pot_xforms: Array[Transform3D] = []
 
 # District & interactive venue registries (contract with all tracks)
 var _districts: Array[Dictionary] = []
@@ -448,6 +466,11 @@ func _init_materials() -> void:
 		if fac_res is Shader:
 			_facade_shader = fac_res as Shader
 
+	if ResourceLoader.exists(STYLIZED_TREE_FOLIAGE_SHADER_PATH):
+		var tree_sh_res: Resource = load(STYLIZED_TREE_FOLIAGE_SHADER_PATH)
+		if tree_sh_res is Shader:
+			_tree_foliage_shader = tree_sh_res as Shader
+
 	# Meadow ground shader (with safe lush green StandardMaterial3D fallback)
 	if ResourceLoader.exists(MEADOW_SHADER_PATH):
 		var meadow_res: Resource = load(MEADOW_SHADER_PATH)
@@ -463,6 +486,13 @@ func _init_materials() -> void:
 		meadow_fb.roughness = 0.88
 		meadow_fb.metallic = 0.0
 		_mat_meadow = meadow_fb
+
+	# Pocket Park velvety sunlit lawn (matte sage-emerald, harmonizing with blossom & gold willow)
+	_mat_park_lawn = StandardMaterial3D.new()
+	_mat_park_lawn.albedo_color = Color("#589E54")
+	_mat_park_lawn.roughness = 0.88
+	_mat_park_lawn.metallic = 0.0
+	_mat_park_lawn.metallic_specular = 0.10
 
 	# Pixar Terrace Plaza & Paved Avenue shader (radial_mode = 1.0 for plazas, 0.0 for avenues)
 	var terrace_shader: Shader = null
@@ -582,35 +612,83 @@ func _init_materials() -> void:
 	_mat_cliff_rock.roughness = 0.88
 	_mat_cliff_rock.metallic = 0.0
 
-	# Lush Green, Golden Autumn & Sakura Foliage
+	# Lush Green, Golden Autumn & Sakura Foliage Fallbacks (matte painterly, zero plasticine gloss)
 	_mat_foliage_green = StandardMaterial3D.new()
 	_mat_foliage_green.albedo_color = Color("#398C42")
-	_mat_foliage_green.roughness = 0.72
+	_mat_foliage_green.roughness = 0.80
 	_mat_foliage_green.metallic = 0.0
+	_mat_foliage_green.metallic_specular = 0.12
 
 	_mat_foliage_gold = StandardMaterial3D.new()
 	_mat_foliage_gold.albedo_color = Color("#DC9A2C")
-	_mat_foliage_gold.roughness = 0.68
+	_mat_foliage_gold.roughness = 0.78
 	_mat_foliage_gold.metallic = 0.0
-	_mat_foliage_gold.emission_enabled = true
-	_mat_foliage_gold.emission = Color("#D88E24")
-	_mat_foliage_gold.emission_energy_multiplier = 0.08
+	_mat_foliage_gold.metallic_specular = 0.12
 
 	_mat_foliage_sakura = StandardMaterial3D.new()
-	_mat_foliage_sakura.albedo_color = Color("#EAA4BA")
-	_mat_foliage_sakura.roughness = 0.72
+	_mat_foliage_sakura.albedo_color = Color("#E892A2")
+	_mat_foliage_sakura.roughness = 0.78
+	_mat_foliage_sakura.metallic = 0.0
+	_mat_foliage_sakura.metallic_specular = 0.12
+
+	# 4 Harmonious Painterly Fairytale Tree Canopy Materials (stylized_tree_foliage.gdshader)
+	# 1. Coral-Pink Sakura Blossom (akasha_tree_blossom.glb)
+	_mat_tree_blossom = _create_tree_foliage_shader_mat(
+		Color(0.96, 0.58, 0.58),
+		Color(0.80, 0.36, 0.44),
+		Color(0.36, 0.14, 0.28),
+		Color(1.00, 0.84, 0.80),
+		2.0,
+		8.5
+	)
+	# 2. Golden-Amber Weeping Willow (akasha_tree_willow.glb)
+	_mat_tree_willow_gold = _create_tree_foliage_shader_mat(
+		Color(0.98, 0.82, 0.36),
+		Color(0.82, 0.56, 0.18),
+		Color(0.42, 0.22, 0.10),
+		Color(1.00, 0.94, 0.72),
+		1.4,
+		7.8
+	)
+	# 3. Rose-Lavender Weeping Willow (akasha_tree_willow.glb in Lantern Garden & Mira's Sanctuary)
+	_mat_tree_willow_lavender = _create_tree_foliage_shader_mat(
+		Color(0.96, 0.68, 0.82),
+		Color(0.74, 0.40, 0.64),
+		Color(0.30, 0.16, 0.40),
+		Color(1.00, 0.88, 0.96),
+		1.4,
+		7.8
+	)
+	# 4. Azure-Turquoise Celestial Bonsai (akasha_tree_bonsai.glb at Lake of Silence & Orion Library)
+	_mat_tree_bonsai_azure = _create_tree_foliage_shader_mat(
+		Color(0.40, 0.82, 0.88),
+		Color(0.18, 0.56, 0.72),
+		Color(0.10, 0.22, 0.44),
+		Color(0.76, 0.96, 1.00),
+		1.8,
+		7.5
+	)
+
+	# Noble light lilac-silvery matte bark (zero plasticine gloss)
+	_mat_trunk_silver = StandardMaterial3D.new()
+	_mat_trunk_silver.albedo_color = Color(0.76, 0.72, 0.78)
+	_mat_trunk_silver.roughness = 0.88
+	_mat_trunk_silver.metallic = 0.0
+	_mat_trunk_silver.metallic_specular = 0.10
 
 	_mat_trunk_wood = StandardMaterial3D.new()
 	_mat_trunk_wood.albedo_color = Color("#65432E")
 	_mat_trunk_wood.roughness = 0.88
+	_mat_trunk_wood.metallic = 0.0
+	_mat_trunk_wood.metallic_specular = 0.12
 
-	# Pixar House Fallback Palette (deepened ~15% + procedural facade shader!)
-	_mat_wall_cream = _create_facade_shader_mat(Color("#E0D0B4"), Color("#BFA988"), 0.72, 0.0, 0.48, 0.18, 1.8)
-	_mat_wall_ochre = _create_facade_shader_mat(Color("#D8B064"), Color("#B48842"), 0.74, 0.0, 0.48, 0.18, 1.8)
-	_mat_wall_peach = _create_facade_shader_mat(Color("#DAAC8B"), Color("#B88464"), 0.74, 0.0, 0.48, 0.18, 1.8)
-	_mat_roof_red = _create_facade_shader_mat(Color("#AE342A"), Color("#86221B"), 0.54, 0.0, 0.50, 0.18, 1.4)
-	_mat_roof_terracotta = _create_facade_shader_mat(Color("#BA5732"), Color("#923D20"), 0.56, 0.0, 0.50, 0.18, 1.4)
-	_mat_roof_ochre = _create_facade_shader_mat(Color("#AE7424"), Color("#865416"), 0.54, 0.0, 0.50, 0.18, 1.4)
+	# Harmonized Akasha Residential Fallback Palette (warm ivory-cream walls + muted rose-terracotta / noble sapphire roofs)
+	_mat_wall_cream = _create_facade_shader_mat(Color("#E8DEC8"), Color("#C9BAA0"), 0.74, 0.0, 0.46, 0.11, 1.8)
+	_mat_wall_ochre = _create_facade_shader_mat(Color("#DECAA4"), Color("#BFA77E"), 0.74, 0.0, 0.46, 0.11, 1.8)
+	_mat_wall_peach = _create_facade_shader_mat(Color("#E0C6B6"), Color("#BF9F8D"), 0.74, 0.0, 0.46, 0.11, 1.8)
+	_mat_roof_red = _create_facade_shader_mat(Color("#A86662"), Color("#824A47"), 0.58, 0.0, 0.48, 0.11, 1.4)
+	_mat_roof_terracotta = _create_facade_shader_mat(Color("#B67560"), Color("#8E5644"), 0.58, 0.0, 0.48, 0.11, 1.4)
+	_mat_roof_ochre = _create_facade_shader_mat(Color("#B49062"), Color("#8C6D46"), 0.58, 0.0, 0.48, 0.11, 1.4)
 
 	_mat_boat_hull = StandardMaterial3D.new()
 	_mat_boat_hull.albedo_color = Color("#B84830")
@@ -709,6 +787,35 @@ func _init_materials() -> void:
 	_mat_flower_pot.roughness = 0.68
 
 
+func _create_tree_foliage_shader_mat(
+	top_col: Color,
+	mid_col: Color,
+	bot_col: Color,
+	rim_col: Color,
+	min_y: float,
+	max_y: float
+) -> Material:
+	if _tree_foliage_shader != null:
+		var sm: ShaderMaterial = ShaderMaterial.new()
+		sm.shader = _tree_foliage_shader
+		sm.set_shader_parameter("top_sun_color", top_col)
+		sm.set_shader_parameter("mid_foliage_color", mid_col)
+		sm.set_shader_parameter("shadow_bottom_color", bot_col)
+		sm.set_shader_parameter("rim_glow_color", rim_col)
+		sm.set_shader_parameter("canopy_min_y", min_y)
+		sm.set_shader_parameter("canopy_max_y", max_y)
+		sm.set_shader_parameter("rim_strength", 0.30)
+		sm.set_shader_parameter("leaf_texture_strength", 0.24)
+		sm.set_shader_parameter("per_tree_variation", 0.10)
+		return sm
+	var fb: StandardMaterial3D = StandardMaterial3D.new()
+	fb.albedo_color = mid_col
+	fb.roughness = 0.80
+	fb.metallic = 0.0
+	fb.metallic_specular = 0.12
+	return fb
+
+
 func _create_facade_shader_mat(
 	base_col: Color,
 	accent_col: Color,
@@ -736,11 +843,46 @@ func _create_facade_shader_mat(
 	return fb
 
 
-func _deepen_facade_color(col: Color) -> Color:
+## Harmonizes every residential house wall/roof color into the noble Akasha Chronicles
+## palette that pairs effortlessly with the ivory-sapphire-gold Baroque Palace and
+## painterly fairytale trees (tames garish saturation to 0.28..0.48, warms walls toward
+## ivory-cream, and shifts roofs toward Baroque sapphire or muted rose-terracotta).
+func _deepen_facade_color(col: Color, is_roof: bool = false) -> Color:
+	var warm_ivory: Color = Color(0.93, 0.89, 0.82, 1.0)
+	var noble_sapphire: Color = Color(0.24, 0.40, 0.64, 1.0)
+	var muted_rose_terracotta: Color = Color(0.72, 0.43, 0.40, 1.0)
+	var champagne_ochre: Color = Color(0.76, 0.62, 0.42, 1.0)
+
 	var h: float = col.h
-	var s: float = clampf(col.s * 1.15 + 0.03, 0.0, 0.92)
-	var v: float = clampf(col.v * 0.85, 0.10, 0.86)
-	return Color.from_hsv(h, s, v, 1.0)
+	var s: float = col.s
+	var v: float = col.v
+
+	# Neutral limestone / plaster / white trim -> gently warm ivory-cream
+	if s <= 0.16 and not is_roof:
+		var neutral_v: float = clampf(v * 0.94, 0.42, 0.88)
+		var neutral_col: Color = Color.from_hsv(h, clampf(s, 0.04, 0.16), neutral_v, 1.0)
+		return neutral_col.lerp(warm_ivory, 0.22)
+
+	# Tame excessive garish saturation into noble 0.28..0.48 band
+	var noble_s: float = clampf(s * 0.62 + 0.08, 0.28, 0.48)
+	var noble_v: float = clampf(v * 0.88, 0.30, 0.84)
+	var toned: Color = Color.from_hsv(h, noble_s, noble_v, 1.0)
+
+	var looks_like_roof: bool = is_roof or (v < 0.62 and s > 0.34)
+	if looks_like_roof:
+		if h >= 0.48 and h <= 0.78:
+			# Cool/blue roofs -> noble Baroque sapphire
+			return toned.lerp(noble_sapphire, 0.32)
+		if h < 0.11 or h > 0.86:
+			# Red/orange/terracotta roofs -> muted rose-terracotta
+			return toned.lerp(muted_rose_terracotta, 0.34)
+		# Warm ochre/amber roofs -> soft champagne-ochre
+		return toned.lerp(champagne_ochre, 0.28)
+
+	# Facade walls -> blend softly with warm ivory-cream for refined architectural unity
+	var wall_v: float = clampf(noble_v, 0.64, 0.85)
+	var soft_wall: Color = Color.from_hsv(h, clampf(noble_s * 0.86, 0.20, 0.38), wall_v, 1.0)
+	return soft_wall.lerp(warm_ivory, 0.26)
 
 
 func _upgrade_to_facade_material(orig_mat: Material) -> Material:
@@ -767,17 +909,26 @@ func _upgrade_to_facade_material(orig_mat: Material) -> Material:
 			_facade_mat_cache[cache_key] = orig_mat
 			return orig_mat
 
-		var deep_col: Color = _deepen_facade_color(bm.albedo_color)
-		var accent_col: Color = deep_col.darkened(0.22)
-		var rough_v: float = clampf(bm.roughness, 0.48, 0.86)
-		var metal_v: float = clampf(bm.metallic, 0.0, 0.65)
+		var is_roof: bool = (
+			mat_name.contains("roof")
+			or mat_name.contains("tile")
+			or mat_name.contains("slate")
+			or mat_name.contains("shingle")
+			or mat_name.contains("spire")
+			or mat_name.contains("dome")
+			or mat_name.contains("gable")
+		)
+		var deep_col: Color = _deepen_facade_color(bm.albedo_color, is_roof)
+		var accent_col: Color = deep_col.darkened(0.20)
+		var rough_v: float = clampf(bm.roughness, 0.54, 0.86)
+		var metal_v: float = clampf(bm.metallic, 0.0, 0.45)
 		var upgraded: Material = _create_facade_shader_mat(
 			deep_col,
 			accent_col,
 			rough_v,
 			metal_v,
-			0.48,
-			0.18,
+			0.44,
+			0.11,
 			1.8
 		)
 		_facade_mat_cache[cache_key] = upgraded
@@ -821,12 +972,20 @@ func _preload_prop_scenes() -> void:
 	_scene_house_terracotta = _safe_load_scene(PIXAR_HOUSE_TERRACOTTA_PATH)
 	_scene_house_cream_spire = _safe_load_scene(PIXAR_HOUSE_CREAM_SPIRE_PATH)
 	_scene_cliff_rock = _safe_load_scene(PIXAR_CLIFF_ROCK_PATH)
-	_scene_tree_lush = _safe_load_scene(PIXAR_TREE_LUSH_PATH)
+	_scene_tree_blossom = _safe_load_scene(TREE_BLOSSOM_PATH)
+	_scene_tree_willow = _safe_load_scene(TREE_WILLOW_PATH)
+	_scene_tree_bonsai = _safe_load_scene(TREE_BONSAI_PATH)
 	_scene_boat = _safe_load_scene(PIXAR_BOAT_PATH)
 
 
 func _init_house_batches() -> void:
 	_placed_inner_houses.clear()
+	_tree_blossom_xforms.clear()
+	_tree_willow_gold_xforms.clear()
+	_tree_willow_lavender_xforms.clear()
+	_tree_bonsai_azure_xforms.clear()
+	_park_bench_xforms.clear()
+	_park_pot_xforms.clear()
 	_city_house_batches = {
 		"red_gable": [] as Array[Transform3D],
 		"blue_balcony": [] as Array[Transform3D],
@@ -1000,7 +1159,7 @@ func _build_meadow_grid_mesh(
 			# 1. Sculpted emerald hill underneath West School Terrace (Y = 3.12 flush below 3.2 deck)
 			if carve_lake:
 				var wx_in: float = _smooth01((-26.0 - vx) / 4.5) * _smooth01((vx + 76.0) / 14.0)
-				var wz_in: float = _smooth01((vz + 22.0) / 8.0) * _smooth01((42.0 - vz) / 12.0)
+				var wz_in: float = _smooth01((vz + 22.0) / 8.0) * _smooth01((32.5 - vz) / 3.5)
 				var west_hill: float = (TIER_1_Y - 0.10) * wx_in * wz_in
 				vy = maxf(vy, west_hill)
 
@@ -1026,12 +1185,19 @@ func _build_meadow_grid_mesh(
 				var outer_hill: float = flank_mask * canal_clear * (3.2 + 5.8 * wave)
 				vy = maxf(vy, outer_hill)
 
-			# 4. Soft organic meadow undulation ONLY in off-road grassy margins (never on roads/plazas)
+			# 4. Soft organic meadow undulation ONLY in off-road grassy margins (never on roads/plazas/parks)
 			var on_road_or_plaza: bool = (
 				(absf(vx) < 16.0 and vz >= -232.0 and vz <= 64.0)
 				or (absf(vz - 9.0) < 12.0 and absf(vx) < 58.0)
+				or (vx < 0.0 and absf(vz - 44.0) < 11.0 and vx > -58.0)
+				or (vx > 0.0 and absf(vz - 38.0) < 11.0 and vx < 56.0)
+				or (vx >= -26.0 and vx <= 0.0 and absf(vz - 18.0) < 4.5)
+				or (absf(vx - 28.0) < 6.5 and vz >= 8.0 and vz <= 44.0)
+				or (absf(vx + 23.55) < 4.5 and vz >= 16.0 and vz <= 46.0)
 				or (absf(vz + 78.0) < 12.0 and absf(vx) < 62.0)
 				or (absf(vz + 138.0) < 12.0 and absf(vx) < 52.0)
+				or (absf(vx + 41.0) < 11.0 and vz >= -142.0 and vz <= -74.0)
+				or (absf(vx - 38.0) < 11.0 and vz >= -142.0 and vz <= -74.0)
 				or (absf(vz - CANAL_Z) < 14.0)
 				or (absf(vx) < 28.0 and vz >= -216.0 and vz <= -154.0)
 			)
@@ -2142,12 +2308,146 @@ func _build_roads_and_plazas() -> void:
 	# Tier 2 Plaza (Y = 5.6)
 	_add_marble_plaza(net_root, "Plaza_UpperOverlook", Vector3(0.0, TIER_2_Y, -184.0), 11.2)
 
+	# --- TIER 0 (Y = 0.0) SIDE STREETS & ALLEYS ---
+	_add_marble_road(net_root, "SideStreet_SouthWest", Vector3(-6.0, TIER_0_Y, 44.0), Vector3(-52.0, TIER_0_Y, 44.0), 5.4)
+	_add_marble_road(net_root, "Alley_SouthWest", Vector3(-23.55, TIER_0_Y, 44.0), Vector3(-23.55, TIER_0_Y, 18.0), 3.0)
+	_add_marble_road(net_root, "Alley_SouthWest_Cross", Vector3(-23.55, TIER_0_Y, 18.0), Vector3(-5.0, TIER_0_Y, 18.0), 3.6)
+	_add_marble_road(net_root, "SideStreet_SouthEast", Vector3(6.0, TIER_0_Y, 38.0), Vector3(52.0, TIER_0_Y, 38.0), 5.4)
+	_add_marble_road(net_root, "Alley_SouthEast", Vector3(28.0, TIER_0_Y, 38.0), Vector3(28.0, TIER_0_Y, 10.0), 5.4)
+
+	# --- TIER 1 (Y = 3.2) QUARTER ALLEYS (width = 5.4m) ---
+	_add_marble_road(net_root, "Alley_NorthWest_Orion", Vector3(-41.0, TIER_1_Y, -78.0), Vector3(-41.0, TIER_1_Y, -138.0), 5.4)
+	_add_marble_road(net_root, "Alley_NorthEast_Kronos", Vector3(38.0, TIER_1_Y, -78.0), Vector3(38.0, TIER_1_Y, -138.0), 5.4)
+
+	# --- 4 CIRCULAR POCKET PARKS (R = 8.5m, golden curb, circular benches, flower pots & fairytale trees) ---
+	_add_pocket_park(net_root, "PocketPark_SakuraAlley", Vector3(-36.0, TIER_0_Y, 44.0), 8.5, "blossom")
+	_add_pocket_park(net_root, "PocketPark_GoldenWillows", Vector3(36.0, TIER_0_Y, 38.0), 8.5, "willow_gold")
+	_add_pocket_park(net_root, "PocketPark_OrionCourtyard", Vector3(-41.0, TIER_1_Y, -108.0), 8.5, "bonsai_azure")
+	_add_pocket_park(net_root, "PocketPark_TimeCourtyard", Vector3(38.0, TIER_1_Y, -108.0), 8.5, "willow_lavender")
+
 	# Welcome Stone Arches grounded at their exact tier elevation
 	_add_welcome_arch(net_root, "Arch_AwakeningGateway", Vector3(0.0, TIER_0_Y, 34.5), 0.0, 11.2, 6.8)
 	_add_welcome_arch(net_root, "Arch_BridgeNorthGate", Vector3(0.0, TIER_1_Y, -56.5), 0.0, 12.6, 7.2)
 	_add_welcome_arch(net_root, "Arch_QuietLakesDistrict", Vector3(19.5, TIER_0_Y, 10.0), PI * 0.5, 8.2, 5.8)
 	_add_welcome_arch(net_root, "Arch_OrionLibraryDistrict", Vector3(-20.5, TIER_1_Y, -78.0), PI * 0.5, 8.4, 5.8)
 	_add_welcome_arch(net_root, "Arch_KronosTowerDistrict", Vector3(20.5, TIER_1_Y, -78.0), PI * 0.5, 8.4, 5.8)
+
+
+func _add_pocket_park(
+	parent: Node3D,
+	park_name: String,
+	center: Vector3,
+	radius: float,
+	tree_theme: String
+) -> void:
+	var holder: Node3D = Node3D.new()
+	holder.name = park_name
+	holder.position = center
+	parent.add_child(holder)
+
+	# 1. Outer stone walking promenade disc (R = radius, top at center.y + PLAZA_TOP_Y)
+	var walk_disc: MeshInstance3D = MeshInstance3D.new()
+	walk_disc.mesh = _create_radial_plaza_disc_mesh(radius, 0.055, 40)
+	walk_disc.position = Vector3(0.0, PLAZA_TOP_Y - 0.055, 0.0)
+	walk_disc.material_override = _mat_marble_plaza
+	walk_disc.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	holder.add_child(walk_disc)
+
+	# 2. Inner lush green circular garden lawn (R = radius - 2.3m, seated cleanly above paving)
+	var lawn_r: float = radius - 2.3
+	var lawn_disc: MeshInstance3D = MeshInstance3D.new()
+	var lawn_cyl: CylinderMesh = CylinderMesh.new()
+	lawn_cyl.top_radius = lawn_r
+	lawn_cyl.bottom_radius = lawn_r + 0.14
+	lawn_cyl.height = 0.08
+	lawn_cyl.radial_segments = 36
+	lawn_disc.mesh = lawn_cyl
+	lawn_disc.position = Vector3(0.0, PLAZA_TOP_Y + 0.025, 0.0)
+	lawn_disc.material_override = _mat_park_lawn
+	lawn_disc.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	holder.add_child(lawn_disc)
+
+	# 3. Golden outer curb ring (R = radius) + delicate inner lawn curb (R = lawn_r)
+	for ring_r in [radius, lawn_r]:
+		var rim: MeshInstance3D = MeshInstance3D.new()
+		var torus: TorusMesh = TorusMesh.new()
+		torus.inner_radius = float(ring_r) - 0.14
+		torus.outer_radius = float(ring_r) + 0.14
+		torus.rings = 40
+		torus.ring_segments = 10
+		rim.mesh = torus
+		rim.position = Vector3(0.0, PLAZA_TOP_Y + 0.05, 0.0)
+		rim.scale = Vector3(1.0, 0.24, 1.0)
+		rim.material_override = _mat_gold_trim
+		rim.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		holder.add_child(rim)
+
+	# 4. Circular benches & terracotta flower pots along the lawn edge (facing inward toward trees)
+	var bench_r: float = lawn_r + 0.72
+	for i in range(6):
+		var ang: float = (TAU * float(i)) / 6.0 + PI / 6.0
+		var bx: float = center.x + cos(ang) * bench_r
+		var bz: float = center.z + sin(ang) * bench_r
+		# Skip positions that overlap West School Terrace wall or Grand Mall / Soul Gym back walls
+		if bx < -25.2 and bz < 33.4 and center.y < 1.0:
+			continue
+		if bx > -30.4 and absf(bz + 108.0) < 10.2 and center.x < 0.0 and center.y > 1.0:
+			continue
+		if bx < 26.8 and absf(bz + 108.0) < 7.2 and center.x > 0.0 and center.y > 1.0:
+			continue
+		var face_center: float = atan2(center.x - bx, center.z - bz)
+		_park_bench_xforms.append(Transform3D(
+			Basis.from_euler(Vector3(0.0, face_center, 0.0)),
+			Vector3(bx, center.y + PLAZA_TOP_Y + 0.28, bz)
+		))
+
+		var pot_ang: float = ang + PI / 6.0
+		var px: float = center.x + cos(pot_ang) * (lawn_r + 0.45)
+		var pz: float = center.z + sin(pot_ang) * (lawn_r + 0.45)
+		if px < -25.2 and pz < 33.4 and center.y < 1.0:
+			continue
+		if px > -30.4 and absf(pz + 108.0) < 10.2 and center.x < 0.0 and center.y > 1.0:
+			continue
+		if px < 26.8 and absf(pz + 108.0) < 7.2 and center.x > 0.0 and center.y > 1.0:
+			continue
+		_park_pot_xforms.append(Transform3D(
+			Basis.IDENTITY,
+			Vector3(px, center.y + PLAZA_TOP_Y + 0.34, pz)
+		))
+
+	# 5. Sculptural Fairytale Hero Trees in the circular garden lawn
+	var tree_offsets: Array[Vector3] = [
+		Vector3(0.0, 0.0, 0.0),
+		Vector3(-2.6, 0.0, 2.2),
+		Vector3(2.8, 0.0, 1.8),
+	]
+	var tree_scales: Array[float] = [1.22, 0.88, 0.92]
+	for t_i in range(tree_offsets.size()):
+		var tx: float = center.x + tree_offsets[t_i].x
+		var tz: float = center.z + tree_offsets[t_i].z
+		if tx < -25.2 and tz < 33.8 and center.y < 1.0:
+			continue
+		if tx > -30.8 and absf(tz + 108.0) < 10.2 and center.x < 0.0 and center.y > 1.0:
+			continue
+		var sc: float = tree_scales[t_i]
+		var xf: Transform3D = Transform3D(
+			Basis.from_euler(Vector3(0.0, float(t_i) * 2.1, 0.0)).scaled(Vector3(sc, sc, sc)),
+			Vector3(tx, center.y + PLAZA_TOP_Y + 0.04, tz)
+		)
+		if tree_theme == "blossom":
+			_tree_blossom_xforms.append(xf)
+		elif tree_theme == "willow_gold":
+			_tree_willow_gold_xforms.append(xf)
+		elif tree_theme == "bonsai_azure":
+			if t_i == 1:
+				_tree_blossom_xforms.append(xf)
+			else:
+				_tree_bonsai_azure_xforms.append(xf)
+		else:
+			if t_i == 2:
+				_tree_willow_gold_xforms.append(xf)
+			else:
+				_tree_willow_lavender_xforms.append(xf)
 
 
 func _add_marble_road(
@@ -2818,6 +3118,38 @@ func _is_point_clear_for_house(x: float, z: float, half_r: float) -> bool:
 	if x >= -32.5 - half_r and x <= -6.5 + half_r and absf(z + 108.0) < 12.0 + half_r:
 		return false
 
+	# 15. Paved Side Streets, 4 Quarter Alleys, SW Through-Connector & 4 Circular Pocket Parks (R = 8.5m)
+	# SW Side Street Z = 44.0 (X = -6..-52), SW Alley X = -23.55 (Z = 18..44) & Cross Connector Z = 18.0 (X = -23.55..-5.0)
+	if x >= -54.0 and x <= -5.0 and absf(z - 44.0) < 3.4 + half_r:
+		return false
+	if z >= 16.5 and z <= 46.0 and absf(x + 23.55) < 2.3 + half_r:
+		return false
+	if x >= -25.5 and x <= -4.5 and absf(z - 18.0) < 2.5 + half_r:
+		return false
+	# SE Side Street Z = 38.0 (X = 6..52) & SE Alley X = 28.0 (Z = 10..38)
+	if x >= 5.0 and x <= 54.0 and absf(z - 38.0) < 3.4 + half_r:
+		return false
+	if z >= 9.0 and z <= 40.0 and absf(x - 28.0) < 3.4 + half_r:
+		return false
+	# NW Tier 1 Alley X = -41.0 (Z = -78..-138) & NE Tier 1 Alley X = 38.0 (Z = -78..-138)
+	if z >= -140.0 and z <= -76.0 and absf(x + 41.0) < 3.4 + half_r:
+		return false
+	if z >= -140.0 and z <= -76.0 and absf(x - 38.0) < 3.4 + half_r:
+		return false
+
+	var pocket_parks: Array[Vector3] = [
+		Vector3(-36.0, 44.0, 8.5),   # SW Pocket Park «Аллея Сакуры»
+		Vector3(36.0, 38.0, 8.5),    # SE Pocket Park «Сад Золотых Ив»
+		Vector3(-41.0, -108.0, 8.5), # NW Pocket Park «Тихий Дворик Ориона»
+		Vector3(38.0, -108.0, 8.5),  # NE Pocket Park «Дворик Времени»
+	]
+	for pk in pocket_parks:
+		var pk_dx: float = x - pk.x
+		var pk_dz: float = z - pk.y
+		var pk_min_r: float = pk.z + half_r + 1.0
+		if pk_dx * pk_dx + pk_dz * pk_dz < pk_min_r * pk_min_r:
+			return false
+
 	return true
 
 
@@ -2826,9 +3158,23 @@ func _is_near_street_or_plaza(x: float, z: float, max_dist: float) -> bool:
 		return true
 	if absf(z - 9.0) <= max_dist and absf(x) <= 56.0:
 		return true
+	if x < 0.0 and absf(z - 44.0) <= max_dist and x >= -58.0:
+		return true
+	if x > 0.0 and absf(z - 38.0) <= max_dist and x <= 56.0:
+		return true
+	if x >= -26.0 and x <= 0.0 and absf(z - 18.0) <= max_dist:
+		return true
+	if absf(x - 28.0) <= max_dist and z >= 8.0 and z <= 44.0:
+		return true
+	if absf(x + 23.55) <= max_dist and z >= 16.0 and z <= 46.0:
+		return true
 	if absf(z + 78.0) <= max_dist and absf(x) <= 60.0:
 		return true
 	if absf(z + 138.0) <= max_dist and absf(x) <= 50.0:
+		return true
+	if absf(x + 41.0) <= max_dist and z >= -142.0 and z <= -74.0:
+		return true
+	if absf(x - 38.0) <= max_dist and z >= -142.0 and z <= -74.0:
 		return true
 	if absf(z + 32.0) <= max_dist + 7.0 and absf(x) <= 66.0:
 		return true
@@ -2858,7 +3204,7 @@ func _try_add_inner_house(
 	var half_r: float = 3.15 * xz_scale
 	if not _is_point_clear_for_house(x, z, half_r):
 		return false
-	if not _is_far_enough_from_inner_houses(x, z, 5.45):
+	if not _is_far_enough_from_inner_houses(x, z, 6.0):
 		return false
 
 	var ground_y: float = _get_city_ground_y(x, z)
@@ -2893,110 +3239,142 @@ func _build_wall_to_wall_inner_quarters(bld_root: Node3D) -> void:
 	shared_house_box.size = Vector3(6.2, 7.5, 6.2)
 
 	var street_kinds: Array[String] = [
-		"red_gable",
 		"blue_balcony",
 		"ochre_timber",
 		"terracotta_terrace",
 		"red_gable",
-		"ochre_timber",
 		"blue_balcony",
 		"cream_spire",
+		"ochre_timber",
+		"terracotta_terrace",
 	]
 	var counter: int = 0
 
-	# --- A. STREET-FACING WALL-TO-WALL FACADE ROWS (Boulevard, Canal South Bank) ---
-	# 1. Main Boulevard West & East continuous facades (Z from -146 to +54, step 6.1m)
+	# --- A. MAIN BOULEVARD FACADE ROWS (Orderly rows strictly facing the Boulevard, 0 random yaw) ---
 	for side_val in [-1.0, 1.0]:
 		var side: float = float(side_val)
 		var z_cur: float = -146.0
 		while z_cur <= 54.0:
-			var x_pos: float = side * (10.8 + rng.randf_range(-0.35, 0.45))
-			var z_pos: float = z_cur + rng.randf_range(-0.3, 0.3)
-			var xz_sc: float = rng.randf_range(0.92, 1.12)
-			var y_sc: float = rng.randf_range(0.90, 1.28)
-			var yaw: float = (-PI * 0.5 if side > 0.0 else PI * 0.5) + rng.randf_range(-0.09, 0.09)
+			var blvd_x: float = side * (11.6 if z_cur < -45.0 else 10.8)
+			var xz_sc: float = rng.randf_range(0.95, 1.06)
+			var y_sc: float = rng.randf_range(0.94, 1.18)
+			var yaw: float = -PI * 0.5 if side > 0.0 else PI * 0.5
 			var kind: String = street_kinds[counter % street_kinds.size()]
-			if _try_add_inner_house(x_pos, z_pos, yaw, kind, xz_sc, y_sc, col_body, shared_house_box):
+			if _try_add_inner_house(blvd_x, z_cur, yaw, kind, xz_sc, y_sc, col_body, shared_house_box):
 				counter += 1
-			z_cur += 6.1
+			z_cur += 6.8
 
-	# 2. Shining Canal South Waterfront facades (|X| from 16.5 to 62.5, step 6.1m)
-	var bz: float = -18.4
+	# --- B. SHINING CANAL SOUTH WATERFRONT ROW (Strictly facing north toward the Canal) ---
 	for side_val in [-1.0, 1.0]:
 		var side: float = float(side_val)
-		var x_abs: float = 16.5
-		while x_abs <= 62.5:
-			var x_pos: float = side * x_abs + rng.randf_range(-0.3, 0.3)
-			var z_pos: float = bz + rng.randf_range(-0.3, 0.3)
-			var xz_sc: float = rng.randf_range(0.92, 1.12)
-			var y_sc: float = rng.randf_range(0.88, 1.28)
-			var yaw: float = PI + rng.randf_range(-0.09, 0.09)
+		var x_abs: float = 17.0
+		while x_abs <= 58.0:
+			var xz_sc: float = rng.randf_range(0.95, 1.06)
+			var y_sc: float = rng.randf_range(0.94, 1.18)
 			var kind: String = street_kinds[counter % street_kinds.size()]
-			if _try_add_inner_house(x_pos, z_pos, yaw, kind, xz_sc, y_sc, col_body, shared_house_box):
+			if _try_add_inner_house(side * x_abs, -18.4, PI, kind, xz_sc, y_sc, col_body, shared_house_box):
 				counter += 1
-			x_abs += 6.1
+			x_abs += 6.8
 
-	# --- B. DENSE WALL-TO-WALL RESIDENTIAL BLOCKS IN ALL 6 INNER QUARTERS ---
-	var quarter_zones: Array[Dictionary] = [
-		# 1. South-West Quarter (Awakening Plaza <-> West School Hill Y=3.2 <-> Canal)
-		{"x_min": -60.0, "x_max": -16.0, "z_min": -12.5, "z_max": 54.0, "step_x": 6.4, "step_z": 6.4, "spire_mod": 7},
-		# 2. South-East Quarter (Awakening Plaza <-> Quiet Lakes Park <-> Canal)
-		{"x_min": 16.0, "x_max": 60.0, "z_min": -12.5, "z_max": 54.0, "step_x": 6.4, "step_z": 6.4, "spire_mod": 7},
-		# 3. North-West Tier 1 Quarter (Y = 3.2: Retaining Wall <-> Orion Library <-> Lantern Garden)
-		{"x_min": -60.0, "x_max": -16.0, "z_min": -152.0, "z_max": -58.0, "step_x": 6.5, "step_z": 6.4, "spire_mod": 6},
-		# 4. North-East Tier 1 Quarter (Y = 3.2: Retaining Wall <-> Kronos Tower <-> Mira's Sanctuary)
-		{"x_min": 16.0, "x_max": 60.0, "z_min": -152.0, "z_max": -58.0, "step_x": 6.5, "step_z": 6.4, "spire_mod": 6},
-		# 5. North-West Pre-Palace Quarter (flanking Upper Overlook Terrace, Z in [-205, -162])
-		{"x_min": -60.0, "x_max": -30.0, "z_min": -205.0, "z_max": -162.0, "step_x": 6.6, "step_z": 6.5, "spire_mod": 5},
-		# 6. North-East Pre-Palace Quarter (flanking Upper Overlook Terrace, Z in [-205, -162])
-		{"x_min": 30.0, "x_max": 60.0, "z_min": -205.0, "z_max": -162.0, "step_x": 6.6, "step_z": 6.5, "spire_mod": 5},
+	# --- C. ORDERLY EAST-WEST STREET ROWS (Strictly facing each street/avenue, 0 random yaw) ---
+	var ew_street_rows: Array[Dictionary] = [
+		# SW Side Street (Z = 44.0): North side faces south (0.0), South side faces north (PI)
+		{"z": 37.2, "x_min": -54.0, "x_max": -18.0, "yaw": 0.0},
+		{"z": 51.0, "x_min": -54.0, "x_max": -18.0, "yaw": PI},
+		{"z": 58.0, "x_min": -54.0, "x_max": -18.0, "yaw": PI},
+		# SE Side Street (Z = 38.0): North side faces south (0.0), South side faces north (PI)
+		{"z": 31.2, "x_min": 18.0, "x_max": 54.0, "yaw": 0.0},
+		{"z": 44.8, "x_min": 18.0, "x_max": 54.0, "yaw": PI},
+		{"z": 52.8, "x_min": 18.0, "x_max": 54.0, "yaw": PI},
+		# School & Quiet Lakes Cross Street (Z = 8.0 / 10.0)
+		{"z": 0.8, "x_min": -56.0, "x_max": -18.0, "yaw": 0.0},
+		{"z": 18.8, "x_min": -56.0, "x_max": -18.0, "yaw": PI},
+		{"z": 1.2, "x_min": 18.0, "x_max": 42.0, "yaw": 0.0},
+		{"z": 18.8, "x_min": 18.0, "x_max": 38.0, "yaw": PI},
+		# North Terrace South Promenade (Z = -59.5, facing south toward Canal overlook)
+		{"z": -59.5, "x_min": -56.0, "x_max": -18.0, "yaw": 0.0},
+		{"z": -59.5, "x_min": 18.0, "x_max": 56.0, "yaw": 0.0},
+		# Orion Library & Kronos Tower Cross Street (Z = -78.0)
+		{"z": -70.6, "x_min": -56.0, "x_max": -18.0, "yaw": PI},
+		{"z": -85.4, "x_min": -56.0, "x_max": -18.0, "yaw": 0.0},
+		{"z": -70.6, "x_min": 18.0, "x_max": 56.0, "yaw": PI},
+		{"z": -85.4, "x_min": 18.0, "x_max": 56.0, "yaw": 0.0},
+		# Lantern Garden & Mira's Sanctuary Cross Street (Z = -138.0)
+		{"z": -130.6, "x_min": -56.0, "x_max": -18.0, "yaw": PI},
+		{"z": -145.8, "x_min": -56.0, "x_max": -18.0, "yaw": 0.0},
+		{"z": -130.6, "x_min": 18.0, "x_max": 56.0, "yaw": PI},
+		{"z": -145.8, "x_min": 18.0, "x_max": 56.0, "yaw": 0.0},
 	]
+	for row_spec in ew_street_rows:
+		var rz: float = float(row_spec["z"])
+		var r_yaw: float = float(row_spec["yaw"])
+		var x_cur: float = float(row_spec["x_min"])
+		var x_end: float = float(row_spec["x_max"])
+		while x_cur <= x_end:
+			var xz_sc: float = rng.randf_range(0.94, 1.06)
+			var y_sc: float = rng.randf_range(0.92, 1.18)
+			var kind: String = street_kinds[counter % street_kinds.size()]
+			if (counter % 7 == 0) and absf(x_cur) > 24.0:
+				kind = "cream_spire"
+			if _try_add_inner_house(x_cur, rz, r_yaw, kind, xz_sc, y_sc, col_body, shared_house_box):
+				counter += 1
+			x_cur += 6.8
 
-	for q_zone in quarter_zones:
-		var q_xmin: float = float(q_zone["x_min"])
-		var q_xmax: float = float(q_zone["x_max"])
-		var q_zmin: float = float(q_zone["z_min"])
-		var q_zmax: float = float(q_zone["z_max"])
-		var step_x: float = float(q_zone["step_x"])
-		var step_z: float = float(q_zone["step_z"])
-		var spire_mod: int = int(q_zone["spire_mod"])
+	# --- D. ORDERLY NORTH-SOUTH ALLEY & OUTER QUARTER ROWS (Strictly facing each alley/quarter) ---
+	var ns_alley_rows: Array[Dictionary] = [
+		# SE Alley X = 28.0 (West side faces +X, East side faces -X)
+		{"x": 21.2, "z_min": 16.0, "z_max": 32.0, "yaw": PI * 0.5},
+		{"x": 34.8, "z_min": 16.0, "z_max": 32.0, "yaw": -PI * 0.5},
+		# NW Tier 1 Alley X = -41.0 (West side faces +X, East side faces -X)
+		{"x": -48.0, "z_min": -128.0, "z_max": -88.0, "yaw": PI * 0.5},
+		{"x": -34.0, "z_min": -128.0, "z_max": -88.0, "yaw": -PI * 0.5},
+		# NE Tier 1 Alley X = 38.0 (West side faces +X, East side faces -X)
+		{"x": 31.0, "z_min": -128.0, "z_max": -88.0, "yaw": PI * 0.5},
+		{"x": 45.0, "z_min": -128.0, "z_max": -88.0, "yaw": -PI * 0.5},
+		# Outer West & East Quarter Rows (facing inward toward the city)
+		{"x": -53.5, "z_min": -150.0, "z_max": 52.0, "yaw": PI * 0.5},
+		{"x": 53.5, "z_min": -150.0, "z_max": 52.0, "yaw": -PI * 0.5},
+		# Pre-Palace Flanking Quarters (orderly rows facing Upper Overlook Terrace)
+		{"x": -35.5, "z_min": -202.0, "z_max": -164.0, "yaw": PI * 0.5},
+		{"x": -48.5, "z_min": -202.0, "z_max": -164.0, "yaw": PI * 0.5},
+		{"x": 35.5, "z_min": -202.0, "z_max": -164.0, "yaw": -PI * 0.5},
+		{"x": 48.5, "z_min": -202.0, "z_max": -164.0, "yaw": -PI * 0.5},
+	]
+	for col_spec in ns_alley_rows:
+		var cx: float = float(col_spec["x"])
+		var c_yaw: float = float(col_spec["yaw"])
+		var z_cur: float = float(col_spec["z_min"])
+		var z_end: float = float(col_spec["z_max"])
+		while z_cur <= z_end:
+			var xz_sc: float = rng.randf_range(0.94, 1.06)
+			var y_sc: float = rng.randf_range(0.92, 1.20)
+			var kind: String = street_kinds[counter % street_kinds.size()]
+			if (counter % 6 == 0) and absf(cx) > 28.0:
+				kind = "cream_spire"
+			if _try_add_inner_house(cx, z_cur, c_yaw, kind, xz_sc, y_sc, col_body, shared_house_box):
+				counter += 1
+			z_cur += 6.8
 
-		var row_idx: int = 0
-		var z_cur: float = q_zmin
-		while z_cur <= q_zmax:
-			row_idx += 1
-			var col_idx: int = 0
-			var row_stagger: float = 1.6 if (row_idx % 2 == 0) else 0.0
-			var x_cur: float = q_xmin + row_stagger
-			while x_cur <= q_xmax:
-				col_idx += 1
-				var is_pocket_courtyard: bool = ((row_idx % 3 == 0) and (col_idx % 3 == 2)) or ((row_idx % 5 == 0) and (col_idx % 2 == 0))
-				if is_pocket_courtyard:
-					x_cur += step_x
-					continue
-
-				var x_pos: float = x_cur + rng.randf_range(-0.42, 0.42)
-				var z_pos: float = z_cur + rng.randf_range(-0.42, 0.42)
-				var xz_sc: float = rng.randf_range(0.90, 1.16)
-				var y_sc: float = rng.randf_range(0.85, 1.35)
-
-				var base_yaw: float = 0.0
-				if row_idx % 3 == 0:
-					base_yaw = -PI * 0.5 if x_pos > 0.0 else PI * 0.5
-				elif z_pos > 15.0:
-					base_yaw = PI
-				else:
-					base_yaw = 0.0
-				var yaw: float = base_yaw + rng.randf_range(-0.105, 0.105)
-
-				var kind: String = street_kinds[(counter + row_idx + col_idx) % street_kinds.size()]
-				if (counter % spire_mod == 0) and absf(x_pos) > 22.0:
-					kind = "cream_spire"
-
-				if _try_add_inner_house(x_pos, z_pos, yaw, kind, xz_sc, y_sc, col_body, shared_house_box):
-					counter += 1
-				x_cur += step_x
-			z_cur += step_z
+	# --- E. POCKET PARK PERIMETER RINGS (Houses facing directly inward toward each circular park) ---
+	var park_centers: Array[Vector2] = [
+		Vector2(-36.0, 44.0),
+		Vector2(36.0, 38.0),
+		Vector2(-41.0, -108.0),
+		Vector2(38.0, -108.0),
+	]
+	for pk_c in park_centers:
+		var ring_r: float = 13.4
+		var slots: int = 10
+		for s_i in range(slots):
+			var ang: float = (TAU * float(s_i)) / float(slots) + PI / 10.0
+			var hx: float = pk_c.x + cos(ang) * ring_r
+			var hz: float = pk_c.y + sin(ang) * ring_r
+			var face_park: float = atan2(pk_c.x - hx, pk_c.y - hz)
+			var xz_sc: float = rng.randf_range(0.94, 1.04)
+			var y_sc: float = rng.randf_range(0.94, 1.14)
+			var kind: String = street_kinds[counter % street_kinds.size()]
+			if _try_add_inner_house(hx, hz, face_park, kind, xz_sc, y_sc, col_body, shared_house_box):
+				counter += 1
 
 
 func _place_landmark_building(
@@ -3374,9 +3752,6 @@ func _build_terraced_endless_city() -> void:
 	var cliff_xforms: Array[Transform3D] = []
 	var wall_xforms: Array[Transform3D] = []
 	var pier_xforms: Array[Transform3D] = []
-	var tree_green_xforms: Array[Transform3D] = []
-	var tree_gold_xforms: Array[Transform3D] = []
-	var tree_sakura_xforms: Array[Transform3D] = []
 
 	var tier_heights: Array[float] = [3.5, 9.0, 15.5, 23.0, 31.0]
 	var tier_x_bases: Array[float] = [73.0, 91.0, 110.0, 130.0, 151.0]
@@ -3477,21 +3852,24 @@ func _build_terraced_endless_city() -> void:
 					Vector3(x_pos, ty, z_pos)
 				))
 
-				# Lush green, golden & sakura Pixar trees tucked between terrace rooflines
+				# Sculptural Fairytale Trees tucked between terrace rooflines (4 painterly palettes)
 				if (slot_idx + t_idx) % 3 == 0:
 					var tree_x: float = x_pos - side * rng.randf_range(2.6, 4.0)
 					var tree_z: float = z_pos + rng.randf_range(-2.2, 2.2)
-					var tree_sc: float = rng.randf_range(0.88, 1.28)
+					var tree_sc: float = rng.randf_range(0.88, 1.26)
 					var tree_xf: Transform3D = Transform3D(
 						Basis.from_euler(Vector3(0.0, rng.randf_range(0.0, TAU), 0.0)).scaled(Vector3(tree_sc, tree_sc, tree_sc)),
 						Vector3(tree_x, ty, tree_z)
 					)
-					if (slot_idx + t_idx) % 9 == 0:
-						tree_sakura_xforms.append(tree_xf)
-					elif (slot_idx + t_idx) % 6 == 0:
-						tree_gold_xforms.append(tree_xf)
+					var t_mod: int = (slot_idx + t_idx) % 4
+					if t_mod == 0:
+						_tree_blossom_xforms.append(tree_xf)
+					elif t_mod == 1:
+						_tree_willow_gold_xforms.append(tree_xf)
+					elif t_mod == 2:
+						_tree_bonsai_azure_xforms.append(tree_xf)
 					else:
-						tree_green_xforms.append(tree_xf)
+						_tree_willow_lavender_xforms.append(tree_xf)
 
 				z_cur += z_step
 
@@ -3541,15 +3919,17 @@ func _build_terraced_endless_city() -> void:
 			))
 
 			if s_idx % 3 == 0:
-				var tr_sc: float = rng.randf_range(0.90, 1.28)
+				var tr_sc: float = rng.randf_range(0.90, 1.26)
 				var tr_xf: Transform3D = Transform3D(
 					Basis.from_euler(Vector3(0.0, rng.randf_range(0.0, TAU), 0.0)).scaled(Vector3(tr_sc, tr_sc, tr_sc)),
 					Vector3(x_pos + 3.2, ty, z_pos - 3.2)
 				)
-				if s_idx % 6 == 0:
-					tree_gold_xforms.append(tr_xf)
+				if s_idx % 9 == 0:
+					_tree_blossom_xforms.append(tr_xf)
+				elif s_idx % 6 == 0:
+					_tree_willow_gold_xforms.append(tr_xf)
 				else:
-					tree_green_xforms.append(tr_xf)
+					_tree_bonsai_azure_xforms.append(tr_xf)
 
 			x_cur += x_step
 
@@ -3599,42 +3979,13 @@ func _build_terraced_endless_city() -> void:
 						Vector3(x_pos + side * 3.2, ty, z_pos + bank * 2.8)
 					)
 					if d_idx % 6 == 0:
-						tree_gold_xforms.append(t_xf)
+						_tree_willow_gold_xforms.append(t_xf)
 					else:
-						tree_green_xforms.append(t_xf)
+						_tree_bonsai_azure_xforms.append(t_xf)
 
 				x_abs += 9.0
 
-	# --- D. VALLEY-FLOOR LUSH GREEN & GOLDEN TREES (Grounded to real 3-tier heights!) ---
-	var valley_tree_spots: Array[Dictionary] = [
-		{"pos": Vector3(-28.0, 0.0, 42.0), "gold": false, "sc": 1.12},
-		{"pos": Vector3(28.0, 0.0, 42.0), "gold": true, "sc": 1.08},
-		{"pos": Vector3(-30.0, 0.0, 56.0), "gold": true, "sc": 1.16},
-		{"pos": Vector3(30.0, 0.0, 56.0), "gold": false, "sc": 1.14},
-		{"pos": Vector3(46.0, 0.0, 26.0), "gold": false, "sc": 1.14},
-		{"pos": Vector3(62.0, 0.0, -3.0), "gold": false, "sc": 1.12},
-		{"pos": Vector3(-36.0, 0.0, -2.0), "gold": true, "sc": 1.08},
-		{"pos": Vector3(-42.0, 0.0, -64.0), "gold": false, "sc": 1.08},
-		{"pos": Vector3(42.0, 0.0, -64.0), "gold": true, "sc": 1.08},
-		{"pos": Vector3(-44.0, 0.0, -126.0), "gold": true, "sc": 1.14},
-		{"pos": Vector3(-24.0, 0.0, -150.0), "gold": false, "sc": 1.12},
-	]
-	for vt in valley_tree_spots:
-		var vpos: Vector3 = vt["pos"] as Vector3
-		if not _is_far_enough_from_inner_houses(vpos.x, vpos.z, 4.2):
-			continue
-		var vy: float = _get_city_ground_y(vpos.x, vpos.z)
-		var vsc: float = float(vt["sc"])
-		var vxf: Transform3D = Transform3D(
-			Basis.from_euler(Vector3(0.0, rng.randf_range(0.0, TAU), 0.0)).scaled(Vector3(vsc, vsc, vsc)),
-			Vector3(vpos.x, vy, vpos.z)
-		)
-		if bool(vt["gold"]):
-			tree_gold_xforms.append(vxf)
-		else:
-			tree_green_xforms.append(vxf)
-
-	# --- E. COMMIT ALL BATCHES TO MultiMeshInstance3D (Ultra-low draw calls, 60 FPS!) ---
+	# --- D. COMMIT WALLS, CLIFFS & 5 UNIFIED HOUSE MULTIMESHES (Trees commit in _build_city_props_and_flora) ---
 	# 1. Terraced retaining walls & piers (2 draw calls, textured via pixar_building_facade.gdshader)
 	var wall_mesh: BoxMesh = BoxMesh.new()
 	wall_mesh.size = Vector3(1.0, 1.0, 1.0)
@@ -3655,7 +4006,7 @@ func _build_terraced_endless_city() -> void:
 		false
 	)
 
-	# 3. UNIFIED 5 Colorful Pixar House MultiMeshInstance3Ds with rich procedural stucco/tile facade shader!
+	# 3. UNIFIED 5 Harmonized House MultiMeshInstance3Ds with procedural stucco/tile facade shader
 	var house_kinds: Array[String] = ["red_gable", "blue_balcony", "ochre_timber", "terracotta_terrace", "cream_spire"]
 	for h_kind in house_kinds:
 		var xforms: Array[Transform3D] = _city_house_batches[h_kind] as Array[Transform3D]
@@ -3670,35 +4021,6 @@ func _build_terraced_endless_city() -> void:
 			true
 		)
 
-	# 4. Lush Green & Golden-Autumn Pixar Trees + Terrace Sakura Trees
-	_spawn_scene_multimesh_batch(
-		tier_root,
-		"TerraceTreesGreenMM",
-		_scene_tree_lush,
-		tree_green_xforms,
-		_create_fallback_tree_parts(_mat_foliage_green),
-		null,
-		false
-	)
-	_spawn_scene_multimesh_batch(
-		tier_root,
-		"TerraceTreesGoldMM",
-		_scene_tree_lush,
-		tree_gold_xforms,
-		_create_fallback_tree_parts(_mat_foliage_gold),
-		_mat_foliage_gold,
-		false
-	)
-	_spawn_scene_multimesh_batch(
-		tier_root,
-		"TerraceTreesSakuraMM",
-		_scene_sakura,
-		tree_sakura_xforms,
-		_create_fallback_tree_parts(_mat_foliage_sakura),
-		null,
-		false
-	)
-
 
 # ===========================================================================
 # 8. LIVING STREET PROPS & BOTANICAL FLORA (Grounded to exact 3-tier Y!)
@@ -3709,41 +4031,130 @@ func _build_city_props_and_flora() -> void:
 	props_root.name = "CityPropsAndFlora"
 	add_child(props_root)
 
-	# Sakura trees along Main Boulevard, Overlook Terrace, Quiet Lakes Park, Lantern Garden, School
-	var sakura_spots: Array[Vector3] = [
-		Vector3(-12.5, 0.0, 44.0), Vector3(12.5, 0.0, 44.0),
-		Vector3(-9.5, 0.0, 17.5), Vector3(9.5, 0.0, 17.5),
+	# --- 1. CORAL-PINK SAKURA BLOSSOM TREES (akasha_tree_blossom.glb) ---
+	# Framing Main Boulevard, Upper Overlook Terrace, Baroque Palace Forecourt & School
+	var blossom_spots: Array[Vector3] = [
+		Vector3(-12.5, 0.0, 38.5), Vector3(12.5, 0.0, 44.0),
+		Vector3(-9.5, 0.0, 13.5), Vector3(9.5, 0.0, 17.5),
 		Vector3(-9.5, 0.0, -60.0), Vector3(9.5, 0.0, -60.0),
 		Vector3(-9.5, 0.0, -96.0), Vector3(9.5, 0.0, -96.0),
 		Vector3(-9.5, 0.0, -124.0), Vector3(9.5, 0.0, -124.0),
-		# Upper Overlook Terrace scenic framing sakuras (Tier 2 Y = 5.6)
+		# Upper Overlook Terrace scenic framing blossoms (Tier 2 Y = 5.6)
 		Vector3(-18.5, 0.0, -176.0), Vector3(18.5, 0.0, -176.0),
 		Vector3(-18.5, 0.0, -192.0), Vector3(18.5, 0.0, -192.0),
 		# Baroque Palace Forecourt (Tier 0 Y = 0.0)
 		Vector3(-12.5, 0.0, -216.0), Vector3(12.5, 0.0, -216.0),
-		# Quiet Lakes Park shoreline trees (outside Lake radius 13m from (54, 12))
-		Vector3(36.0, 0.0, 24.0), Vector3(54.0, 0.0, 29.0),
-		Vector3(52.0, 0.0, -5.0),
-		# Lantern Garden grove (Tier 1 Y = 3.2)
-		Vector3(-44.0, 0.0, -128.0), Vector3(-44.0, 0.0, -148.0),
-		Vector3(-24.0, 0.0, -149.0), Vector3(-24.0, 0.0, -127.0),
-		# School courtyard (Tier 1 Y = 3.2)
+		# School of Souls courtyard (Tier 1 Y = 3.2)
 		Vector3(-34.0, 0.0, 20.0), Vector3(-34.0, 0.0, -4.0),
 	]
-	for i in range(sakura_spots.size()):
-		var raw_pos: Vector3 = sakura_spots[i]
+	for i in range(blossom_spots.size()):
+		var raw_pos: Vector3 = blossom_spots[i]
 		if not _is_far_enough_from_inner_houses(raw_pos.x, raw_pos.z, 3.8):
 			continue
 		var pos: Vector3 = Vector3(raw_pos.x, _get_city_ground_y(raw_pos.x, raw_pos.z), raw_pos.z)
-		var yaw: float = float(i) * 1.15
-		var sc: float = 0.92 + float(i % 4) * 0.08
-		_place_prop_scene(props_root, _scene_sakura, "CitySakura_%02d" % i, pos, yaw, sc, "tree")
+		var sc: float = 0.94 + float(i % 4) * 0.07
+		_tree_blossom_xforms.append(Transform3D(
+			Basis.from_euler(Vector3(0.0, float(i) * 1.15, 0.0)).scaled(Vector3(sc, sc, sc)),
+			pos
+		))
+
+	# --- 2. GOLDEN-AMBER WEEPING WILLOWS (akasha_tree_willow.glb) ---
+	# Framing Awakening Plaza flanks, Canal Embankment & Kronos Tower
+	var willow_gold_spots: Array[Vector3] = [
+		Vector3(-28.0, 0.0, 56.0), Vector3(28.0, 0.0, 56.0),
+		Vector3(46.0, 0.0, 26.0), Vector3(42.0, 0.0, -64.0),
+		Vector3(-36.0, 0.0, -2.0),
+	]
+	for i in range(willow_gold_spots.size()):
+		var raw_pos: Vector3 = willow_gold_spots[i]
+		if not _is_far_enough_from_inner_houses(raw_pos.x, raw_pos.z, 4.0):
+			continue
+		var pos: Vector3 = Vector3(raw_pos.x, _get_city_ground_y(raw_pos.x, raw_pos.z), raw_pos.z)
+		var sc: float = 1.02 + float(i % 3) * 0.08
+		_tree_willow_gold_xforms.append(Transform3D(
+			Basis.from_euler(Vector3(0.0, float(i) * 1.42, 0.0)).scaled(Vector3(sc, sc, sc)),
+			pos
+		))
+
+	# --- 3. ROSE-LAVENDER WEEPING WILLOWS (akasha_tree_willow.glb) ---
+	# Enchanted grove in Lantern Garden & around Mira's Sanctuary (Tier 1 Y = 3.2)
+	var willow_lav_spots: Array[Vector3] = [
+		Vector3(-44.0, 0.0, -128.0), Vector3(-44.0, 0.0, -148.0),
+		Vector3(-24.0, 0.0, -149.0), Vector3(-24.0, 0.0, -127.0),
+		Vector3(24.0, 0.0, -148.0), Vector3(46.0, 0.0, -128.0),
+	]
+	for i in range(willow_lav_spots.size()):
+		var raw_pos: Vector3 = willow_lav_spots[i]
+		if not _is_far_enough_from_inner_houses(raw_pos.x, raw_pos.z, 3.8):
+			continue
+		var pos: Vector3 = Vector3(raw_pos.x, _get_city_ground_y(raw_pos.x, raw_pos.z), raw_pos.z)
+		var sc: float = 0.98 + float(i % 3) * 0.08
+		_tree_willow_lavender_xforms.append(Transform3D(
+			Basis.from_euler(Vector3(0.0, float(i) * 1.35, 0.0)).scaled(Vector3(sc, sc, sc)),
+			pos
+		))
+
+	# --- 4. AZURE-TURQUOISE CELESTIAL BONSAI (akasha_tree_bonsai.glb) ---
+	# Serene Lake of Silence shoreline & Orion Library terrace
+	var bonsai_spots: Array[Vector3] = [
+		Vector3(36.0, 0.0, 24.0), Vector3(54.0, 0.0, 29.0),
+		Vector3(52.0, 0.0, -5.0), Vector3(62.0, 0.0, -3.0),
+		Vector3(-42.0, 0.0, -64.0), Vector3(-44.0, 0.0, -92.0),
+	]
+	for i in range(bonsai_spots.size()):
+		var raw_pos: Vector3 = bonsai_spots[i]
+		if not _is_far_enough_from_inner_houses(raw_pos.x, raw_pos.z, 3.8):
+			continue
+		var pos: Vector3 = Vector3(raw_pos.x, _get_city_ground_y(raw_pos.x, raw_pos.z), raw_pos.z)
+		var sc: float = 1.00 + float(i % 3) * 0.08
+		_tree_bonsai_azure_xforms.append(Transform3D(
+			Basis.from_euler(Vector3(0.0, float(i) * 1.28, 0.0)).scaled(Vector3(sc, sc, sc)),
+			pos
+		))
+
+	# --- COMMIT ALL 4 UNIFIED FAIRYTALE TREE MULTIMESHES (4 draw calls for the entire city!) ---
+	_spawn_scene_multimesh_batch(
+		props_root,
+		"AkashaTrees_BlossomCoral_MM",
+		_scene_tree_blossom,
+		_tree_blossom_xforms,
+		_create_fallback_tree_parts(_mat_tree_blossom),
+		_mat_tree_blossom,
+		false
+	)
+	_spawn_scene_multimesh_batch(
+		props_root,
+		"AkashaTrees_WillowGold_MM",
+		_scene_tree_willow,
+		_tree_willow_gold_xforms,
+		_create_fallback_tree_parts(_mat_tree_willow_gold),
+		_mat_tree_willow_gold,
+		false
+	)
+	_spawn_scene_multimesh_batch(
+		props_root,
+		"AkashaTrees_WillowLavender_MM",
+		_scene_tree_willow,
+		_tree_willow_lavender_xforms,
+		_create_fallback_tree_parts(_mat_tree_willow_lavender),
+		_mat_tree_willow_lavender,
+		false
+	)
+	_spawn_scene_multimesh_batch(
+		props_root,
+		"AkashaTrees_BonsaiAzure_MM",
+		_scene_tree_bonsai,
+		_tree_bonsai_azure_xforms,
+		_create_fallback_tree_parts(_mat_tree_bonsai_azure),
+		_mat_tree_bonsai_azure,
+		false
+	)
 
 	# Lush bushes framing plazas, Mira's Sanctuary, and Park
 	var bush_spots: Array[Vector3] = [
 		Vector3(-11.0, 0.0, 54.0), Vector3(11.0, 0.0, 54.0),
 		Vector3(-30.0, 0.0, 14.0), Vector3(-30.0, 0.0, 2.0),
-		Vector3(28.0, 0.0, 16.0), Vector3(28.0, 0.0, 4.0),
+		Vector3(24.0, 0.0, 16.0), Vector3(28.0, 0.0, 4.0),
 		Vector3(-32.0, 0.0, -72.0), Vector3(-32.0, 0.0, -84.0),
 		Vector3(32.0, 0.0, -72.0), Vector3(32.0, 0.0, -84.0),
 		Vector3(28.0, 0.0, -130.0), Vector3(28.0, 0.0, -146.0),
@@ -3758,7 +4169,7 @@ func _build_city_props_and_flora() -> void:
 
 	# Baroque Garden Planters flanking entrances and Overlook Terrace
 	var planter_spots: Array[Vector3] = [
-		Vector3(-6.2, 0.0, 36.0), Vector3(6.2, 0.0, 36.0),
+		Vector3(-6.2, 0.0, 36.0), Vector3(6.2, 0.0, 33.8),
 		Vector3(-6.2, 0.0, -14.0), Vector3(6.2, 0.0, -14.0),
 		Vector3(-7.4, 0.0, -58.5), Vector3(7.4, 0.0, -58.5),
 		Vector3(-8.6, 0.0, -154.0), Vector3(8.6, 0.0, -154.0),
@@ -3772,14 +4183,14 @@ func _build_city_props_and_flora() -> void:
 
 	# Stone Lanterns along Main Boulevard, Overlook Terrace, and Lantern Garden
 	var lantern_spots: Array[Vector3] = [
-		Vector3(-6.4, 0.0, 44.0), Vector3(6.4, 0.0, 44.0),
+		Vector3(-6.4, 0.0, 39.8), Vector3(6.4, 0.0, 44.0),
 		Vector3(-6.4, 0.0, 16.0), Vector3(6.4, 0.0, 16.0),
 		Vector3(-7.4, 0.0, -68.0), Vector3(7.4, 0.0, -68.0),
 		Vector3(-7.4, 0.0, -110.0), Vector3(7.4, 0.0, -110.0),
 		Vector3(-12.5, 0.0, -173.0), Vector3(12.5, 0.0, -173.0),
 		Vector3(-12.5, 0.0, -195.0), Vector3(12.5, 0.0, -195.0),
 		# Lantern Garden ring of stone lanterns (Tier 1 Y = 3.2)
-		Vector3(-42.0, 0.0, -138.0), Vector3(-26.0, 0.0, -133.5),
+		Vector3(-45.5, 0.0, -138.0), Vector3(-26.0, 0.0, -133.5),
 		Vector3(-34.0, 0.0, -130.0), Vector3(-34.0, 0.0, -146.0),
 		# Quiet Lakes Park & School
 		Vector3(34.0, 0.0, 14.0), Vector3(34.0, 0.0, 6.0),
@@ -3821,14 +4232,14 @@ func _place_prop_scene(
 func _create_fallback_prop(kind: String) -> Node3D:
 	var root: Node3D = Node3D.new()
 	if kind == "tree":
-		_add_cylinder_part(root, 0.28, 3.2, Vector3(0.0, 1.6, 0.0), _mat_trunk_wood)
+		_add_cylinder_part(root, 0.28, 3.2, Vector3(0.0, 1.6, 0.0), _mat_trunk_silver)
 		var crown: MeshInstance3D = MeshInstance3D.new()
 		var sp: SphereMesh = SphereMesh.new()
 		sp.radius = 2.1
 		sp.height = 3.0
 		crown.mesh = sp
 		crown.position = Vector3(0.0, 3.8, 0.0)
-		crown.material_override = _mat_foliage_sakura
+		crown.material_override = _mat_tree_blossom
 		root.add_child(crown)
 	elif kind == "bush":
 		var bush: MeshInstance3D = MeshInstance3D.new()
@@ -3859,9 +4270,13 @@ func _build_street_life_and_akasha_magic() -> void:
 	street_root.name = "StreetLifeAndAkashaMagic"
 	add_child(street_root)
 
-	# Grounded Street Benches & Terracotta Flower Pots (0 floating lanterns, cables, or sparks!)
+	# Grounded Street & Pocket Park Benches + Terracotta Flower Pots (0 floating blocks!)
 	var bench_xforms: Array[Transform3D] = []
 	var pot_xforms: Array[Transform3D] = []
+	for pb in _park_bench_xforms:
+		bench_xforms.append(pb)
+	for pp in _park_pot_xforms:
+		pot_xforms.append(pp)
 
 	var blvd_zs: Array[float] = [20.0, -3.0, -9.0, -61.0, -65.0, -92.0, -120.0]
 	for b_idx in range(blvd_zs.size()):
@@ -4436,9 +4851,25 @@ func _collect_submesh_parts(
 							var s_name: String = ""
 							if eff_mat != null:
 								s_name = eff_mat.resource_name.to_lower()
-							var is_trunk: bool = s_name.contains("trunk") or s_name.contains("bark") or s_name.contains("wood")
-							var is_canopy: bool = s_name.contains("canopy") or s_name.contains("leaf") or s_name.contains("crown") or s_name.contains("foliage")
-							if not is_trunk and (is_canopy or s_idx > 0):
+							var is_trunk: bool = (
+								s_name.contains("trunk")
+								or s_name.contains("bark")
+								or s_name.contains("wood")
+								or s_name.contains("stem")
+							)
+							var is_canopy: bool = (
+								s_name.contains("canopy")
+								or s_name.contains("leaf")
+								or s_name.contains("crown")
+								or s_name.contains("foliage")
+								or s_name.contains("blossom")
+								or s_name.contains("petal")
+								or s_name.contains("willow")
+								or s_name.contains("frond")
+							)
+							if is_trunk:
+								dup_mesh.surface_set_material(s_idx, _mat_trunk_silver)
+							elif is_canopy or s_idx > 0:
 								dup_mesh.surface_set_material(s_idx, canopy_tint_override)
 					final_mesh = dup_mesh
 
@@ -4449,7 +4880,38 @@ func _collect_submesh_parts(
 				var aabb: AABB = mi.mesh.get_aabb()
 				var center_y: float = (cur_xf * aabb.get_center()).y
 				var lower_name: String = mi.name.to_lower()
-				if center_y > 1.8 or lower_name.contains("leaf") or lower_name.contains("canopy") or lower_name.contains("crown") or lower_name.contains("foliage"):
+				var surf_mat_name: String = ""
+				if surf_count == 1:
+					var sm0: Material = mi.mesh.surface_get_material(0)
+					if sm0 != null:
+						surf_mat_name = sm0.resource_name.to_lower()
+				var is_trunk_single: bool = (
+					lower_name.contains("trunk")
+					or lower_name.contains("bark")
+					or lower_name.contains("wood")
+					or lower_name.contains("stem")
+					or surf_mat_name.contains("trunk")
+					or surf_mat_name.contains("bark")
+					or surf_mat_name.contains("wood")
+				)
+				var is_canopy_single: bool = (
+					lower_name.contains("leaf")
+					or lower_name.contains("canopy")
+					or lower_name.contains("crown")
+					or lower_name.contains("foliage")
+					or lower_name.contains("blossom")
+					or lower_name.contains("petal")
+					or lower_name.contains("willow")
+					or lower_name.contains("frond")
+					or surf_mat_name.contains("canopy")
+					or surf_mat_name.contains("leaf")
+					or surf_mat_name.contains("foliage")
+					or surf_mat_name.contains("blossom")
+					or center_y > 1.8
+				)
+				if is_trunk_single:
+					chosen_mat = _mat_trunk_silver
+				elif is_canopy_single:
 					chosen_mat = canopy_tint_override
 
 			out_parts.append({
@@ -4606,7 +5068,7 @@ func _create_fallback_tree_parts(foliage_mat: Material) -> Array[Dictionary]:
 		{
 			"mesh": trunk,
 			"xform": Transform3D(Basis.IDENTITY, Vector3(0.0, 1.6, 0.0)),
-			"material": _mat_trunk_wood,
+			"material": _mat_trunk_silver,
 		},
 		{
 			"mesh": crown,

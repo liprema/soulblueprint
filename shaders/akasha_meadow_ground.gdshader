@@ -10,10 +10,10 @@ shader_type spatial;
 // - Soft velvet Fresnel rim sheen on sunlit crests (zero plastic shine)
 
 group_uniforms meadow_palette;
-uniform vec3 valley_emerald_color : source_color = vec3(0.12, 0.34, 0.11);       // Deep Lush Emerald Valley
-uniform vec3 meadow_mid_color : source_color = vec3(0.24, 0.50, 0.16);           // Rich Sunlit Meadow Green
-uniform vec3 crest_chartreuse_color : source_color = vec3(0.42, 0.64, 0.22);     // Velvety Warm Chartreuse Crest
-uniform vec3 velvet_rim_color : source_color = vec3(0.820, 0.945, 0.460);        // Soft Sunlit Velvet Halo
+uniform vec3 valley_emerald_color : source_color = vec3(0.14, 0.30, 0.22);       // Deep Noble Emerald-Pine Valley
+uniform vec3 meadow_mid_color : source_color = vec3(0.24, 0.44, 0.28);           // Soft Sage-Emerald Meadow
+uniform vec3 crest_chartreuse_color : source_color = vec3(0.40, 0.56, 0.32);     // Warm Sunlit Olive-Chartreuse Crest
+uniform vec3 velvet_rim_color : source_color = vec3(0.76, 0.86, 0.64);           // Soft Sunlit Velvet Halo
 uniform vec3 daisy_petal_color : source_color = vec3(0.910, 0.935, 1.000);       // Soft White-Periwinkle Daisy Fleck
 uniform vec3 daisy_center_color : source_color = vec3(0.985, 0.905, 0.560);      // Subtle Warm Clover/Daisy Center
 
@@ -94,7 +94,10 @@ void fragment() {
 	float wave_coord_a = dot(xz, w_dir) * wind_wave_scale - TIME * wind_wave_speed;
 	float wave_warp = fbm2_fast(xz * (wind_wave_scale * 0.65) + vec2(1.7, -3.1)) * 2.4;
 	float wind_wave_a = sin(wave_coord_a + wave_warp) * 0.5 + 0.5;
-	float wave_coord_b = dot(xz, normalize(w_dir + w_perp * 0.45)) * (wind_wave_scale * 1.45) - TIME * (wind_wave_speed * 0.78);
+	vec2 w_dir_b_raw = w_dir + w_perp * 0.45;
+	float w_dir_b_len = length(w_dir_b_raw);
+	vec2 w_dir_b = w_dir_b_len > 0.0001 ? (w_dir_b_raw / w_dir_b_len) : w_dir;
+	float wave_coord_b = dot(xz, w_dir_b) * (wind_wave_scale * 1.45) - TIME * (wind_wave_speed * 0.78);
 	float wind_wave_b = sin(wave_coord_b - wave_warp * 0.6) * 0.5 + 0.5;
 	float wind_ripple = smoothstep(0.28, 0.86, wind_wave_a * 0.65 + wind_wave_b * 0.35);
 
@@ -103,7 +106,7 @@ void fragment() {
 	float micro_patch = noise2d(xz * (macro_patch_scale * 3.1) + vec2(-6.2, 4.7));
 	float slope_sun = smoothstep(0.32, 0.94, wn.y);
 	// Softly lift hilltops and sunlit south/west-facing slopes
-	float sun_facing = clamp(dot(wn, normalize(vec3(0.42, 0.84, 0.34))) * 0.5 + 0.5, 0.0, 1.0);
+	float sun_facing = clamp(dot(wn, vec3(0.4205, 0.8410, 0.3404)) * 0.5 + 0.5, 0.0, 1.0);
 	float hill_warmth = clamp(macro_patch * 0.46 + micro_patch * 0.18 + slope_sun * 0.26 + sun_facing * 0.24 - 0.18, 0.0, 1.0);
 
 	vec3 grass_col = mix(valley_emerald_color, meadow_mid_color, smoothstep(0.12, 0.62, hill_warmth));
@@ -134,7 +137,7 @@ void fragment() {
 
 	// Darken tiny grass root crevices & brighten sunlit blade tips
 	float blade_tip = smoothstep(0.48, 0.88, tuft_grain) * near_detail;
-	float blade_root = smoothstep(0.46, 0.10, tuft_grain) * near_detail;
+	float blade_root = (1.0 - smoothstep(0.10, 0.46, tuft_grain)) * near_detail;
 	grass_col = mix(grass_col, valley_emerald_color * 0.78, blade_root * 0.28);
 	grass_col = mix(grass_col, crest_chartreuse_color * 1.10, blade_tip * 0.22 * (0.45 + 0.55 * slope_sun));
 
@@ -175,7 +178,7 @@ void fragment() {
 	// Warm sunlit bounce in subtle roughness & AO
 	float final_rough = clamp(base_roughness + blade_root * 0.06 - blade_tip * 0.04 - wind_ripple * 0.02, 0.76, 0.94);
 
-	ALBEDO = grass_col;
+	ALBEDO = clamp(grass_col, vec3(0.0), vec3(1.0));
 	ROUGHNESS = final_rough;
 	SPECULAR = surface_specular;
 	METALLIC = 0.0;

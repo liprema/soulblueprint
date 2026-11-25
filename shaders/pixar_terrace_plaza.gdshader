@@ -9,10 +9,10 @@ render_mode cull_back;
 // - Pure PBR: metallic gold inlays, sunlit limestone/terracotta roughness, soft micro-relief via ALBEDO & AO
 
 group_uniforms plaza_colors;
-uniform vec3 stone_light : source_color = vec3(0.84, 0.75, 0.62);
-uniform vec3 stone_terracotta : source_color = vec3(0.76, 0.48, 0.33);
-uniform vec3 gold_inlay : source_color = vec3(0.84, 0.64, 0.28);
-uniform vec3 grout_color : source_color = vec3(0.50, 0.39, 0.29);
+uniform vec3 stone_light : source_color = vec3(0.84, 0.80, 0.74);
+uniform vec3 stone_terracotta : source_color = vec3(0.68, 0.50, 0.44);
+uniform vec3 gold_inlay : source_color = vec3(0.80, 0.66, 0.36);
+uniform vec3 grout_color : source_color = vec3(0.46, 0.42, 0.39);
 
 group_uniforms pattern_settings;
 uniform float pattern_scale : hint_range(1.0, 24.0) = 6.0;
