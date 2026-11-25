@@ -194,7 +194,7 @@ void fragment() {
 	float band_wave = sin(dot(xz, w_perp) * (macro_patch_scale * 4.0) + band_warp) * 0.5 + 0.5;
 
 	float slope_sun = smoothstep(0.30, 0.94, wn.y);
-	float sun_facing = clamp(dot(wn, vec3(0.4205, 0.8410, 0.3404)) * 0.5 + 0.5, 0.0, 1.0);
+	float sun_facing = clamp(dot(wn, vec3(0.280619, 0.461017, -0.841857)) * 0.5 + 0.5, 0.0, 1.0);
 	float base_tone = clamp(band_wave * 0.44 + macro_patch * 0.36 + slope_sun * 0.14 + sun_facing * 0.14 - 0.08, 0.0, 1.0);
 
 	// Gentle low-frequency painterly modulation (no high-frequency teeth or razor lines)

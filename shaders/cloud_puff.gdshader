@@ -18,7 +18,7 @@ uniform vec3 silver_lining_color : source_color = vec3(1.000, 0.976, 0.945);  //
 uniform vec3 horizon_bounce_color : source_color = vec3(1.000, 0.839, 0.871); // #FFD6DE Soft sakura-peach horizon bounce
 
 group_uniforms lighting;
-uniform vec3 sun_direction = vec3(0.0, 0.17, -1.0);                           // -Z Cathedral sun direction
+uniform vec3 sun_direction = vec3(0.280619, 0.461017, -0.841857);             // Canonical golden-hour sun direction
 uniform float sun_shadow_strength : hint_range(0.0, 2.0) = 0.52;
 uniform float crevice_ao_strength : hint_range(0.0, 0.6) = 0.14;
 uniform float hg_forward_g : hint_range(0.1, 0.85) = 0.56;
@@ -128,7 +128,7 @@ void vertex() {
 
 void fragment() {
 	vec3 n_world = safe_normalize(v_world_normal, vec3(0.0, 1.0, 0.0));
-	vec3 sun_dir = safe_normalize(sun_direction, vec3(0.0, 0.17, -1.0));
+	vec3 sun_dir = safe_normalize(sun_direction, vec3(0.280619, 0.461017, -0.841857));
 
 	// Gentle animated world-space coordinates for seamless inter-cloud velvety continuity
 	vec3 drift = vec3(TIME * billow_speed * 0.025, TIME * billow_speed * 0.035, TIME * billow_speed * 0.04);

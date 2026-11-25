@@ -81,7 +81,7 @@ void fragment() {
 	// 1. 3-step painterly canopy gradient driven by local height + upward normal orientation
 	float h = clamp((v_local_y - canopy_min_y) / max(canopy_max_y - canopy_min_y, 0.5), 0.0, 1.0);
 	float up_n = clamp(wn.y * 0.5 + 0.5, 0.0, 1.0);
-	vec3 sun_dir = vec3(0.380, 0.860, 0.340);
+	vec3 sun_dir = vec3(0.280619, 0.461017, -0.841857);
 	float sun_face = clamp(dot(wn, sun_dir) * 0.5 + 0.5, 0.0, 1.0);
 
 	// Warm sunlit top crown, rich saturated mid, deep plum-violet underside shadow

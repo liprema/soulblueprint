@@ -19,7 +19,7 @@ uniform vec3 horizon_cool_color : source_color = vec3(0.722, 0.659, 0.918);     
 uniform vec3 nadir_color : source_color = vec3(0.510, 0.612, 0.835);            // #829CD5 Luminous soft periwinkle-azure below
 
 group_uniforms sun_and_mie;
-uniform vec3 sun_direction = vec3(0.0, 0.16, -1.0);                             // -Z toward the Astrolabe Cathedral
+uniform vec3 sun_direction = vec3(0.280619, 0.461017, -0.841857);               // Upper-right golden-hour sun above Baroque Palace (27.45 deg)
 uniform vec3 sun_color : source_color = vec3(1.000, 0.953, 0.855);              // Silky warm ivory-gold sunlight
 uniform float sun_disk_size : hint_range(0.008, 0.12) = 0.032;
 uniform float sun_disk_intensity : hint_range(0.0, 3.0) = 1.05;
@@ -37,8 +37,8 @@ uniform vec3 cumulus_bounce_color : source_color = vec3(1.000, 0.745, 0.745);   
 uniform vec3 cumulus_rim_color : source_color = vec3(1.000, 0.980, 0.925);      // #FFFAEC Sunlit ivory-cream rim
 
 group_uniforms twilight_clouds;
-uniform float cloud_coverage : hint_range(0.0, 1.0) = 0.34;
-uniform float cloud_opacity : hint_range(0.0, 1.0) = 0.28;
+uniform float cloud_coverage : hint_range(0.0, 1.0) = 0.54;
+uniform float cloud_opacity : hint_range(0.0, 1.0) = 0.68;
 uniform float cloud_speed : hint_range(0.0, 0.08) = 0.007;
 uniform vec3 cloud_shadow_color : source_color = vec3(0.710, 0.790, 0.945);     // Airy periwinkle-blue high cloud underside
 uniform vec3 cloud_body_color : source_color = vec3(0.976, 0.984, 1.000);       // Soft cotton-white overhead clouds
@@ -229,7 +229,7 @@ vec3 star_layer(vec3 dir, float scale, float threshold, float time_val, float si
 
 void sky() {
 	vec3 dir = safe_normalize(EYEDIR, vec3(0.0, 1.0, 0.0));
-	vec3 sun_dir = safe_normalize(sun_direction, vec3(0.0, 0.16, -1.0));
+	vec3 sun_dir = safe_normalize(sun_direction, vec3(0.280619, 0.461017, -0.841857));
 	float elev = dir.y;
 	float cos_sun = clamp(dot(dir, sun_dir), -1.0, 1.0);
 	float sun_dot = max(cos_sun, 0.0);
@@ -243,8 +243,9 @@ void sky() {
 	float azimuth_sun = clamp(dot(dir_xz, sun_xz) * 0.5 + 0.5, 0.0, 1.0);
 	float sun_side = safe_pow(azimuth_sun, 1.65);
 
-	// Guarded azimuth angle centered on -Z (az = 0 at -Z Cathedral, +/-PI at +Z)
+	// Guarded azimuth angles centered on -Z (az = 0 at -Z Cathedral, +/-PI at +Z)
 	float az = dir_xz_len > 0.0001 ? atan(dir.x, -dir.z) : 0.0;
+	float sun_az = sun_xz_len > 0.0001 ? atan(sun_dir.x, -sun_dir.z) : 0.0;
 
 	// =========================================================================
 	// 1. Rich, Vivid Multi-Stop Azure-to-Sakura-Dawn Gradient
@@ -410,43 +411,44 @@ void sky() {
 	}
 
 	// =========================================================================
-	// 6. Delicate High-Altitude Feathered Cirrus Brushstrokes
+	// 6. Lush High-Altitude Sunlit Ivory & Periwinkle Pixar Clouds (elev = 0.16..0.88)
 	// =========================================================================
 	float cirrus_alpha = 0.0;
 	vec3 cirrus_col = vec3(0.0);
 
-	if (elev > 0.045 && cloud_coverage > 0.001 && cloud_opacity > 0.001) {
-		float cir_elev_mask = smoothstep(0.05, 0.22, elev) * smoothstep(0.99, 0.62, elev);
+	if (elev > 0.08 && cloud_coverage > 0.001 && cloud_opacity > 0.001) {
+		float cir_elev_mask = smoothstep(0.09, 0.20, elev) * (1.0 - smoothstep(0.76, 0.96, elev));
 		if (cir_elev_mask > 0.002) {
-			vec2 cir_plane = dir.xz / (elev + 0.18);
-			// Soft dreamy high-altitude watercolor cloud veils (no sharp thin white streaks)
+			vec2 cir_plane = dir.xz / (elev + 0.22);
+			// Plush sunlit high-altitude Pixar cloud puffs & drifting watercolor bands
 			mat2 wind_rot = mat2(vec2(0.82, -0.57), vec2(0.57, 0.82));
 			vec2 cir_uv = wind_rot * cir_plane;
 			vec2 drift = vec2(TIME * cloud_speed * 0.65, -TIME * cloud_speed * 0.22);
 
-			// Gentle isotropic-biased domain-warped sky wisps
-			vec2 uv_stretch = cir_uv * vec2(0.24, 0.42) + drift;
+			// Billowy domain-warped high-altitude cloud formations
+			vec2 uv_stretch = cir_uv * vec2(0.28, 0.40) + drift;
 			float c_warp = fbm2_2d(uv_stretch * 0.72 - drift * 0.35);
-			float n_cirrus = fbm3_2d(uv_stretch + vec2(c_warp * 0.55, -c_warp * 0.25));
+			float n_cirrus_raw = fbm3_2d(uv_stretch + vec2(c_warp * 0.55, -c_warp * 0.25));
+			float n_cirrus = mix(n_cirrus_raw, billow_shape(n_cirrus_raw), 0.36);
 
-			float cov_th = mix(0.76, 0.44, cloud_coverage);
-			float cir_dens = smoothstep(cov_th, cov_th + 0.34, n_cirrus);
+			float cov_th = mix(0.74, 0.40, cloud_coverage);
+			float cir_dens = smoothstep(cov_th, cov_th + 0.30, n_cirrus);
 			cir_dens = cir_dens * cir_dens * (3.0 - 2.0 * cir_dens);
-			cirrus_alpha = cir_dens * cir_elev_mask * cloud_opacity * 0.62;
+			cirrus_alpha = cir_dens * cir_elev_mask * cloud_opacity * 0.78;
 
 			if (cirrus_alpha > 0.003) {
-				// Directional sun-side highlight along soft high clouds
-				vec2 sun_step = (wind_rot * sun_xz) * vec2(0.08, 0.14);
+				// Directional sun-side highlight consistently aligned to sun_dir
+				vec2 sun_step = (wind_rot * sun_xz) * vec2(0.09, 0.13);
 				float n_cir_sun = fbm2_2d(uv_stretch + sun_step + vec2(c_warp * 0.55, -c_warp * 0.25));
-				float lit = clamp((n_cirrus - n_cir_sun) * 1.9 + 0.58, 0.0, 1.0);
+				float lit = clamp((n_cirrus - n_cir_sun) * 2.1 + 0.56, 0.0, 1.0);
 
-				// Sunlit cream-blush near the sun; airy cotton-white high overhead
-				float warm_mix = clamp(sun_side * 0.72 + sq(sun_dot) * 0.55, 0.0, 1.0) * smoothstep(0.72, 0.14, elev);
+				// Sunlit warm ivory-cream crowns & airy periwinkle-blue undersides
+				float warm_mix = clamp(sun_side * 0.72 + sq(sun_dot) * 0.55, 0.0, 1.0) * (1.0 - smoothstep(0.16, 0.88, elev));
 				vec3 cir_top = mix(cloud_body_color, cloud_lit_color, warm_mix);
-				vec3 cir_base = mix(cloud_shadow_color, mid_sky_color, 0.35);
+				vec3 cir_base = mix(cloud_shadow_color, mid_sky_color, 0.28);
 
-				cirrus_col = mix(cir_base, cir_top, clamp(0.48 + lit * 0.52, 0.0, 1.0));
-				cirrus_col += sun_color * cube(sun_dot) * 0.18 * (1.0 - cir_dens * 0.35);
+				cirrus_col = mix(cir_base, cir_top, clamp(0.42 + lit * 0.58, 0.0, 1.0));
+				cirrus_col += sun_color * cube(sun_dot) * 0.22 * (1.0 - cir_dens * 0.32);
 			}
 		}
 	}
@@ -483,8 +485,8 @@ void sky() {
 		if (mask_far > 0.002) {
 			float h_frac = clamp(elev / max(tower_top_far, 0.05), 0.0, 1.0);
 
-			// Directional lighting toward the sun (azimuthally toward az=0 and upward toward crowns)
-			vec2 sun_off = vec2(-sin(az) * 0.42, 0.55);
+			// Directional lighting toward the sun (azimuthally toward sun_az and upward toward crowns)
+			vec2 sun_off = vec2(-sin(az - sun_az) * 0.42, 0.55);
 			float n_far_sun = fbm2_2d_p(p_far_w + sun_off, 14.0);
 			float lobe_lit = clamp((lobe_far - billow_shape(n_far_sun)) * 2.1 + 0.48, 0.0, 1.0);
 
@@ -520,7 +522,7 @@ void sky() {
 		vec3 near_col = vec3(0.0);
 		if (mask_near > 0.002) {
 			float h_near = clamp(elev / max(tower_top_near, 0.04), 0.0, 1.0);
-			vec2 sun_off_n = vec2(-sin(az) * 0.48, 0.58);
+			vec2 sun_off_n = vec2(-sin(az - sun_az) * 0.48, 0.58);
 			float n_near_sun = fbm2_2d_p(p_near + sun_off_n, 20.0);
 			float lit_near = clamp((lobe_near - billow_shape(n_near_sun)) * 2.4 + 0.40, 0.0, 1.0);
 

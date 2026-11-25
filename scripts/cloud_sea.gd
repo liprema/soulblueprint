@@ -37,7 +37,7 @@ extends Node3D
 @export var cathedral_cloud_count: int = 6
 
 @export_group("High Celestial Clouds")
-@export var high_wisp_count: int = 6
+@export var high_wisp_count: int = 18
 
 @export_group("Animation")
 @export var bob_amplitude_scale: float = 1.0
@@ -63,6 +63,7 @@ var _total_puff_count: int = 0
 
 
 func _ready() -> void:
+	physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 	_setup_shared_resources()
 	_populate_cloudscape()
 
@@ -498,33 +499,75 @@ func _generate_cathedral_amphitheater() -> void:
 
 
 func _generate_high_wisps() -> void:
-	# Plump, velvety snow-cream cotton-wool clouds floating high in the sapphire-azure sky
-	var safe_inner_x: float = maxf(corridor_half_width + 10.0, canyon_inner_x)
+	# 18 lush, multi-scale, sunlit Pixar high-altitude cumulus cloud clusters sailing
+	# gracefully above the city and Baroque Palace (Y in [82..155], X in [-240..240], Z in [-340..140]).
+	var count: int = maxi(high_wisp_count, 1)
 
-	for i: int in range(high_wisp_count):
-		var side_sign: float = -1.0 if (i % 2 == 0) else 1.0
-		var t: float = float(i) / maxf(float(high_wisp_count - 1), 1.0)
-		var z_pos: float = lerpf(corridor_z_start, corridor_z_end - 40.0, t) + _rng.randf_range(-16.0, 16.0)
-		var x_pos: float = side_sign * _rng.randf_range(safe_inner_x, canyon_outer_x + 34.0)
-		var y_pos: float = _rng.randf_range(58.0, 94.0)
+	for i: int in range(count):
+		var t: float = float(i) / maxf(float(count - 1), 1.0)
+		var z_pos: float = clampf(lerpf(140.0, -340.0, t) + _rng.randf_range(-24.0, 24.0), -340.0, 140.0)
 
-		var base_scale: Vector3 = Vector3(
-			_rng.randf_range(19.0, 31.0),
-			_rng.randf_range(9.5, 14.5),
-			_rng.randf_range(16.0, 25.0)
-		)
-		var puff_count: int = 2
-		_spawn_stratified_cloud(
-			"HighCloud_%02d" % i,
-			Vector3(x_pos, y_pos, z_pos),
-			base_scale,
-			puff_count,
-			1.2,
-			2.4,
-			0.16,
-			0.36,
-			_material_cotton_white
-		)
+		# Distribute across 3 natural lanes (left flank, high central sky vault, right flank)
+		var lane: int = i % 3
+		var x_pos: float = 0.0
+		var y_min: float = 82.0
+		var y_max: float = 155.0
+		if lane == 0:
+			x_pos = _rng.randf_range(-240.0, -76.0)
+			y_min = 82.0
+			y_max = 142.0
+		elif lane == 1:
+			# High overhead vault sailing well above all city rooftops & Baroque Palace spires
+			x_pos = _rng.randf_range(-115.0, 115.0)
+			y_min = 104.0
+			y_max = 155.0
+		else:
+			x_pos = _rng.randf_range(76.0, 240.0)
+			y_min = 82.0
+			y_max = 142.0
+
+		var y_pos: float = _rng.randf_range(y_min, y_max)
+		var is_hero_cumulus: bool = (i % 2 == 0)
+
+		if is_hero_cumulus:
+			var hero_scale: Vector3 = Vector3(
+				_rng.randf_range(26.0, 42.0),
+				_rng.randf_range(10.5, 16.5),
+				_rng.randf_range(22.0, 35.0)
+			)
+			var hero_puffs: int = _rng.randi_range(3, 4)
+			var base_mat: ShaderMaterial = _material_cotton_white if (y_pos > 112.0) else _material_cotton_blush
+			_spawn_cumulus_tower(
+				"HighCloud_%02d" % i,
+				Vector3(x_pos, y_pos, z_pos),
+				hero_scale,
+				hero_puffs,
+				0.62,
+				1.1,
+				2.3,
+				0.10,
+				0.26,
+				base_mat,
+				_material_cotton_white
+			)
+		else:
+			var wisp_scale: Vector3 = Vector3(
+				_rng.randf_range(17.0, 30.0),
+				_rng.randf_range(7.5, 12.5),
+				_rng.randf_range(15.0, 25.0)
+			)
+			var wisp_puffs: int = _rng.randi_range(2, 3)
+			_spawn_stratified_cloud(
+				"HighCloud_%02d" % i,
+				Vector3(x_pos, y_pos, z_pos),
+				wisp_scale,
+				wisp_puffs,
+				1.2,
+				2.5,
+				0.14,
+				0.34,
+				_material_cotton_white
+			)
 
 
 func _spawn_cumulus_tower(
@@ -546,6 +589,7 @@ func _spawn_cumulus_tower(
 	## Tier 3: Sunlit plush summit crown.
 	var cluster: Node3D = Node3D.new()
 	cluster.name = cluster_name
+	cluster.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 	cluster.position = origin
 	add_child(cluster)
 
@@ -632,6 +676,7 @@ func _spawn_stratified_cloud(
 	## Builds a plump floating cotton-wool cloud bank (for under-viaduct billows & high sky clouds).
 	var cluster: Node3D = Node3D.new()
 	cluster.name = cluster_name
+	cluster.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 	cluster.position = origin
 	add_child(cluster)
 
@@ -669,6 +714,7 @@ func _add_puff_mesh(
 	puff.mesh = _shared_mesh
 	puff.material_override = cloud_material
 	puff.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	puff.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 	puff.position = local_pos
 	puff.scale = local_scale
 	puff.rotation = Vector3(

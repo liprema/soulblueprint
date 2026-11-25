@@ -116,7 +116,7 @@ void fragment() {
 	water_col = mix(water_col, foam_color, foam_factor * 0.85);
 
 	// Sparkling sunlit specular glints on wave crests
-	vec3 sun_dir_world = normalize(vec3(0.35, 0.84, 0.42));
+	vec3 sun_dir_world = vec3(0.280619, 0.461017, -0.841857);
 	vec3 view_dir_world = normalize(CAMERA_POSITION_WORLD - v_world_pos);
 	vec3 half_vec = normalize(sun_dir_world + view_dir_world);
 	float spec_peak = pow(clamp(dot(world_n, half_vec), 0.0, 1.0), 96.0);

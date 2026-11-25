@@ -85,6 +85,7 @@ const TIER_1_Y: float = 3.2
 const TIER_2_Y: float = 5.6
 
 # Strict non-overlapping elevation ladder (0 Z-fighting at all intersections & plazas!)
+const SIDE_ALLEY_TOP_Y: float = 0.015
 const SIDE_STREET_TOP_Y: float = 0.025
 const ROAD_TOP_Y: float = 0.055
 const PLAZA_TOP_Y: float = 0.085
@@ -1266,15 +1267,15 @@ func _get_prop_surface_y(x: float, z: float) -> float:
 		Vector3(0.0, 48.0, 12.5),
 		Vector3(42.0, 10.0, 5.7),
 		Vector3(30.0, 10.0, 5.5),
-		Vector3(0.0, -17.0, 7.2),
-		Vector3(0.0, -217.5, 10.5),
+		Vector3(0.0, -13.2, 6.8),
+		Vector3(0.0, -217.5, 9.8),
 		Vector3(-35.2, 8.0, 7.4),
 		Vector3(0.0, -78.0, 10.8),
 		Vector3(-39.5, -78.0, 7.4),
 		Vector3(42.0, -78.0, 7.6),
 		Vector3(-34.0, -138.0, 10.5),
 		Vector3(34.0, -138.0, 6.6),
-		Vector3(0.0, -184.0, 11.2),
+		Vector3(0.0, -184.0, 7.8),
 	]
 	for pl in plazas:
 		var ldx: float = x - pl.x
@@ -1307,9 +1308,9 @@ func _get_city_walk_y(x: float, z: float) -> float:
 		var wt: float = clampf((-14.0 - x) / 12.0, 0.0, 1.0)
 		return lerpf(ROAD_TOP_Y, TIER_1_Y + ROAD_TOP_Y, wt)
 
-	# 3. Grand North Staircase Ramp (|X| <= 6.2, Z from -43.0 -> -55.0, Y: 0.0 -> 3.2)
-	if absf(x) <= 6.2 and z <= -43.0 and z >= -55.0:
-		var nt: float = clampf((-43.0 - z) / 12.0, 0.0, 1.0)
+	# 3. Grand North Staircase Ramp (|X| <= 6.2, Z from -43.4 -> -55.0, Y: 0.0 -> 3.2)
+	if absf(x) <= 6.2 and z <= -43.4 and z >= -55.0:
+		var nt: float = clampf((-43.4 - z) / 11.6, 0.0, 1.0)
 		return lerpf(ROAD_TOP_Y, TIER_1_Y + ROAD_TOP_Y, nt)
 
 	# 4. Tier 1 -> Tier 2 Ascent Staircase (|X| <= 7.2, Z from -158.0 -> -170.0, Y: 3.2 -> 5.6)
@@ -1411,19 +1412,19 @@ func _build_meadow_grid_mesh(
 			var vx: float = x0 + float(ix) * dx
 			var vy: float = 0.0
 
-			# 1. Sculpted emerald hill underneath West School Terrace (Y = 3.12 flush below 3.2 deck)
+			# 1. Sculpted emerald hill underneath West School Terrace (Y = 2.85 cleanly below 3.2 deck & inside walls)
 			if carve_lake:
-				var wx_in: float = _smooth01((-26.0 - vx) / 4.5) * _smooth01((vx + 76.0) / 14.0)
-				var wz_in: float = _smooth01((vz + 22.0) / 8.0) * _smooth01((32.5 - vz) / 3.5)
-				var west_hill: float = (TIER_1_Y - 0.10) * wx_in * wz_in
+				var wx_in: float = _smooth01((-30.8 - vx) / 4.5) * _smooth01((vx + 76.0) / 14.0)
+				var wz_in: float = _smooth01((vz + 13.0) / 5.0) * _smooth01((29.0 - vz) / 3.5)
+				var west_hill: float = (TIER_1_Y - 0.35) * wx_in * wz_in
 				vy = maxf(vy, west_hill)
 
-			# 2. Sculpted emerald terrace rise underneath North Mid Tier (Z in [-158..-52], Y = 3.10)
+			# 2. Sculpted emerald terrace rise underneath North Mid Tier (Z in [-158..-52], flush Y = 3.20)
 			if carve_palace:
 				var nz_south: float = _smooth01((-52.5 - vz) / 3.8)
 				var nz_north: float = _smooth01((vz + 174.0) / 16.0)
 				var nx_span: float = _smooth01((86.0 - absf(vx)) / 14.0)
-				var north_terrace_hill: float = (TIER_1_Y - 0.10) * nz_south * nz_north * nx_span
+				var north_terrace_hill: float = TIER_1_Y * nz_south * nz_north * nx_span
 				# Keep the Grand Staircase cutout (|x| < 6.8, z > -55.5) clean below the steps
 				if absf(vx) < 7.0 and vz > -55.5:
 					north_terrace_hill = 0.0
@@ -1431,7 +1432,7 @@ func _build_meadow_grid_mesh(
 
 			# 3. Gentle Pixar rolling hills around the outer valley amphitheater flanks
 			var flank_x: float = _smooth01((absf(vx) - 68.0) / 38.0)
-			var flank_south: float = _smooth01((vz - 64.0) / 36.0)
+			var flank_south: float = _smooth01((vz - 74.0) / 36.0)
 			var flank_mask: float = maxf(flank_x, flank_south)
 			if flank_mask > 0.001:
 				var wave: float = 0.55 + 0.30 * sin(vx * 0.045 + vz * 0.032) + 0.15 * cos(vx * 0.09 - vz * 0.06)
@@ -1444,11 +1445,13 @@ func _build_meadow_grid_mesh(
 			var on_road_or_plaza: bool = (
 				(absf(vx) < 16.0 and vz >= -232.0 and vz <= 64.0)
 				or (absf(vz - 9.0) < 12.0 and absf(vx) < 58.0)
-				or (vx < 0.0 and absf(vz - 44.0) < 11.0 and vx > -58.0)
-				or (vx > 0.0 and absf(vz - 38.0) < 11.0 and vx < 56.0)
+				or (vx < 0.0 and absf(vz - 44.0) < 11.0 and vx > -62.0)
+				or (vx > 0.0 and absf(vz - 38.0) < 11.0 and vx < 62.0)
 				or (vx >= -26.0 and vx <= 0.0 and absf(vz - 18.0) < 4.5)
 				or (absf(vx - 28.0) < 6.5 and vz >= 8.0 and vz <= 44.0)
-				or (absf(vx + 23.55) < 4.5 and vz >= 16.0 and vz <= 46.0)
+				or (absf(vx + 23.55) < 8.0 and vz >= 16.0 and vz <= 46.0)
+				or (vx >= -68.0 and vx <= -22.0 and vz >= -20.0 and vz <= 36.0)
+				or (absf(vx) < 76.0 and vz >= -162.0 and vz <= -48.0)
 				or (absf(vz + 78.0) < 12.0 and absf(vx) < 62.0)
 				or (absf(vz + 138.0) < 12.0 and absf(vx) < 52.0)
 				or (absf(vx + 41.0) < 11.0 and vz >= -142.0 and vz <= -74.0)
@@ -1806,8 +1809,8 @@ func _build_waterfalls_and_boats() -> void:
 		},
 		{
 			"name": "Waterfall_CanyonUpperWest",
-			"pos": Vector3(-82.0, 0.0, -28.0),
-			"yaw": PI * 0.38, # pours +X/+Z from higher western canyon cliff
+			"pos": Vector3(-82.0, 0.0, -31.0),
+			"yaw": PI * 0.48, # pours +X/+Z from higher western canyon cliff
 			"width": 7.6,
 			"height": 16.5,
 			"arch_out": 3.4,
@@ -1815,7 +1818,7 @@ func _build_waterfalls_and_boats() -> void:
 		},
 		{
 			"name": "Waterfall_LakeOfSilence",
-			"pos": Vector3(67.0, 0.0, 12.0),
+			"pos": Vector3(68.0, 0.0, 12.0),
 			"yaw": -PI * 0.5, # pours -X into Lake of Silence
 			"width": 6.4,
 			"height": 9.8,
@@ -1896,8 +1899,8 @@ func _create_cascading_waterfall(
 	var splash: MeshInstance3D = MeshInstance3D.new()
 	splash.name = "%s_PlungeFoam" % wf_name
 	var splash_cyl: CylinderMesh = CylinderMesh.new()
-	splash_cyl.top_radius = width * 0.56
-	splash_cyl.bottom_radius = width * 0.64
+	splash_cyl.top_radius = width * 0.40
+	splash_cyl.bottom_radius = width * 0.45
 	splash_cyl.height = 0.08
 	splash_cyl.radial_segments = 36
 	splash.mesh = splash_cyl
@@ -2078,22 +2081,22 @@ func _build_three_tier_terraces_and_stairs() -> void:
 	_add_terrace_floor_box(col_body, "WestSchoolTerraceCol", Vector3(-45.0, TIER_1_Y, 8.0), Vector3(38.0, TIER_1_Y + 0.6, 48.0))
 	var west_deck: MeshInstance3D = _add_box_part(
 		topo_root,
-		Vector3(38.0, 0.36, 48.0),
+		Vector3(37.9, 0.36, 47.9),
 		Vector3(-45.0, TIER_1_Y - 0.18, 8.0),
 		_mat_terrace_stone
 	)
 	west_deck.name = "WestSchoolTerraceDeck"
 	west_deck.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
-	# Arched stone retaining walls framing West School Terrace (leaving 8.0m stair opening Z in [4..12])
-	_add_arched_retaining_wall(topo_root, "WestSchoolWall_EastNorth", Vector3(-26.0, 0.0, -16.0), Vector3(-26.0, 0.0, 4.0), TIER_1_Y, 1.0)
-	_add_arched_retaining_wall(topo_root, "WestSchoolWall_EastSouth", Vector3(-26.0, 0.0, 12.0), Vector3(-26.0, 0.0, 32.0), TIER_1_Y, 1.0)
-	_add_arched_retaining_wall(topo_root, "WestSchoolWall_South", Vector3(-64.0, 0.0, 32.0), Vector3(-26.0, 0.0, 32.0), TIER_1_Y, 1.0)
-	_add_arched_retaining_wall(topo_root, "WestSchoolWall_North", Vector3(-26.0, 0.0, -16.0), Vector3(-64.0, 0.0, -16.0), TIER_1_Y, 1.0)
+	# Arched stone retaining walls framing West School Terrace (leaving 9.4m stair opening Z in [3.3..12.7])
+	_add_arched_retaining_wall(topo_root, "WestSchoolWall_EastNorth", Vector3(-26.0, 0.0, -16.0), Vector3(-26.0, 0.0, 3.3), TIER_1_Y, 1.0)
+	_add_arched_retaining_wall(topo_root, "WestSchoolWall_EastSouth", Vector3(-26.0, 0.0, 12.7), Vector3(-26.0, 0.0, 32.0), TIER_1_Y, 1.0)
+	_add_arched_retaining_wall(topo_root, "WestSchoolWall_South", Vector3(-64.0, 0.0, 32.0), Vector3(-26.55, 0.0, 32.0), TIER_1_Y, 1.0)
+	_add_arched_retaining_wall(topo_root, "WestSchoolWall_North", Vector3(-26.55, 0.0, -16.0), Vector3(-64.0, 0.0, -16.0), TIER_1_Y, 1.0)
 
 	# Scenic stone balustrades along West School Terrace drop-offs
-	_add_terrace_balustrade(topo_root, "WestSchoolRail_EastNorth", Vector3(-26.2, TIER_1_Y, -15.6), Vector3(-26.2, TIER_1_Y, 3.8))
-	_add_terrace_balustrade(topo_root, "WestSchoolRail_EastSouth", Vector3(-26.2, TIER_1_Y, 12.2), Vector3(-26.2, TIER_1_Y, 31.6))
+	_add_terrace_balustrade(topo_root, "WestSchoolRail_EastNorth", Vector3(-26.2, TIER_1_Y, -15.6), Vector3(-26.2, TIER_1_Y, 3.3))
+	_add_terrace_balustrade(topo_root, "WestSchoolRail_EastSouth", Vector3(-26.2, TIER_1_Y, 12.7), Vector3(-26.2, TIER_1_Y, 31.6))
 	_add_terrace_balustrade(topo_root, "WestSchoolRail_South", Vector3(-63.5, TIER_1_Y, 31.6), Vector3(-26.2, TIER_1_Y, 31.6))
 	_add_terrace_balustrade(topo_root, "WestSchoolRail_North", Vector3(-63.5, TIER_1_Y, -15.6), Vector3(-26.2, TIER_1_Y, -15.6))
 
@@ -2115,32 +2118,33 @@ func _build_three_tier_terraces_and_stairs() -> void:
 	_add_terrace_floor_box(col_body, "NorthMidTerraceCol_SW", Vector3(-36.0, TIER_1_Y, -53.5), Vector3(60.0, TIER_1_Y + 0.6, 3.0))
 	_add_terrace_floor_box(col_body, "NorthMidTerraceCol_SE", Vector3(36.0, TIER_1_Y, -53.5), Vector3(60.0, TIER_1_Y + 0.6, 3.0))
 
-	# Visual terrace coping apron along Z = -52 edge (west & east of the Grand North Staircase)
+	# Visual terrace coping apron along Z = -52 edge (west & east of the Grand North Staircase, top at TIER_1_Y + 0.015)
 	for side_val in [-1.0, 1.0]:
 		var side: float = float(side_val)
 		var apron: MeshInstance3D = _add_box_part(
 			topo_root,
-			Vector3(60.0, 0.34, 4.2),
-			Vector3(side * 36.0, TIER_1_Y - 0.17, -54.1),
+			Vector3(59.2, 0.34, 4.2),
+			Vector3(side * 36.4, TIER_1_Y - 0.155, -54.1),
 			_mat_terrace_stone
 		)
+		apron.name = "NorthApron_%s" % ("W" if side < 0.0 else "E")
 		apron.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
 	# Grand Arched Stone Retaining Wall along Z = -52.0 (facing south toward Canal & Bridge)
-	_add_arched_retaining_wall(topo_root, "NorthTerraceWall_West", Vector3(-72.0, 0.0, -52.0), Vector3(-6.0, 0.0, -52.0), TIER_1_Y, 1.0)
-	_add_arched_retaining_wall(topo_root, "NorthTerraceWall_East", Vector3(6.0, 0.0, -52.0), Vector3(72.0, 0.0, -52.0), TIER_1_Y, 1.0)
+	_add_arched_retaining_wall(topo_root, "NorthTerraceWall_West", Vector3(-72.0, 0.0, -52.0), Vector3(-6.7, 0.0, -52.0), TIER_1_Y, 1.0)
+	_add_arched_retaining_wall(topo_root, "NorthTerraceWall_East", Vector3(6.7, 0.0, -52.0), Vector3(72.0, 0.0, -52.0), TIER_1_Y, 1.0)
 
 	# Balustrades along North Mid Terrace South Rim (Z = -52.2) & North Rim (Z = -157.8)
-	_add_terrace_balustrade(topo_root, "NorthTerraceRail_SouthW", Vector3(-62.0, TIER_1_Y, -52.2), Vector3(-6.2, TIER_1_Y, -52.2))
-	_add_terrace_balustrade(topo_root, "NorthTerraceRail_SouthE", Vector3(6.2, TIER_1_Y, -52.2), Vector3(62.0, TIER_1_Y, -52.2))
-	_add_terrace_balustrade(topo_root, "NorthTerraceRail_NorthW", Vector3(-62.0, TIER_1_Y, -157.8), Vector3(-7.2, TIER_1_Y, -157.8))
-	_add_terrace_balustrade(topo_root, "NorthTerraceRail_NorthE", Vector3(7.2, TIER_1_Y, -157.8), Vector3(62.0, TIER_1_Y, -157.8))
+	_add_terrace_balustrade(topo_root, "NorthTerraceRail_SouthW", Vector3(-62.0, TIER_1_Y, -52.2), Vector3(-6.7, TIER_1_Y, -52.2))
+	_add_terrace_balustrade(topo_root, "NorthTerraceRail_SouthE", Vector3(6.7, TIER_1_Y, -52.2), Vector3(62.0, TIER_1_Y, -52.2))
+	_add_terrace_balustrade(topo_root, "NorthTerraceRail_NorthW", Vector3(-62.0, TIER_1_Y, -157.8), Vector3(-7.7, TIER_1_Y, -157.8))
+	_add_terrace_balustrade(topo_root, "NorthTerraceRail_NorthE", Vector3(7.7, TIER_1_Y, -157.8), Vector3(62.0, TIER_1_Y, -157.8))
 
-	# Grand North Stone Staircase Ramp: X = 0.0, width 12.0m, Z = -43.0 (Y=0.0) -> Z = -55.0 (Y=3.2)
+	# Grand North Stone Staircase Ramp: X = 0.0, width 12.0m, Z = -43.4 (Y=0.0) -> Z = -55.0 (Y=3.2)
 	_build_stone_staircase_ramp(
 		topo_root,
 		"Staircase_GrandNorth",
-		Vector3(0.0, TIER_0_Y, -43.0),
+		Vector3(0.0, TIER_0_Y, -43.4),
 		Vector3(0.0, TIER_1_Y, -55.0),
 		12.0,
 		20
@@ -2152,10 +2156,10 @@ func _build_three_tier_terraces_and_stairs() -> void:
 	# -------------------------------------------------------------------------
 	_add_terrace_floor_box(col_body, "UpperOverlookTerraceCol", Vector3(0.0, TIER_2_Y, -184.0), Vector3(48.0, TIER_2_Y + 0.8, 28.0))
 
-	# Solid monumental masonry podium beneath the Upper Overlook Terrace
+	# Solid monumental masonry podium beneath the Upper Overlook Terrace (inset 0.05m all sides vs wall bodies)
 	var overlook_podium: MeshInstance3D = _add_box_part(
 		topo_root,
-		Vector3(48.0, TIER_2_Y + 0.4, 28.0),
+		Vector3(47.9, TIER_2_Y + 0.4, 27.9),
 		Vector3(0.0, (TIER_2_Y - 0.4) * 0.5, -184.0),
 		_mat_terrace_stone
 	)
@@ -2173,20 +2177,20 @@ func _build_three_tier_terraces_and_stairs() -> void:
 	overlook_floor.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
 	# Arched stone retaining walls wrapping the Upper Overlook Terrace (South, West, East, North wings)
-	_add_arched_retaining_wall(topo_root, "OverlookWall_SouthW", Vector3(-24.0, 0.0, -170.0), Vector3(-7.0, 0.0, -170.0), TIER_2_Y, 1.0)
-	_add_arched_retaining_wall(topo_root, "OverlookWall_SouthE", Vector3(7.0, 0.0, -170.0), Vector3(24.0, 0.0, -170.0), TIER_2_Y, 1.0)
+	_add_arched_retaining_wall(topo_root, "OverlookWall_SouthW", Vector3(-23.45, 0.0, -170.0), Vector3(-7.7, 0.0, -170.0), TIER_2_Y, 1.0)
+	_add_arched_retaining_wall(topo_root, "OverlookWall_SouthE", Vector3(7.7, 0.0, -170.0), Vector3(23.45, 0.0, -170.0), TIER_2_Y, 1.0)
 	_add_arched_retaining_wall(topo_root, "OverlookWall_West", Vector3(-24.0, 0.0, -198.0), Vector3(-24.0, 0.0, -170.0), TIER_2_Y, 1.0)
 	_add_arched_retaining_wall(topo_root, "OverlookWall_East", Vector3(24.0, 0.0, -170.0), Vector3(24.0, 0.0, -198.0), TIER_2_Y, 1.0)
-	_add_arched_retaining_wall(topo_root, "OverlookWall_NorthW", Vector3(-7.0, 0.0, -198.0), Vector3(-24.0, 0.0, -198.0), TIER_2_Y, 1.0)
-	_add_arched_retaining_wall(topo_root, "OverlookWall_NorthE", Vector3(24.0, 0.0, -198.0), Vector3(7.0, 0.0, -198.0), TIER_2_Y, 1.0)
+	_add_arched_retaining_wall(topo_root, "OverlookWall_NorthW", Vector3(-7.7, 0.0, -198.0), Vector3(-23.45, 0.0, -198.0), TIER_2_Y, 1.0)
+	_add_arched_retaining_wall(topo_root, "OverlookWall_NorthE", Vector3(23.45, 0.0, -198.0), Vector3(7.7, 0.0, -198.0), TIER_2_Y, 1.0)
 
 	# Scenic golden-topped viewing balustrades around Upper Overlook Terrace
 	_add_terrace_balustrade(topo_root, "OverlookRail_West", Vector3(-23.7, TIER_2_Y, -197.7), Vector3(-23.7, TIER_2_Y, -170.3))
 	_add_terrace_balustrade(topo_root, "OverlookRail_East", Vector3(23.7, TIER_2_Y, -197.7), Vector3(23.7, TIER_2_Y, -170.3))
-	_add_terrace_balustrade(topo_root, "OverlookRail_SouthW", Vector3(-23.7, TIER_2_Y, -170.3), Vector3(-7.2, TIER_2_Y, -170.3))
-	_add_terrace_balustrade(topo_root, "OverlookRail_SouthE", Vector3(7.2, TIER_2_Y, -170.3), Vector3(23.7, TIER_2_Y, -170.3))
-	_add_terrace_balustrade(topo_root, "OverlookRail_NorthW", Vector3(-23.7, TIER_2_Y, -197.7), Vector3(-7.2, TIER_2_Y, -197.7))
-	_add_terrace_balustrade(topo_root, "OverlookRail_NorthE", Vector3(7.2, TIER_2_Y, -197.7), Vector3(23.7, TIER_2_Y, -197.7))
+	_add_terrace_balustrade(topo_root, "OverlookRail_SouthW", Vector3(-23.7, TIER_2_Y, -170.3), Vector3(-7.7, TIER_2_Y, -170.3))
+	_add_terrace_balustrade(topo_root, "OverlookRail_SouthE", Vector3(7.7, TIER_2_Y, -170.3), Vector3(23.7, TIER_2_Y, -170.3))
+	_add_terrace_balustrade(topo_root, "OverlookRail_NorthW", Vector3(-23.7, TIER_2_Y, -197.7), Vector3(-7.7, TIER_2_Y, -197.7))
+	_add_terrace_balustrade(topo_root, "OverlookRail_NorthE", Vector3(7.7, TIER_2_Y, -197.7), Vector3(23.7, TIER_2_Y, -197.7))
 
 	# Tier 1 -> Tier 2 Ascent Stone Staircase (under Triumphal Arch of Knowledge)
 	# Z = -158.0 (Y = 3.2) -> Z = -170.0 (Y = 5.6), width 14.0m
@@ -2270,21 +2274,24 @@ func _add_arched_retaining_wall(
 	holder.rotation.y = yaw
 	parent.add_child(holder)
 
-	# Main stone retaining wall body (grounded to Y = -0.6 so zero gaps on slopes)
-	var body_h: float = wall_height + 0.6
+	# Main stone retaining wall body (grounded to Y = -0.6, top tucked 0.02m cleanly under coping)
+	var body_h: float = wall_height + 0.58
 	var body_mi: MeshInstance3D = _add_box_part(
 		holder,
 		Vector3(thickness, body_h, length),
-		Vector3(0.0, wall_height - body_h * 0.5, 0.0),
+		Vector3(0.0, (wall_height - 0.02) - body_h * 0.5, 0.0),
 		_mat_terrace_stone
 	)
 	body_mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+
+	# Tiny 5mm Y-offset on E-W walls so perpendicular corner copings/strips/piers never coplanar Z-fight
+	var ew_y_off: float = -0.005 if absf(diff.x) > absf(diff.z) else 0.0
 
 	# Golden-limestone top cornice coping
 	var coping: MeshInstance3D = _add_box_part(
 		holder,
 		Vector3(thickness + 0.36, 0.24, length + 0.16),
-		Vector3(0.0, wall_height - 0.08, 0.0),
+		Vector3(0.0, wall_height - 0.08 + ew_y_off, 0.0),
 		_mat_stone_quay
 	)
 	coping.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -2292,7 +2299,7 @@ func _add_arched_retaining_wall(
 	var gold_strip: MeshInstance3D = _add_box_part(
 		holder,
 		Vector3(thickness + 0.44, 0.08, length + 0.18),
-		Vector3(0.0, wall_height + 0.06, 0.0),
+		Vector3(0.0, wall_height + 0.06 + ew_y_off, 0.0),
 		_mat_gold_trim
 	)
 	gold_strip.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -2308,7 +2315,7 @@ func _add_arched_retaining_wall(
 		var z_p: float = -length * 0.5 + float(i) * actual_bay
 		pier_xforms.append(Transform3D(
 			Basis.from_scale(Vector3(thickness + 0.42, wall_height + 0.3, 0.72)),
-			Vector3(0.0, wall_height * 0.5 - 0.1, z_p)
+			Vector3(0.0, wall_height * 0.5 - 0.1 + ew_y_off, z_p)
 		))
 		if i < bay_count:
 			var z_mid: float = z_p + actual_bay * 0.5
@@ -2504,10 +2511,10 @@ func _build_roads_and_plazas() -> void:
 	add_child(net_root)
 
 	# --- TIER 0 (Y = 0.0) ROADS ---
-	_add_marble_road(net_root, "MainBoulevard_South", Vector3(0.0, TIER_0_Y, 56.0), Vector3(0.0, TIER_0_Y, -21.0), 10.0, ROAD_TOP_Y)
+	_add_marble_road(net_root, "MainBoulevard_South", Vector3(0.0, TIER_0_Y, 56.0), Vector3(0.0, TIER_0_Y, -20.75), 10.0, ROAD_TOP_Y)
 	_add_marble_road(net_root, "Street_SchoolApproach", Vector3(0.0, TIER_0_Y, 8.0), Vector3(-14.2, TIER_0_Y, 8.0), 8.0, SIDE_STREET_TOP_Y)
 	_add_marble_road(net_root, "Street_QuietLakesPark", Vector3(0.0, TIER_0_Y, 10.0), Vector3(44.0, TIER_0_Y, 10.0), 7.0, SIDE_STREET_TOP_Y)
-	_add_marble_road(net_root, "ImperialForecourtRoad", Vector3(0.0, TIER_0_Y, -211.8), Vector3(0.0, TIER_0_Y, -228.0), 14.0, ROAD_TOP_Y)
+	_add_marble_road(net_root, "ImperialForecourtRoad", Vector3(0.0, TIER_0_Y, -211.8), Vector3(0.0, TIER_0_Y, -227.76), 14.0, ROAD_TOP_Y)
 
 	# --- TIER 1 (Y = 3.2) ROADS ---
 	_add_marble_road(net_root, "Street_SchoolUpper", Vector3(-25.8, TIER_1_Y, 8.0), Vector3(-35.2, TIER_1_Y, 8.0), 8.0, SIDE_STREET_TOP_Y)
@@ -2525,8 +2532,8 @@ func _build_roads_and_plazas() -> void:
 	_add_marble_plaza(net_root, "Plaza_Awakening", Vector3(0.0, TIER_0_Y, 48.0), 12.5)
 	_add_marble_plaza(net_root, "Plaza_QuietLakesPier", Vector3(42.0, TIER_0_Y, 10.0), 5.7)
 	_add_marble_plaza(net_root, "Plaza_QuietLakesEntry", Vector3(30.0, TIER_0_Y, 10.0), 5.5)
-	_add_marble_plaza(net_root, "Plaza_BridgeSouth", Vector3(0.0, TIER_0_Y, -17.0), 7.2)
-	_add_marble_plaza(net_root, "Plaza_ImperialForecourt", Vector3(0.0, TIER_0_Y, -217.5), 10.5)
+	_add_marble_plaza(net_root, "Plaza_BridgeSouth", Vector3(0.0, TIER_0_Y, -13.2), 6.8)
+	_add_marble_plaza(net_root, "Plaza_ImperialForecourt", Vector3(0.0, TIER_0_Y, -217.5), 9.8)
 
 	# Tier 1 Plazas (Y = 3.2 — cleanly clear of all 4 1.28x landmark footprints!)
 	_add_marble_plaza(net_root, "Plaza_SchoolOfSouls", Vector3(-35.2, TIER_1_Y, 8.0), 7.4)
@@ -2537,18 +2544,18 @@ func _build_roads_and_plazas() -> void:
 	_add_marble_plaza(net_root, "Plaza_MiraSanctuary", Vector3(34.0, TIER_1_Y, -138.0), 6.6)
 
 	# Tier 2 Plaza (Y = 5.6)
-	_add_marble_plaza(net_root, "Plaza_UpperOverlook", Vector3(0.0, TIER_2_Y, -184.0), 11.2)
+	_add_marble_plaza(net_root, "Plaza_UpperOverlook", Vector3(0.0, TIER_2_Y, -184.0), 7.8)
 
-	# --- TIER 0 (Y = 0.0) SIDE STREETS & ALLEYS (SIDE_STREET_TOP_Y = +0.025, clean T-abutments!) ---
+	# --- TIER 0 (Y = 0.0) SIDE STREETS (+0.025) & ALLEYS (+0.015, zero curb Z-fighting!) ---
 	_add_marble_road(net_root, "SideStreet_SouthWest", Vector3(-6.0, TIER_0_Y, 44.0), Vector3(-52.0, TIER_0_Y, 44.0), 5.4, SIDE_STREET_TOP_Y)
-	_add_marble_road(net_root, "Alley_SouthWest", Vector3(-23.55, TIER_0_Y, 41.3), Vector3(-23.55, TIER_0_Y, 19.8), 3.0, SIDE_STREET_TOP_Y)
-	_add_marble_road(net_root, "Alley_SouthWest_Cross", Vector3(-25.05, TIER_0_Y, 18.0), Vector3(-5.0, TIER_0_Y, 18.0), 3.6, SIDE_STREET_TOP_Y)
+	_add_marble_road(net_root, "Alley_SouthWest", Vector3(-23.55, TIER_0_Y, 41.3), Vector3(-23.55, TIER_0_Y, 19.8), 3.0, SIDE_ALLEY_TOP_Y)
+	_add_marble_road(net_root, "Alley_SouthWest_Cross", Vector3(-25.02, TIER_0_Y, 18.0), Vector3(-5.0, TIER_0_Y, 18.0), 3.6, SIDE_STREET_TOP_Y)
 	_add_marble_road(net_root, "SideStreet_SouthEast", Vector3(6.0, TIER_0_Y, 38.0), Vector3(52.0, TIER_0_Y, 38.0), 5.4, SIDE_STREET_TOP_Y)
-	_add_marble_road(net_root, "Alley_SouthEast", Vector3(28.0, TIER_0_Y, 35.3), Vector3(28.0, TIER_0_Y, 13.5), 5.4, SIDE_STREET_TOP_Y)
+	_add_marble_road(net_root, "Alley_SouthEast", Vector3(28.0, TIER_0_Y, 35.3), Vector3(28.0, TIER_0_Y, 13.5), 5.4, SIDE_ALLEY_TOP_Y)
 
-	# --- TIER 1 (Y = 3.2) QUARTER ALLEYS (SIDE_STREET_TOP_Y = +0.025, strictly clear of cross streets!) ---
-	_add_marble_road(net_root, "Alley_NorthWest_Orion", Vector3(-41.0, TIER_1_Y, -85.6), Vector3(-41.0, TIER_1_Y, -134.0), 5.4, SIDE_STREET_TOP_Y)
-	_add_marble_road(net_root, "Alley_NorthEast_Kronos", Vector3(37.0, TIER_1_Y, -84.0), Vector3(37.0, TIER_1_Y, -132.4), 5.4, SIDE_STREET_TOP_Y)
+	# --- TIER 1 (Y = 3.2) QUARTER ALLEYS (SIDE_ALLEY_TOP_Y = +0.015, strictly clear of cross streets!) ---
+	_add_marble_road(net_root, "Alley_NorthWest_Orion", Vector3(-41.0, TIER_1_Y, -85.6), Vector3(-41.0, TIER_1_Y, -134.0), 5.4, SIDE_ALLEY_TOP_Y)
+	_add_marble_road(net_root, "Alley_NorthEast_Kronos", Vector3(37.0, TIER_1_Y, -84.0), Vector3(37.0, TIER_1_Y, -132.4), 5.4, SIDE_ALLEY_TOP_Y)
 
 	# --- 4 CIRCULAR POCKET PARKS (R = 8.5m, paving +0.085, inner lawn +0.115, benches & fairytale trees) ---
 	_add_pocket_park(net_root, "PocketPark_SakuraAlley", Vector3(-36.0, TIER_0_Y, 44.0), 8.5, "blossom")
@@ -2842,7 +2849,7 @@ func _build_interactive_city_venues(parent: Node3D) -> void:
 		venues_root,
 		"VenueMemoryShop",
 		VENUE_SHOP_PATH,
-		Vector3(-17.5, TIER_0_Y, 28.0),
+		Vector3(-17.15, TIER_0_Y, 28.0),
 		PI * 0.5,
 		Vector3(9.8, 8.3, 8.6),
 		"venue_shop"
@@ -2978,10 +2985,10 @@ func _build_four_iconic_landmarks(parent: Node3D) -> void:
 	o_col.position = Vector3(0.0, 1.8, 0.0)
 	o_body.add_child(o_col)
 
-	# 4. TRIUMPHAL ARCH OF KNOWLEDGE at (0.0, 5.6, -172.0) — Tier 2 Upper Overlook Gateway
+	# 4. TRIUMPHAL ARCH OF KNOWLEDGE at (0.0, 5.6 + ROAD_TOP_Y, -173.4) — Tier 2 Upper Overlook Gateway
 	var a_holder: Node3D = Node3D.new()
 	a_holder.name = "Landmark_MemoryArch"
-	a_holder.position = Vector3(0.0, TIER_2_Y, -172.0)
+	a_holder.position = Vector3(0.0, TIER_2_Y + ROAD_TOP_Y, -173.4)
 	lm_root.add_child(a_holder)
 
 	var a_scene: PackedScene = _safe_load_first_scene(LANDMARK_MEMORY_ARCH_PATH, LANDMARK_MEMORY_ARCH_ALT_PATH)
@@ -3194,13 +3201,13 @@ func _is_point_clear_for_house(x: float, z: float, half_r: float) -> bool:
 		Vector3(-35.2, 8.0, 7.6),
 		Vector3(42.0, 10.0, 5.7),
 		Vector3(30.0, 10.0, 5.5),
-		Vector3(0.0, -17.0, 7.2),
+		Vector3(0.0, -13.2, 6.8),
 		Vector3(0.0, -78.0, 11.4), # Akashic Orrery Central Plaza
 		Vector3(-39.5, -78.0, 7.6),
 		Vector3(42.0, -78.0, 7.8),
 		Vector3(-34.0, -138.0, 10.5),
 		Vector3(34.0, -138.0, 6.8),
-		Vector3(0.0, -217.5, 10.5),
+		Vector3(0.0, -217.5, 9.8),
 	]
 	for p_info in plazas:
 		var pdx: float = x - p_info.x
@@ -3257,8 +3264,8 @@ func _is_point_clear_for_house(x: float, z: float, half_r: float) -> bool:
 	var wf_pts: Array[Vector2] = [
 		Vector2(-68.0, -32.0),
 		Vector2(68.0, -32.0),
-		Vector2(-82.0, -28.0),
-		Vector2(67.0, 12.0),
+		Vector2(-82.0, -31.0),
+		Vector2(68.0, 12.0),
 	]
 	for wpt in wf_pts:
 		var wdx: float = x - wpt.x
@@ -3423,15 +3430,15 @@ func _is_pure_grass_spot(x: float, z: float, clearance_r: float) -> bool:
 		Vector3(0.0, 48.0, 12.5),
 		Vector3(42.0, 10.0, 5.7),
 		Vector3(30.0, 10.0, 5.5),
-		Vector3(0.0, -17.0, 7.2),
-		Vector3(0.0, -217.5, 10.5),
+		Vector3(0.0, -13.2, 6.8),
+		Vector3(0.0, -217.5, 9.8),
 		Vector3(-35.2, 8.0, 7.4),
 		Vector3(0.0, -78.0, 10.8),
 		Vector3(-39.5, -78.0, 7.4),
 		Vector3(42.0, -78.0, 7.6),
 		Vector3(-34.0, -138.0, 10.5),
 		Vector3(34.0, -138.0, 6.6),
-		Vector3(0.0, -184.0, 11.2),
+		Vector3(0.0, -184.0, 7.8),
 	]
 	for pl in plazas:
 		var pdx: float = x - pl.x
@@ -4095,7 +4102,7 @@ func _build_terraced_endless_city() -> void:
 
 	var tier_heights: Array[float] = [3.5, 9.0, 15.5, 23.0, 31.0]
 	var tier_x_bases: Array[float] = [73.0, 91.0, 110.0, 130.0, 151.0]
-	var tier_z_south: Array[float] = [76.0, 91.0, 106.0, 121.0, 136.0]
+	var tier_z_south: Array[float] = [84.0, 91.0, 106.0, 121.0, 136.0]
 	var lower_kinds: Array[String] = ["red_gable", "blue_balcony", "ochre_timber", "terracotta_terrace"]
 	var upper_kinds: Array[String] = ["cream_spire", "red_gable", "blue_balcony", "terracotta_terrace", "cream_spire", "ochre_timber"]
 	var crown_kinds: Array[String] = ["cream_spire", "cream_spire", "blue_balcony", "cream_spire", "red_gable"]
@@ -4125,12 +4132,15 @@ func _build_terraced_endless_city() -> void:
 				if z_cur < -135.0:
 					north_flare = (-135.0 - z_cur) * 0.28
 
-				# Gentle outward curve around Lake of Silence on East Tier 0
+				# Gentle outward curve around Lake of Silence & CloudBalloon on East Tier 0
 				var lake_flare: float = 0.0
-				if side > 0.0 and t_idx == 0 and z_cur > -6.0 and z_cur < 30.0:
-					lake_flare = 7.0
+				if side > 0.0 and t_idx == 0 and z_cur > -6.0 and z_cur < 42.0:
+					lake_flare = 8.0
 
-				var x_pos: float = side * (bx + north_flare + lake_flare + rng.randf_range(-0.6, 0.6))
+				# Gentle outward curve around OrionLibraryBuilding on West Tiers 0 & 1
+				var orion_flare: float = 8.0 if (side < 0.0 and t_idx <= 1 and z_cur > -96.0 and z_cur < -58.0) else 0.0
+
+				var x_pos: float = side * (bx + north_flare + lake_flare + orion_flare + rng.randf_range(-0.6, 0.6))
 				var z_pos: float = z_cur + rng.randf_range(-0.45, 0.45)
 
 				# Safety check: keep clear of Baroque Palace hill (0, -280), R >= 86m
@@ -4147,13 +4157,13 @@ func _build_terraced_endless_city() -> void:
 					z_cur += z_step
 					continue
 
-				# Continuous deep retaining wall slab anchored at unjittered tier centerline (depth 16.8m, 0 overhang!)
+				# Continuous deep retaining wall slab anchored at unjittered tier centerline (exact butt-joint 2.0*z_step)
 				var wall_h: float = ty + 1.5
-				var wall_cx: float = side * (bx + north_flare + lake_flare)
+				var wall_cx: float = side * (bx + north_flare + lake_flare + orion_flare)
 				if slot_idx % 2 == 1:
 					var wall_yaw: float = PI * 0.5
 					wall_xforms.append(Transform3D(
-						Basis.from_euler(Vector3(0.0, wall_yaw, 0.0)).scaled(Vector3(z_step * 2.45, wall_h, 16.8)),
+						Basis.from_euler(Vector3(0.0, wall_yaw, 0.0)).scaled(Vector3(z_step * 2.0, wall_h, 16.8)),
 						Vector3(wall_cx, wall_h * 0.5 - 1.5, z_cur + z_step * 0.45)
 					))
 					if slot_idx % 4 == 1:
@@ -4214,7 +4224,7 @@ func _build_terraced_endless_city() -> void:
 
 				z_cur += z_step
 
-	# --- B. SOUTH AMPHITHEATER SLOPE BEHIND AWAKENING PLAZA (5 Grand-Scale Tiers, Z = +76..+136) ---
+	# --- B. SOUTH AMPHITHEATER SLOPE BEHIND AWAKENING PLAZA (5 Grand-Scale Tiers, Z = +84..+136) ---
 	var south_steps: Array[float] = [10.5, 11.4, 12.8, 14.6, 16.8]
 	for t_idx in range(5):
 		var ty: float = tier_heights[t_idx]
@@ -4228,11 +4238,11 @@ func _build_terraced_endless_city() -> void:
 			var x_pos: float = x_cur + rng.randf_range(-0.45, 0.45)
 			var z_pos: float = bz + rng.randf_range(-0.6, 0.6)
 
-			# Bottom at Y = -1.5, top strictly flush at Y = ty, anchored at unjittered bz, depth 16.8m!
+			# Bottom at Y = -1.5, top strictly flush at Y = ty, exact butt-joint 2.0*x_step, depth 16.8m!
 			var wall_h: float = ty + 1.5
 			if s_idx % 2 == 1:
 				wall_xforms.append(Transform3D(
-					Basis.from_scale(Vector3(x_step * 2.45, wall_h, 16.8)),
+					Basis.from_scale(Vector3(x_step * 2.0, wall_h, 16.8)),
 					Vector3(x_cur + x_step * 0.45, wall_h * 0.5 - 1.5, bz)
 				))
 
@@ -4729,7 +4739,7 @@ func _build_street_life_and_akasha_magic() -> void:
 		# Canal Embankment (2)
 		Vector3(-22.0, 0.0, -23.6), Vector3(22.0, 0.0, -23.6),
 		# Side Streets & Pocket Parks (4)
-		Vector3(-27.0, 0.0, 40.5), Vector3(25.0, 0.0, 34.5),
+		Vector3(-27.0, 0.0, 40.5), Vector3(24.2, 0.0, 34.0),
 		Vector3(-35.5, 0.0, -101.0), Vector3(32.5, 0.0, -101.0),
 		# Main Boulevard North (6 — Lamp_13/14 at Z=-68.5 clear of Bench_Blvd at Z=-65.0)
 		Vector3(-7.4, 0.0, -68.5), Vector3(7.4, 0.0, -68.5),
@@ -4738,8 +4748,8 @@ func _build_street_life_and_akasha_magic() -> void:
 		# Upper Overlook Terrace (4)
 		Vector3(-13.0, 0.0, -174.0), Vector3(13.0, 0.0, -174.0),
 		Vector3(-13.0, 0.0, -194.0), Vector3(13.0, 0.0, -194.0),
-		# Upper Temple Forecourt (2 — seated on Plaza_ImperialForecourt top +0.085, 0 extra blocks!)
-		Vector3(-9.5, 0.0, -217.5), Vector3(9.5, 0.0, -217.5),
+		# Upper Temple Forecourt (2 — seated on Plaza_ImperialForecourt R=9.8 top +0.085, 0 extra blocks!)
+		Vector3(-8.8, 0.0, -217.5), Vector3(8.8, 0.0, -217.5),
 	]
 	var lamp_xforms: Array[Transform3D] = []
 	for l_idx in range(lamp_spots.size()):

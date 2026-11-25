@@ -61,12 +61,12 @@ const SUNSET_SKY_FLOATS: Dictionary = {
 	"mie_outer_strength": 0.48,
 }
 
-const DAWN_SUN_DIR_DEFAULT: Vector3 = Vector3(0.0, 0.16, -1.0)
+const DAWN_SUN_DIR_DEFAULT: Vector3 = Vector3(0.280619, 0.461017, -0.841857)
 const SUNSET_SUN_DIR: Vector3 = Vector3(0.13, 0.078, -0.988)
 
 const SUNSET_SUN_COLOR: Color = Color("#FFDC9E")
 const SUNSET_SUN_ENERGY: float = 1.62
-const SUNSET_SUN_ROT_DEG: Vector3 = Vector3(-12.5, -16.0, 0.0)
+const SUNSET_SUN_ROT_DEG: Vector3 = Vector3(-12.5, 172.5, 0.0)
 
 const SUNSET_AMBIENT_COLOR: Color = Color("#E8B8B2")
 const SUNSET_AMBIENT_ENERGY: float = 0.75

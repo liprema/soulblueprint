@@ -28,7 +28,7 @@ environment = ExtResource("2_world_env")
 camera_attributes = ExtResource("15_cam_attrs")
 
 [node name="SunLight" type="DirectionalLight3D" parent="."]
-transform = Transform3D(0.984808, -0.059391, 0.163176, 0, 0.939693, 0.34202, -0.173648, -0.336824, 0.925417, 0, 95, -260)
+transform = Transform3D(-0.948683, -0.145786, 0.280618, 0, 0.887392, 0.461015, -0.316228, 0.437358, -0.841854, 0, 95, -260)
 light_color = Color(1.0, 0.91, 0.76, 1)
 light_energy = 1.28
 light_volumetric_fog_energy = 1.4
@@ -43,7 +43,7 @@ directional_shadow_fade_start = 0.85
 directional_shadow_blend_splits = true
 
 [node name="NightRimLight" type="DirectionalLight3D" parent="."]
-transform = Transform3D(-0.984808, 0.073387, -0.157379, 0, 0.906308, 0.422618, 0.173648, 0.416198, -0.892539, 0, 80, 120)
+transform = Transform3D(0.948683, 0.135526, -0.285714, 0, 0.903508, 0.428571, 0.316228, -0.406579, 0.857143, 0, 80, 120)
 light_color = Color(0.48, 0.68, 0.96, 1)
 light_energy = 0.34
 light_volumetric_fog_energy = 0.3
