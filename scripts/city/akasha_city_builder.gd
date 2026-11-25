@@ -17,6 +17,7 @@ const WATER_SHADER_PATH: String = "res://shaders/akasha_water.gdshader"
 const PIXAR_TERRACE_PLAZA_SHADER_PATH: String = "res://shaders/pixar_terrace_plaza.gdshader"
 const PIXAR_WATERFALL_SHADER_PATH: String = "res://shaders/pixar_waterfall.gdshader"
 const PIXAR_BUILDING_FACADE_SHADER_PATH: String = "res://shaders/pixar_building_facade.gdshader"
+const PIXAR_WINDOW_GLOW_SHADER_PATH: String = "res://shaders/pixar_window_glow.gdshader"
 const STYLIZED_TREE_FOLIAGE_SHADER_PATH: String = "res://shaders/stylized_tree_foliage.gdshader"
 
 const MODEL_SCHOOL_PATH: String = "res://assets/models/city/school_of_souls.glb"
@@ -93,6 +94,7 @@ const DISTRICT_QUERY_RADIUS: float = 28.0
 
 # Shared materials (reused across meshes for 60 FPS on macOS Retina)
 var _facade_shader: Shader = null
+var _window_glow_shader: Shader = null
 var _tree_foliage_shader: Shader = null
 var _facade_mat_cache: Dictionary = {}
 var _mat_meadow: Material = null
@@ -103,6 +105,7 @@ var _mat_marble_wall: Material = null
 var _mat_gold_trim: StandardMaterial3D = null
 var _mat_blue_roof: StandardMaterial3D = null
 var _mat_warm_window: StandardMaterial3D = null
+var _mat_chaotic_window: Material = null
 var _mat_stone_quay: StandardMaterial3D = null
 var _mat_water_canal: Material = null
 var _mat_water_lake: Material = null
@@ -164,8 +167,9 @@ var _scene_prop_cafe_bistro: PackedScene = null
 var _scene_prop_garden_urn: PackedScene = null
 var _scene_prop_grass_daisy: PackedScene = null
 
-# Unified 5-type house batches + 4 painterly fairytale tree batches + pocket park furniture + ornate balustrades
-var _city_house_batches: Dictionary = {}
+# Split 5-type house batches: Inner City (cast_shadows=ON) vs Outer Hillside (cast_shadows=OFF)
+var _city_inner_house_batches: Dictionary = {}
+var _city_outer_house_batches: Dictionary = {}
 var _placed_inner_houses: Array[Vector2] = []
 var _tree_blossom_xforms: Array[Transform3D] = []
 var _tree_willow_gold_xforms: Array[Transform3D] = []
@@ -489,6 +493,12 @@ func _init_materials() -> void:
 		if fac_res is Shader:
 			_facade_shader = fac_res as Shader
 
+	_window_glow_shader = null
+	if ResourceLoader.exists(PIXAR_WINDOW_GLOW_SHADER_PATH):
+		var wg_res: Resource = load(PIXAR_WINDOW_GLOW_SHADER_PATH)
+		if wg_res is Shader:
+			_window_glow_shader = wg_res as Shader
+
 	if ResourceLoader.exists(STYLIZED_TREE_FOLIAGE_SHADER_PATH):
 		var tree_sh_res: Resource = load(STYLIZED_TREE_FOLIAGE_SHADER_PATH)
 		if tree_sh_res is Shader:
@@ -608,19 +618,28 @@ func _init_materials() -> void:
 	_mat_gold_trim.emission = Color("#EBC672")
 	_mat_gold_trim.emission_energy_multiplier = 0.15
 
-	# Royal Celestial Blue Roof
+	# Deep Slate-Blue Matte Roof (harmonized Pixar palette, zero plastic gloss)
 	_mat_blue_roof = StandardMaterial3D.new()
-	_mat_blue_roof.albedo_color = Color("#245DA3")
-	_mat_blue_roof.metallic = 0.14
-	_mat_blue_roof.roughness = 0.42
+	_mat_blue_roof.albedo_color = Color(0.30, 0.36, 0.44)
+	_mat_blue_roof.metallic = 0.0
+	_mat_blue_roof.roughness = 0.84
+	_mat_blue_roof.metallic_specular = 0.14
 
-	# Warm Glowing Windows
+	# Warm Glowing Windows (fallback when pixar_window_glow.gdshader is unavailable)
 	_mat_warm_window = StandardMaterial3D.new()
 	_mat_warm_window.albedo_color = Color("#FFF0C8")
 	_mat_warm_window.roughness = 0.24
 	_mat_warm_window.emission_enabled = true
 	_mat_warm_window.emission = Color("#FFDF94")
 	_mat_warm_window.emission_energy_multiplier = 1.35
+
+	# Chaotic Per-Window/Floor Glowing Window Material (pixar_window_glow.gdshader)
+	if _window_glow_shader != null:
+		var wg_mat: ShaderMaterial = ShaderMaterial.new()
+		wg_mat.shader = _window_glow_shader
+		_mat_chaotic_window = wg_mat
+	else:
+		_mat_chaotic_window = _mat_warm_window
 
 	# Stone Quay / Curbs (warm honey-travertine)
 	_mat_stone_quay = StandardMaterial3D.new()
@@ -721,13 +740,13 @@ func _init_materials() -> void:
 	_mat_trunk_wood.metallic = 0.0
 	_mat_trunk_wood.metallic_specular = 0.12
 
-	# Harmonized Akasha Residential Fallback Palette (warm ivory-cream walls + muted rose-terracotta / noble sapphire roofs)
-	_mat_wall_cream = _create_facade_shader_mat(Color("#E8DEC8"), Color("#C9BAA0"), 0.74, 0.0, 0.46, 0.11, 1.8)
-	_mat_wall_ochre = _create_facade_shader_mat(Color("#DECAA4"), Color("#BFA77E"), 0.74, 0.0, 0.46, 0.11, 1.8)
-	_mat_wall_peach = _create_facade_shader_mat(Color("#E0C6B6"), Color("#BF9F8D"), 0.74, 0.0, 0.46, 0.11, 1.8)
-	_mat_roof_red = _create_facade_shader_mat(Color("#A86662"), Color("#824A47"), 0.58, 0.0, 0.48, 0.11, 1.4)
-	_mat_roof_terracotta = _create_facade_shader_mat(Color("#B67560"), Color("#8E5644"), 0.58, 0.0, 0.48, 0.11, 1.4)
-	_mat_roof_ochre = _create_facade_shader_mat(Color("#B49062"), Color("#8C6D46"), 0.58, 0.0, 0.48, 0.11, 1.4)
+	# Cohesive Toy Story 4 / Ralph Breaks the Internet Residential Fallback Palette (matte roughness = 0.86)
+	_mat_wall_cream = _create_facade_shader_mat(Color(0.90, 0.85, 0.76), Color(0.76, 0.70, 0.61), 0.86, 0.0, 0.44, 0.08, 1.8)
+	_mat_wall_ochre = _create_facade_shader_mat(Color(0.86, 0.79, 0.67), Color(0.72, 0.64, 0.53), 0.86, 0.0, 0.44, 0.08, 1.8)
+	_mat_wall_peach = _create_facade_shader_mat(Color(0.84, 0.66, 0.54), Color(0.70, 0.52, 0.42), 0.86, 0.0, 0.44, 0.08, 1.8)
+	_mat_roof_red = _create_facade_shader_mat(Color(0.62, 0.36, 0.28), Color(0.48, 0.27, 0.21), 0.86, 0.0, 0.46, 0.08, 1.4)
+	_mat_roof_terracotta = _create_facade_shader_mat(Color(0.58, 0.35, 0.27), Color(0.45, 0.26, 0.20), 0.86, 0.0, 0.46, 0.08, 1.4)
+	_mat_roof_ochre = _create_facade_shader_mat(Color(0.46, 0.34, 0.27), Color(0.35, 0.25, 0.19), 0.86, 0.0, 0.46, 0.08, 1.4)
 
 	_mat_boat_hull = StandardMaterial3D.new()
 	_mat_boat_hull.albedo_color = Color("#B84830")
@@ -855,95 +874,111 @@ func _create_facade_shader_mat(
 	base_col: Color,
 	accent_col: Color,
 	rough_val: float,
-	metal_val: float,
+	_metal_val: float,
 	grain_val: float,
 	var_val: float,
 	ao_h: float
 ) -> Material:
+	var matte_rough: float = maxf(rough_val, 0.82)
 	if _facade_shader != null:
 		var sm: ShaderMaterial = ShaderMaterial.new()
 		sm.shader = _facade_shader
 		sm.set_shader_parameter("base_color", base_col)
 		sm.set_shader_parameter("accent_color", accent_col)
-		sm.set_shader_parameter("roughness_val", rough_val)
-		sm.set_shader_parameter("metallic_val", metal_val)
+		sm.set_shader_parameter("roughness_val", matte_rough)
+		sm.set_shader_parameter("metallic_val", 0.0)
 		sm.set_shader_parameter("grain_strength", grain_val)
 		sm.set_shader_parameter("per_building_variation", var_val)
 		sm.set_shader_parameter("base_ao_height", ao_h)
 		return sm
 	var fb: StandardMaterial3D = StandardMaterial3D.new()
 	fb.albedo_color = base_col
-	fb.roughness = rough_val
-	fb.metallic = metal_val
+	fb.roughness = matte_rough
+	fb.metallic = 0.0
+	fb.metallic_specular = 0.14
 	return fb
 
 
-## Harmonizes every residential house wall/roof color into the noble Akasha Chronicles
-## palette that pairs effortlessly with the ivory-sapphire-gold Baroque Palace and
-## painterly fairytale trees (tames garish saturation to 0.28..0.48, warms walls toward
-## ivory-cream, and shifts roofs toward Baroque sapphire or muted rose-terracotta).
+## Returns the cohesive Toy Story 4 / Ralph Breaks the Internet warm European-Pixar
+## wall & roof palette for each of the 5 residential house variants (0 dopamine rainbow!).
+func _get_house_palette(kind: String) -> Dictionary:
+	if kind == "red_gable":
+		return {"wall": Color(0.90, 0.85, 0.76), "roof": Color(0.62, 0.36, 0.28)}
+	if kind == "blue_balcony":
+		return {"wall": Color(0.62, 0.70, 0.76), "roof": Color(0.30, 0.36, 0.44)}
+	if kind == "ochre_timber":
+		return {"wall": Color(0.86, 0.79, 0.67), "roof": Color(0.46, 0.34, 0.27)}
+	if kind == "terracotta_terrace":
+		return {"wall": Color(0.84, 0.66, 0.54), "roof": Color(0.58, 0.35, 0.27)}
+	if kind == "cream_spire":
+		return {"wall": Color(0.82, 0.72, 0.67), "roof": Color(0.32, 0.38, 0.46)}
+	return {}
+
+
+## Harmonizes residential facade colors into a warm, cohesive, matte cinematic palette
+## (Toy Story 4 / Ralph Breaks the Internet) when no explicit house variant palette is given.
 func _deepen_facade_color(col: Color, is_roof: bool = false) -> Color:
-	var warm_ivory: Color = Color(0.93, 0.89, 0.82, 1.0)
-	var noble_sapphire: Color = Color(0.24, 0.40, 0.64, 1.0)
-	var muted_rose_terracotta: Color = Color(0.72, 0.43, 0.40, 1.0)
-	var champagne_ochre: Color = Color(0.76, 0.62, 0.42, 1.0)
+	var warm_ivory: Color = Color(0.90, 0.85, 0.76, 1.0)
+	var deep_slate_blue: Color = Color(0.30, 0.36, 0.44, 1.0)
+	var muted_terracotta: Color = Color(0.62, 0.36, 0.28, 1.0)
+	var warm_walnut: Color = Color(0.46, 0.34, 0.27, 1.0)
 
 	var h: float = col.h
 	var s: float = col.s
 	var v: float = col.v
 
-	# Neutral limestone / plaster / white trim -> gently warm ivory-cream
 	if s <= 0.16 and not is_roof:
-		var neutral_v: float = clampf(v * 0.94, 0.42, 0.88)
-		var neutral_col: Color = Color.from_hsv(h, clampf(s, 0.04, 0.16), neutral_v, 1.0)
-		return neutral_col.lerp(warm_ivory, 0.22)
+		var neutral_v: float = clampf(v * 0.94, 0.45, 0.88)
+		var neutral_col: Color = Color.from_hsv(h, clampf(s, 0.04, 0.14), neutral_v, 1.0)
+		return neutral_col.lerp(warm_ivory, 0.32)
 
-	# Tame excessive garish saturation into noble 0.28..0.48 band
-	var noble_s: float = clampf(s * 0.62 + 0.08, 0.28, 0.48)
-	var noble_v: float = clampf(v * 0.88, 0.30, 0.84)
-	var toned: Color = Color.from_hsv(h, noble_s, noble_v, 1.0)
+	var calm_s: float = clampf(s * 0.45 + 0.06, 0.14, 0.34)
+	var calm_v: float = clampf(v * 0.88, 0.32, 0.84)
+	var toned: Color = Color.from_hsv(h, calm_s, calm_v, 1.0)
 
-	var looks_like_roof: bool = is_roof or (v < 0.62 and s > 0.34)
+	var looks_like_roof: bool = is_roof or (v < 0.60 and s > 0.28)
 	if looks_like_roof:
 		if h >= 0.48 and h <= 0.78:
-			# Cool/blue roofs -> noble Baroque sapphire
-			return toned.lerp(noble_sapphire, 0.32)
+			return toned.lerp(deep_slate_blue, 0.48)
 		if h < 0.11 or h > 0.86:
-			# Red/orange/terracotta roofs -> muted rose-terracotta
-			return toned.lerp(muted_rose_terracotta, 0.34)
-		# Warm ochre/amber roofs -> soft champagne-ochre
-		return toned.lerp(champagne_ochre, 0.28)
+			return toned.lerp(muted_terracotta, 0.48)
+		return toned.lerp(warm_walnut, 0.42)
 
-	# Facade walls -> blend softly with warm ivory-cream for refined architectural unity
-	var wall_v: float = clampf(noble_v, 0.64, 0.85)
-	var soft_wall: Color = Color.from_hsv(h, clampf(noble_s * 0.86, 0.20, 0.38), wall_v, 1.0)
-	return soft_wall.lerp(warm_ivory, 0.26)
+	var wall_v: float = clampf(calm_v, 0.66, 0.86)
+	var soft_wall: Color = Color.from_hsv(h, clampf(calm_s * 0.78, 0.12, 0.28), wall_v, 1.0)
+	return soft_wall.lerp(warm_ivory, 0.38)
 
 
-func _upgrade_to_facade_material(orig_mat: Material) -> Material:
+func _is_window_material(bm: BaseMaterial3D) -> bool:
+	var mat_name: String = bm.resource_name.to_lower()
+	return (
+		(bm.emission_enabled and bm.emission_energy_multiplier > 0.15)
+		or mat_name.contains("window")
+		or mat_name.contains("glass")
+		or mat_name.contains("pane")
+		or mat_name.contains("glow")
+		or mat_name.contains("lamp")
+		or mat_name.contains("lantern")
+	)
+
+
+func _upgrade_to_facade_material(orig_mat: Material, house_kind: String = "") -> Material:
 	if orig_mat == null:
 		return _mat_wall_cream
 	if orig_mat is ShaderMaterial:
 		return orig_mat
-	var cache_key: int = orig_mat.get_instance_id()
+	var cache_key: String = "%d_%s" % [orig_mat.get_instance_id(), house_kind]
 	if _facade_mat_cache.has(cache_key):
 		return _facade_mat_cache[cache_key] as Material
 
 	if orig_mat is BaseMaterial3D:
 		var bm: BaseMaterial3D = orig_mat as BaseMaterial3D
-		var mat_name: String = bm.resource_name.to_lower()
-		var is_emissive_window: bool = (
-			(bm.emission_enabled and bm.emission_energy_multiplier > 0.20)
-			or mat_name.contains("window")
-			or mat_name.contains("glass")
-			or mat_name.contains("glow")
-			or mat_name.contains("lamp")
-			or mat_name.contains("lantern")
-		)
-		if is_emissive_window:
-			_facade_mat_cache[cache_key] = orig_mat
-			return orig_mat
+		if _is_window_material(bm):
+			var win_mat: Material = _mat_chaotic_window if _mat_chaotic_window != null else orig_mat
+			_facade_mat_cache[cache_key] = win_mat
+			return win_mat
 
+		var mat_name: String = bm.resource_name.to_lower()
 		var is_roof: bool = (
 			mat_name.contains("roof")
 			or mat_name.contains("tile")
@@ -953,23 +988,104 @@ func _upgrade_to_facade_material(orig_mat: Material) -> Material:
 			or mat_name.contains("dome")
 			or mat_name.contains("gable")
 		)
-		var deep_col: Color = _deepen_facade_color(bm.albedo_color, is_roof)
-		var accent_col: Color = deep_col.darkened(0.20)
-		var rough_v: float = clampf(bm.roughness, 0.54, 0.86)
-		var metal_v: float = clampf(bm.metallic, 0.0, 0.45)
+		var is_timber: bool = (
+			mat_name.contains("wood")
+			or mat_name.contains("timber")
+			or mat_name.contains("beam")
+			or mat_name.contains("door")
+			or mat_name.contains("shutter")
+			or mat_name.contains("balcony")
+			or mat_name.contains("railing")
+		)
+
+		var target_col: Color = _deepen_facade_color(bm.albedo_color, is_roof)
+		var palette: Dictionary = _get_house_palette(house_kind)
+		if not palette.is_empty():
+			var pal_wall: Color = palette["wall"] as Color
+			var pal_roof: Color = palette["roof"] as Color
+			var inferred_roof: bool = is_roof or (not is_timber and bm.albedo_color.v < 0.62 and bm.albedo_color.s > 0.22)
+			if inferred_roof:
+				target_col = target_col.lerp(pal_roof, 0.85)
+			elif is_timber:
+				var warm_wood: Color = Color(0.44, 0.33, 0.26)
+				target_col = target_col.lerp(warm_wood, 0.72)
+			else:
+				target_col = target_col.lerp(pal_wall, 0.85)
+
+		var accent_col: Color = target_col.darkened(0.18)
 		var upgraded: Material = _create_facade_shader_mat(
-			deep_col,
+			target_col,
 			accent_col,
-			rough_v,
-			metal_v,
+			0.86,
+			0.0,
 			0.44,
-			0.11,
+			0.08,
 			1.8
 		)
 		_facade_mat_cache[cache_key] = upgraded
 		return upgraded
 
 	return orig_mat
+
+
+## Enforces matte non-glossy PBR (roughness >= 0.82, metallic = 0.0, specular = 0.14)
+## on all non-metallic architectural surfaces of Landmarks & Venues, and applies
+## pixar_window_glow.gdshader to every window/glass surface for chaotic lit windows.
+func _harmonize_building_materials_recursive(node: Node) -> void:
+	if node is MeshInstance3D:
+		var mi: MeshInstance3D = node as MeshInstance3D
+		if mi.material_override is BaseMaterial3D:
+			var ov_bm: BaseMaterial3D = mi.material_override as BaseMaterial3D
+			if _is_window_material(ov_bm):
+				if _mat_chaotic_window != null:
+					mi.material_override = _mat_chaotic_window
+			else:
+				var ov_name: String = ov_bm.resource_name.to_lower()
+				var is_metal_ov: bool = (
+					ov_bm.metallic >= 0.45
+					or ov_name.contains("gold")
+					or ov_name.contains("brass")
+					or ov_name.contains("bronze")
+					or ov_name.contains("metal")
+				)
+				if not is_metal_ov:
+					var dup_ov_res: Resource = ov_bm.duplicate()
+					if dup_ov_res is BaseMaterial3D:
+						var dup_ov: BaseMaterial3D = dup_ov_res as BaseMaterial3D
+						dup_ov.roughness = maxf(dup_ov.roughness, 0.82)
+						dup_ov.metallic = 0.0
+						dup_ov.metallic_specular = 0.14
+						mi.material_override = dup_ov
+		elif mi.mesh != null:
+			var surf_count: int = mi.mesh.get_surface_count()
+			for s_idx in range(surf_count):
+				var cur_mat: Material = mi.get_surface_override_material(s_idx)
+				if cur_mat == null:
+					cur_mat = mi.mesh.surface_get_material(s_idx)
+				if cur_mat is BaseMaterial3D:
+					var bm: BaseMaterial3D = cur_mat as BaseMaterial3D
+					if _is_window_material(bm):
+						if _mat_chaotic_window != null:
+							mi.set_surface_override_material(s_idx, _mat_chaotic_window)
+					else:
+						var s_name: String = bm.resource_name.to_lower()
+						var is_metal_s: bool = (
+							bm.metallic >= 0.45
+							or s_name.contains("gold")
+							or s_name.contains("brass")
+							or s_name.contains("bronze")
+							or s_name.contains("metal")
+						)
+						if not is_metal_s:
+							var dup_res: Resource = bm.duplicate()
+							if dup_res is BaseMaterial3D:
+								var dup_bm: BaseMaterial3D = dup_res as BaseMaterial3D
+								dup_bm.roughness = maxf(dup_bm.roughness, 0.82)
+								dup_bm.metallic = 0.0
+								dup_bm.metallic_specular = 0.14
+								mi.set_surface_override_material(s_idx, dup_bm)
+	for child in node.get_children():
+		_harmonize_building_materials_recursive(child)
 
 
 func _create_marble_shader_mat(
@@ -1032,7 +1148,14 @@ func _init_house_batches() -> void:
 	_ornate_railing_xforms.clear()
 	_railing_pillar_xforms.clear()
 	_railing_pillar_positions.clear()
-	_city_house_batches = {
+	_city_inner_house_batches = {
+		"red_gable": [] as Array[Transform3D],
+		"blue_balcony": [] as Array[Transform3D],
+		"ochre_timber": [] as Array[Transform3D],
+		"terracotta_terrace": [] as Array[Transform3D],
+		"cream_spire": [] as Array[Transform3D],
+	}
+	_city_outer_house_batches = {
 		"red_gable": [] as Array[Transform3D],
 		"blue_balcony": [] as Array[Transform3D],
 		"ochre_timber": [] as Array[Transform3D],
@@ -1072,7 +1195,7 @@ func _get_city_ground_y(x: float, z: float) -> float:
 	if x >= -24.0 and x <= 24.0 and z >= -198.0 and z <= -170.0:
 		return TIER_2_Y
 	# Tier 1: North Mid Terrace (Y = 3.2)
-	if x >= -66.0 and x <= 66.0 and z >= -158.0 and z <= -52.0:
+	if x >= -72.0 and x <= 72.0 and z >= -158.0 and z <= -52.0:
 		return TIER_1_Y
 	# Tier 1: West School of Souls Hill Terrace (Y = 3.2)
 	if x >= -64.0 and x <= -26.0 and z >= -16.0 and z <= 32.0:
@@ -1110,12 +1233,12 @@ func _get_prop_surface_y(x: float, z: float) -> float:
 		Vector3(30.0, 10.0, 5.5),
 		Vector3(0.0, -17.0, 7.2),
 		Vector3(0.0, -217.5, 10.5),
-		Vector3(-38.0, 8.0, 9.5),
+		Vector3(-35.2, 8.0, 7.4),
 		Vector3(0.0, -78.0, 10.8),
-		Vector3(-42.0, -78.0, 9.5),
-		Vector3(42.0, -78.0, 9.5),
+		Vector3(-39.5, -78.0, 7.4),
+		Vector3(42.0, -78.0, 7.6),
 		Vector3(-34.0, -138.0, 10.5),
-		Vector3(30.0, -138.0, 8.5),
+		Vector3(34.0, -138.0, 6.6),
 		Vector3(0.0, -184.0, 11.2),
 	]
 	for pl in plazas:
@@ -1193,7 +1316,7 @@ func _build_unified_ground_and_valley() -> void:
 
 	# South Valley Meadow (Z from -25 to +180) with carved Lake basin & sculpted West School Hill
 	var south_mesh: ArrayMesh = _build_meadow_grid_mesh(
-		-half_w, half_w, canal_z_south, z_max, 76, 48, true, false
+		-half_w, half_w, canal_z_south, z_max, 120, 76, true, false
 	)
 	var south_inst: MeshInstance3D = MeshInstance3D.new()
 	south_inst.name = "MeadowSouthValley"
@@ -1264,7 +1387,7 @@ func _build_meadow_grid_mesh(
 			if carve_palace:
 				var nz_south: float = _smooth01((-52.5 - vz) / 3.8)
 				var nz_north: float = _smooth01((vz + 174.0) / 16.0)
-				var nx_span: float = _smooth01((78.0 - absf(vx)) / 14.0)
+				var nx_span: float = _smooth01((86.0 - absf(vx)) / 14.0)
 				var north_terrace_hill: float = (TIER_1_Y - 0.10) * nz_south * nz_north * nx_span
 				# Keep the Grand Staircase cutout (|x| < 6.8, z > -55.5) clean below the steps
 				if absf(vx) < 7.0 and vz > -55.5:
@@ -1302,18 +1425,18 @@ func _build_meadow_grid_mesh(
 				var gentle_ripple: float = 0.24 * sin(vx * 0.085) * cos(vz * 0.085)
 				vy = maxf(vy, vy + gentle_ripple * 0.5)
 
-			# 5. Carve Lake of Silence basin (54, 12), R = 13.0
+			# 5. Carve Lake of Silence basin (54, 12), R = 13.0 — smooth bank plunging right under stone curb
 			if carve_lake:
 				var ldx: float = vx - LAKE_CENTER.x
 				var ldz: float = vz - LAKE_CENTER.z
 				var ldist: float = sqrt(ldx * ldx + ldz * ldz)
-				if ldist < LAKE_RADIUS + 3.0:
-					var shore_flat: float = _smooth01((ldist - LAKE_RADIUS) / 3.0)
+				if ldist < LAKE_RADIUS + 4.0:
+					var shore_flat: float = _smooth01((ldist - (LAKE_RADIUS + 0.55)) / 3.45)
 					vy *= shore_flat
-				if ldist < LAKE_RADIUS:
-					var t: float = clampf(1.0 - ldist / LAKE_RADIUS, 0.0, 1.0)
-					var smooth_t: float = t * t * (3.0 - 2.0 * t)
-					vy = -0.95 * smooth_t
+				if ldist < LAKE_RADIUS + 0.50:
+					var bank_t: float = _smooth01((LAKE_RADIUS + 0.50 - ldist) / 1.35)
+					var center_t: float = clampf(1.0 - ldist / LAKE_RADIUS, 0.0, 1.0)
+					vy = minf(vy, -0.78 * bank_t - 0.58 * center_t)
 
 			# 6. Carve Baroque Palace hill depression (0, -280), R = 68.0 + flat Forecourt corridor
 			if carve_palace:
@@ -1585,15 +1708,17 @@ func _build_canal_and_lake() -> void:
 				Vector3(rail_end_x, 0.26, qz)
 			)
 
-	# --- Lake of Silence in Quiet Lakes Park (54.0, -0.18, 12.0), radius 13m ---
+	# --- Lake of Silence in Quiet Lakes Park (54.0, -0.18, 12.0), circular radius 13m ---
 	var lake_water: MeshInstance3D = MeshInstance3D.new()
 	lake_water.name = "LakeOfSilenceWater"
-	var lw_mesh: PlaneMesh = PlaneMesh.new()
-	lw_mesh.size = Vector2(LAKE_RADIUS * 2.0, LAKE_RADIUS * 2.0)
-	lw_mesh.subdivide_width = 24
-	lw_mesh.subdivide_depth = 24
+	var lw_mesh: CylinderMesh = CylinderMesh.new()
+	lw_mesh.top_radius = LAKE_RADIUS + 0.12
+	lw_mesh.bottom_radius = LAKE_RADIUS + 0.12
+	lw_mesh.height = 0.08
+	lw_mesh.radial_segments = 64
+	lw_mesh.rings = 1
 	lake_water.mesh = lw_mesh
-	lake_water.position = Vector3(LAKE_CENTER.x, LAKE_CENTER.y, LAKE_CENTER.z)
+	lake_water.position = Vector3(LAKE_CENTER.x, LAKE_CENTER.y - 0.04, LAKE_CENTER.z)
 	lake_water.material_override = _mat_water_lake
 	lake_water.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	water_root.add_child(lake_water)
@@ -1854,7 +1979,7 @@ func _place_animated_boat(
 		if inst is Node3D:
 			var model_node: Node3D = inst as Node3D
 			model_node.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
-			_set_shadow_casting_recursive(model_node, GeometryInstance3D.SHADOW_CASTING_SETTING_OFF)
+			_set_shadow_casting_recursive(model_node, GeometryInstance3D.SHADOW_CASTING_SETTING_ON)
 			holder.add_child(model_node)
 			_ground_node_to_zero(model_node)
 			model_node.position.y -= 0.14
@@ -1948,10 +2073,10 @@ func _build_three_tier_terraces_and_stairs() -> void:
 	)
 
 	# -------------------------------------------------------------------------
-	# 2. NORTH MID TERRACE (Tier 1: Y = 3.2, X in [-66..+66], Z in [-158..-52])
+	# 2. NORTH MID TERRACE (Tier 1: Y = 3.2, X in [-72..+72], Z in [-158..-52])
 	# -------------------------------------------------------------------------
 	# 3-piece flush walkable floor collision leaving exact notch X in [-6..+6], Z in [-55..-52] for stairs
-	_add_terrace_floor_box(col_body, "NorthMidTerraceCol_Main", Vector3(0.0, TIER_1_Y, -106.5), Vector3(132.0, TIER_1_Y + 0.6, 103.0))
+	_add_terrace_floor_box(col_body, "NorthMidTerraceCol_Main", Vector3(0.0, TIER_1_Y, -106.5), Vector3(144.0, TIER_1_Y + 0.6, 103.0))
 	_add_terrace_floor_box(col_body, "NorthMidTerraceCol_SW", Vector3(-36.0, TIER_1_Y, -53.5), Vector3(60.0, TIER_1_Y + 0.6, 3.0))
 	_add_terrace_floor_box(col_body, "NorthMidTerraceCol_SE", Vector3(36.0, TIER_1_Y, -53.5), Vector3(60.0, TIER_1_Y + 0.6, 3.0))
 
@@ -1967,8 +2092,8 @@ func _build_three_tier_terraces_and_stairs() -> void:
 		apron.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
 	# Grand Arched Stone Retaining Wall along Z = -52.0 (facing south toward Canal & Bridge)
-	_add_arched_retaining_wall(topo_root, "NorthTerraceWall_West", Vector3(-66.0, 0.0, -52.0), Vector3(-6.0, 0.0, -52.0), TIER_1_Y, 1.0)
-	_add_arched_retaining_wall(topo_root, "NorthTerraceWall_East", Vector3(6.0, 0.0, -52.0), Vector3(66.0, 0.0, -52.0), TIER_1_Y, 1.0)
+	_add_arched_retaining_wall(topo_root, "NorthTerraceWall_West", Vector3(-72.0, 0.0, -52.0), Vector3(-6.0, 0.0, -52.0), TIER_1_Y, 1.0)
+	_add_arched_retaining_wall(topo_root, "NorthTerraceWall_East", Vector3(6.0, 0.0, -52.0), Vector3(72.0, 0.0, -52.0), TIER_1_Y, 1.0)
 
 	# Balustrades along North Mid Terrace South Rim (Z = -52.2) & North Rim (Z = -157.8)
 	_add_terrace_balustrade(topo_root, "NorthTerraceRail_SouthW", Vector3(-62.0, TIER_1_Y, -52.2), Vector3(-6.2, TIER_1_Y, -52.2))
@@ -2058,7 +2183,8 @@ func _build_three_tier_terraces_and_stairs() -> void:
 		_ornate_railing_xforms,
 		_create_fallback_ornate_railing_parts(),
 		null,
-		false
+		false,
+		true
 	)
 	_spawn_scene_multimesh_batch(
 		topo_root,
@@ -2067,7 +2193,8 @@ func _build_three_tier_terraces_and_stairs() -> void:
 		_railing_pillar_xforms,
 		_create_fallback_railing_pillar_parts(),
 		null,
-		false
+		false,
+		true
 	)
 
 
@@ -2348,10 +2475,10 @@ func _build_roads_and_plazas() -> void:
 	_add_marble_road(net_root, "ImperialForecourtRoad", Vector3(0.0, TIER_0_Y, -211.8), Vector3(0.0, TIER_0_Y, -228.0), 14.0, ROAD_TOP_Y)
 
 	# --- TIER 1 (Y = 3.2) ROADS ---
-	_add_marble_road(net_root, "Street_SchoolUpper", Vector3(-25.8, TIER_1_Y, 8.0), Vector3(-44.0, TIER_1_Y, 8.0), 8.0, SIDE_STREET_TOP_Y)
+	_add_marble_road(net_root, "Street_SchoolUpper", Vector3(-25.8, TIER_1_Y, 8.0), Vector3(-35.2, TIER_1_Y, 8.0), 8.0, SIDE_STREET_TOP_Y)
 	_add_marble_road(net_root, "MainBoulevard_North", Vector3(0.0, TIER_1_Y, -54.8), Vector3(0.0, TIER_1_Y, -158.2), 12.0, ROAD_TOP_Y)
-	_add_marble_road(net_root, "Street_OrionLibrary", Vector3(0.0, TIER_1_Y, -78.0), Vector3(-48.0, TIER_1_Y, -78.0), 7.5, SIDE_STREET_TOP_Y)
-	_add_marble_road(net_root, "Street_KronosTower", Vector3(0.0, TIER_1_Y, -78.0), Vector3(48.0, TIER_1_Y, -78.0), 7.5, SIDE_STREET_TOP_Y)
+	_add_marble_road(net_root, "Street_OrionLibrary", Vector3(0.0, TIER_1_Y, -78.0), Vector3(-39.5, TIER_1_Y, -78.0), 7.5, SIDE_STREET_TOP_Y)
+	_add_marble_road(net_root, "Street_KronosTower", Vector3(0.0, TIER_1_Y, -78.0), Vector3(42.0, TIER_1_Y, -78.0), 7.5, SIDE_STREET_TOP_Y)
 	_add_marble_road(net_root, "Street_LanternGarden", Vector3(0.0, TIER_1_Y, -138.0), Vector3(-34.0, TIER_1_Y, -138.0), 7.5, SIDE_STREET_TOP_Y)
 	_add_marble_road(net_root, "Street_MiraSanctuary", Vector3(0.0, TIER_1_Y, -138.0), Vector3(34.0, TIER_1_Y, -138.0), 7.5, SIDE_STREET_TOP_Y)
 
@@ -2366,13 +2493,13 @@ func _build_roads_and_plazas() -> void:
 	_add_marble_plaza(net_root, "Plaza_BridgeSouth", Vector3(0.0, TIER_0_Y, -17.0), 7.2)
 	_add_marble_plaza(net_root, "Plaza_ImperialForecourt", Vector3(0.0, TIER_0_Y, -217.5), 10.5)
 
-	# Tier 1 Plazas (Y = 3.2)
-	_add_marble_plaza(net_root, "Plaza_SchoolOfSouls", Vector3(-38.0, TIER_1_Y, 8.0), 9.5)
+	# Tier 1 Plazas (Y = 3.2 — cleanly clear of all 4 1.28x landmark footprints!)
+	_add_marble_plaza(net_root, "Plaza_SchoolOfSouls", Vector3(-35.2, TIER_1_Y, 8.0), 7.4)
 	_add_marble_plaza(net_root, "Plaza_AkashicOrrery", Vector3(0.0, TIER_1_Y, -78.0), 10.8)
-	_add_marble_plaza(net_root, "Plaza_OrionLibrary", Vector3(-42.0, TIER_1_Y, -78.0), 9.5)
-	_add_marble_plaza(net_root, "Plaza_KronosTower", Vector3(42.0, TIER_1_Y, -78.0), 9.5)
+	_add_marble_plaza(net_root, "Plaza_OrionLibrary", Vector3(-39.5, TIER_1_Y, -78.0), 7.4)
+	_add_marble_plaza(net_root, "Plaza_KronosTower", Vector3(42.0, TIER_1_Y, -78.0), 7.6)
 	_add_marble_plaza(net_root, "Plaza_LanternGarden", Vector3(-34.0, TIER_1_Y, -138.0), 10.5)
-	_add_marble_plaza(net_root, "Plaza_MiraSanctuary", Vector3(30.0, TIER_1_Y, -138.0), 8.5)
+	_add_marble_plaza(net_root, "Plaza_MiraSanctuary", Vector3(34.0, TIER_1_Y, -138.0), 6.6)
 
 	# Tier 2 Plaza (Y = 5.6)
 	_add_marble_plaza(net_root, "Plaza_UpperOverlook", Vector3(0.0, TIER_2_Y, -184.0), 11.2)
@@ -2384,9 +2511,9 @@ func _build_roads_and_plazas() -> void:
 	_add_marble_road(net_root, "SideStreet_SouthEast", Vector3(6.0, TIER_0_Y, 38.0), Vector3(52.0, TIER_0_Y, 38.0), 5.4, SIDE_STREET_TOP_Y)
 	_add_marble_road(net_root, "Alley_SouthEast", Vector3(28.0, TIER_0_Y, 35.3), Vector3(28.0, TIER_0_Y, 13.5), 5.4, SIDE_STREET_TOP_Y)
 
-	# --- TIER 1 (Y = 3.2) QUARTER ALLEYS (SIDE_STREET_TOP_Y = +0.025) ---
-	_add_marble_road(net_root, "Alley_NorthWest_Orion", Vector3(-41.0, TIER_1_Y, -78.0), Vector3(-41.0, TIER_1_Y, -138.0), 5.4, SIDE_STREET_TOP_Y)
-	_add_marble_road(net_root, "Alley_NorthEast_Kronos", Vector3(38.0, TIER_1_Y, -78.0), Vector3(38.0, TIER_1_Y, -138.0), 5.4, SIDE_STREET_TOP_Y)
+	# --- TIER 1 (Y = 3.2) QUARTER ALLEYS (SIDE_STREET_TOP_Y = +0.025, strictly clear of cross streets!) ---
+	_add_marble_road(net_root, "Alley_NorthWest_Orion", Vector3(-41.0, TIER_1_Y, -85.6), Vector3(-41.0, TIER_1_Y, -134.0), 5.4, SIDE_STREET_TOP_Y)
+	_add_marble_road(net_root, "Alley_NorthEast_Kronos", Vector3(37.0, TIER_1_Y, -84.0), Vector3(37.0, TIER_1_Y, -132.4), 5.4, SIDE_STREET_TOP_Y)
 
 	# --- 4 CIRCULAR POCKET PARKS (R = 8.5m, paving +0.085, inner lawn +0.115, benches & fairytale trees) ---
 	_add_pocket_park(net_root, "PocketPark_SakuraAlley", Vector3(-36.0, TIER_0_Y, 44.0), 8.5, "blossom")
@@ -2597,52 +2724,52 @@ func _build_city_buildings() -> void:
 	bld_root.name = "CityBuildings"
 	add_child(bld_root)
 
-	# 1. School of Souls on West School Terrace (-48.0, 3.2, 8.0), facade facing +X (1.15x dominant scale)
+	# 1. School of Souls on West School Terrace (-53.5, 3.2, 8.0), facade facing +X (1.28x grand scale)
 	_place_landmark_building(
 		bld_root,
 		"SchoolOfSoulsBuilding",
 		MODEL_SCHOOL_PATH,
-		Vector3(-48.0, TIER_1_Y, 8.0),
+		Vector3(-53.5, TIER_1_Y, 8.0),
 		PI * 0.5,
-		Vector3(16.1, 10.35, 18.4),
+		Vector3(19.2, 11.52, 20.4),
 		"school",
-		1.15
+		1.28
 	)
 
-	# 2. Orion Library on North Mid Terrace (-54.0, 3.2, -78.0), facade facing +X (1.15x dominant scale)
+	# 2. Orion Library on North Mid Terrace (-59.5, 3.2, -78.0), facade facing +X (1.28x grand scale)
 	_place_landmark_building(
 		bld_root,
 		"OrionLibraryBuilding",
 		MODEL_LIBRARY_PATH,
-		Vector3(-54.0, TIER_1_Y, -78.0),
+		Vector3(-59.5, TIER_1_Y, -78.0),
 		PI * 0.5,
-		Vector3(17.25, 13.8, 20.7),
+		Vector3(22.4, 15.36, 22.2),
 		"library",
-		1.15
+		1.28
 	)
 
-	# 3. Kronos Clocktower on North Mid Terrace (54.0, 3.2, -78.0), facade facing -X (1.15x dominant scale)
+	# 3. Kronos Clocktower on North Mid Terrace (56.5, 3.2, -78.0), facade facing -X (1.28x grand scale)
 	_place_landmark_building(
 		bld_root,
 		"KronosClocktowerBuilding",
 		MODEL_CLOCKTOWER_PATH,
-		Vector3(54.0, TIER_1_Y, -78.0),
+		Vector3(56.5, TIER_1_Y, -78.0),
 		-PI * 0.5,
-		Vector3(11.5, 25.3, 11.5),
+		Vector3(12.8, 28.16, 12.8),
 		"clocktower",
-		1.15
+		1.28
 	)
 
-	# 4. Mira's Sanctuary on North Mid Terrace (40.0, 3.2, -138.0), facade facing -X (1.15x dominant scale)
+	# 4. Mira's Sanctuary on North Mid Terrace (49.0, 3.2, -138.0), facade facing -X (1.28x grand scale)
 	_place_landmark_building(
 		bld_root,
 		"MiraSanctuaryBuilding",
 		MODEL_SANCTUARY_PATH,
-		Vector3(40.0, TIER_1_Y, -138.0),
+		Vector3(49.0, TIER_1_Y, -138.0),
 		-PI * 0.5,
-		Vector3(12.65, 9.2, 13.8),
+		Vector3(15.36, 10.24, 14.08),
 		"sanctuary",
-		1.15
+		1.28
 	)
 
 	# 5. Four Iconic City Landmarks across all 3 tiers (GLB + rich procedural fallbacks)
@@ -2848,6 +2975,8 @@ func _build_four_iconic_landmarks(parent: Node3D) -> void:
 		p_col.position = Vector3(side * 6.4, 4.5, 0.0)
 		a_body.add_child(p_col)
 
+	_set_shadow_casting_recursive(lm_root, GeometryInstance3D.SHADOW_CASTING_SETTING_ON)
+
 
 func _build_procedural_grand_fountain(parent: Node3D) -> void:
 	# 3-Tier Baroque Fountain of Awakening with luminous turquoise water basins
@@ -2989,7 +3118,7 @@ func _is_point_clear_for_house(x: float, z: float, half_r: float) -> bool:
 	var y_se: float = _get_city_ground_y(x + half_r, z + half_r)
 	var min_y: float = minf(y_c, minf(minf(y_nw, y_ne), minf(y_sw, y_se)))
 	var max_y: float = maxf(y_c, maxf(maxf(y_nw, y_ne), maxf(y_sw, y_se)))
-	if max_y - min_y > 0.25:
+	if max_y - min_y > 0.28:
 		return false
 
 	# 1. Main Boulevard (|x| < 6.8 + half_r, z in [-232, +62])
@@ -3021,15 +3150,15 @@ func _is_point_clear_for_house(x: float, z: float, half_r: float) -> bool:
 	# 7. All circular ornate plazas (radius + half_r + 1.0)
 	var plazas: Array[Vector3] = [
 		Vector3(0.0, 48.0, 12.8),
-		Vector3(-38.0, 8.0, 9.8),
+		Vector3(-35.2, 8.0, 7.6),
 		Vector3(42.0, 10.0, 5.7),
 		Vector3(30.0, 10.0, 5.5),
 		Vector3(0.0, -17.0, 7.2),
 		Vector3(0.0, -78.0, 11.4), # Akashic Orrery Central Plaza
-		Vector3(-42.0, -78.0, 9.5),
-		Vector3(42.0, -78.0, 9.5),
+		Vector3(-39.5, -78.0, 7.6),
+		Vector3(42.0, -78.0, 7.8),
 		Vector3(-34.0, -138.0, 10.5),
-		Vector3(30.0, -138.0, 8.5),
+		Vector3(34.0, -138.0, 6.8),
 		Vector3(0.0, -217.5, 10.5),
 	]
 	for p_info in plazas:
@@ -3051,14 +3180,14 @@ func _is_point_clear_for_house(x: float, z: float, half_r: float) -> bool:
 	if cbdx * cbdx + cbdz * cbdz < cb_r * cb_r:
 		return false
 
-	# 9. All 4 district landmark buildings (1.15x dominant scale + +/-PI/2 yaw + half_r + 1.2)
-	if absf(x + 48.0) < 10.6 + half_r and absf(z - 8.0) < 9.5 + half_r:
+	# 9. All 4 district landmark buildings (1.28x grand scale + +/-PI/2 yaw + half_r + 1.2)
+	if absf(x + 53.5) < 11.4 + half_r and absf(z - 8.0) < 10.8 + half_r:
 		return false
-	if absf(x + 54.0) < 11.8 + half_r and absf(z + 78.0) < 10.0 + half_r:
+	if absf(x + 59.5) < 12.3 + half_r and absf(z + 78.0) < 12.4 + half_r:
 		return false
-	if absf(x - 54.0) < 7.2 + half_r and absf(z + 78.0) < 7.2 + half_r:
+	if absf(x - 56.5) < 7.8 + half_r and absf(z + 78.0) < 7.8 + half_r:
 		return false
-	if absf(x - 40.0) < 8.3 + half_r and absf(z + 138.0) < 7.7 + half_r:
+	if absf(x - 49.0) < 8.4 + half_r and absf(z + 138.0) < 9.0 + half_r:
 		return false
 
 	# 10. All 9 district spawn points (keep >= 4.5 + half_r clear)
@@ -3130,10 +3259,10 @@ func _is_point_clear_for_house(x: float, z: float, half_r: float) -> bool:
 		return false
 	if z >= 9.0 and z <= 40.0 and absf(x - 28.0) < 3.4 + half_r:
 		return false
-	# NW Tier 1 Alley X = -41.0 (Z = -78..-138) & NE Tier 1 Alley X = 38.0 (Z = -78..-138)
+	# NW Tier 1 Alley X = -41.0 (Z = -78..-138) & NE Tier 1 Alley X = 37.0 (Z = -84..-132.4)
 	if z >= -140.0 and z <= -76.0 and absf(x + 41.0) < 3.4 + half_r:
 		return false
-	if z >= -140.0 and z <= -76.0 and absf(x - 38.0) < 3.4 + half_r:
+	if z >= -140.0 and z <= -76.0 and absf(x - 37.0) < 3.4 + half_r:
 		return false
 
 	var pocket_parks: Array[Vector3] = [
@@ -3171,23 +3300,23 @@ func _try_add_inner_house(
 	y_scale: float,
 	col_body: StaticBody3D
 ) -> bool:
-	var half_r: float = maxf(5.4, 3.75 * xz_scale)
+	var half_r: float = maxf(6.2, 3.80 * xz_scale)
 	if not _is_point_clear_for_house(x, z, half_r):
 		return false
-	if not _is_far_enough_from_inner_houses(x, z, 9.2):
+	if not _is_far_enough_from_inner_houses(x, z, 10.6):
 		return false
 
-	# Seat foundation at minimum of center & 4 corners minus 0.15m (0 gaps, 0 floating!)
+	# Seat foundation at minimum of center & 4 corners minus 0.22m (0 gaps, 0 floating!)
 	var y_c: float = _get_city_ground_y(x, z)
 	var y_nw: float = _get_city_ground_y(x - half_r, z - half_r)
 	var y_ne: float = _get_city_ground_y(x + half_r, z - half_r)
 	var y_sw: float = _get_city_ground_y(x - half_r, z + half_r)
 	var y_se: float = _get_city_ground_y(x + half_r, z + half_r)
 	var base_y: float = minf(y_c, minf(minf(y_nw, y_ne), minf(y_sw, y_se)))
-	var seated_y: float = base_y - 0.15
+	var seated_y: float = base_y - 0.22
 
 	_placed_inner_houses.append(Vector2(x, z))
-	var h_arr: Array[Transform3D] = _city_house_batches[h_kind] as Array[Transform3D]
+	var h_arr: Array[Transform3D] = _city_inner_house_batches[h_kind] as Array[Transform3D]
 	var xf: Transform3D = Transform3D(
 		Basis.from_euler(Vector3(0.0, face_yaw, 0.0)).scaled(Vector3(xz_scale, y_scale, xz_scale)),
 		Vector3(x, seated_y, z)
@@ -3230,16 +3359,16 @@ func _build_wall_to_wall_inner_quarters(bld_root: Node3D) -> void:
 		"terracotta_terrace",
 	]
 	var counter: int = 0
-	var row_step: float = 10.6
+	var row_step: float = 12.2
 
-	# --- A. MAIN BOULEVARD FACADE ROWS (Orderly grand-scale rows facing the Boulevard) ---
+	# --- A. MAIN BOULEVARD FACADE ROWS (Grand 4-6 story European-Pixar rows facing the Boulevard) ---
 	for side_val in [-1.0, 1.0]:
 		var side: float = float(side_val)
 		var z_cur: float = -148.0
 		while z_cur <= 54.0:
-			var blvd_x: float = side * (13.6 if z_cur < -45.0 else 13.0)
-			var xz_sc: float = rng.randf_range(1.42, 1.62)
-			var y_sc: float = rng.randf_range(1.48, 1.75)
+			var blvd_x: float = side * (15.2 if z_cur < -45.0 else 14.6)
+			var xz_sc: float = rng.randf_range(1.55, 1.85)
+			var y_sc: float = rng.randf_range(2.15, 3.05)
 			var yaw: float = -PI * 0.5 if side > 0.0 else PI * 0.5
 			var kind: String = street_kinds[counter % street_kinds.size()]
 			if _try_add_inner_house(blvd_x, z_cur, yaw, kind, xz_sc, y_sc, col_body):
@@ -3249,39 +3378,39 @@ func _build_wall_to_wall_inner_quarters(bld_root: Node3D) -> void:
 	# --- B. SHINING CANAL SOUTH WATERFRONT ROW (Strictly facing north toward the Canal) ---
 	for side_val in [-1.0, 1.0]:
 		var side: float = float(side_val)
-		var x_abs: float = 19.0
+		var x_abs: float = 19.5
 		while x_abs <= 58.0:
-			var xz_sc: float = rng.randf_range(1.42, 1.62)
-			var y_sc: float = rng.randf_range(1.48, 1.75)
+			var xz_sc: float = rng.randf_range(1.55, 1.85)
+			var y_sc: float = rng.randf_range(2.15, 3.05)
 			var kind: String = street_kinds[counter % street_kinds.size()]
-			if _try_add_inner_house(side * x_abs, -16.2, PI, kind, xz_sc, y_sc, col_body):
+			if _try_add_inner_house(side * x_abs, -14.8, PI, kind, xz_sc, y_sc, col_body):
 				counter += 1
 			x_abs += row_step
 
 	# --- C. ORDERLY EAST-WEST STREET ROWS (Strictly facing each street/avenue, 0 random yaw) ---
 	var ew_street_rows: Array[Dictionary] = [
 		# SW Side Street (Z = 44.0): South side rows facing north (PI)
-		{"z": 54.0, "x_min": -56.0, "x_max": -18.0, "yaw": PI},
-		{"z": 64.6, "x_min": -56.0, "x_max": -18.0, "yaw": PI},
+		{"z": 55.2, "x_min": -56.0, "x_max": -18.0, "yaw": PI},
+		{"z": 67.4, "x_min": -56.0, "x_max": -18.0, "yaw": PI},
 		# SE Side Street (Z = 38.0): North side faces south (0.0), South side faces north (PI)
-		{"z": 28.4, "x_min": 20.0, "x_max": 54.0, "yaw": 0.0},
-		{"z": 47.8, "x_min": 18.0, "x_max": 54.0, "yaw": PI},
-		{"z": 58.4, "x_min": 18.0, "x_max": 54.0, "yaw": PI},
+		{"z": 27.6, "x_min": 20.0, "x_max": 54.0, "yaw": 0.0},
+		{"z": 49.2, "x_min": 18.0, "x_max": 54.0, "yaw": PI},
+		{"z": 61.4, "x_min": 18.0, "x_max": 54.0, "yaw": PI},
 		# School & Quiet Lakes Cross Street (Z = 8.0 / 10.0)
-		{"z": -4.2, "x_min": -56.0, "x_max": -32.0, "yaw": 0.0},
-		{"z": 22.0, "x_min": -56.0, "x_max": -32.0, "yaw": PI},
-		{"z": -3.8, "x_min": 18.0, "x_max": 42.0, "yaw": 0.0},
-		{"z": 21.5, "x_min": 18.0, "x_max": 38.0, "yaw": PI},
+		{"z": -5.0, "x_min": -56.0, "x_max": -32.0, "yaw": 0.0},
+		{"z": 22.8, "x_min": -56.0, "x_max": -32.0, "yaw": PI},
+		{"z": -4.6, "x_min": 18.0, "x_max": 42.0, "yaw": 0.0},
+		{"z": 22.5, "x_min": 18.0, "x_max": 38.0, "yaw": PI},
 		# North Terrace South Promenade & Orion/Kronos Cross Street (Z = -78.0)
 		{"z": -63.0, "x_min": -56.0, "x_max": -18.0, "yaw": PI},
-		{"z": -90.0, "x_min": -56.0, "x_max": -18.0, "yaw": 0.0},
+		{"z": -91.2, "x_min": -56.0, "x_max": -18.0, "yaw": 0.0},
 		{"z": -63.0, "x_min": 18.0, "x_max": 56.0, "yaw": PI},
-		{"z": -90.0, "x_min": 18.0, "x_max": 56.0, "yaw": 0.0},
+		{"z": -91.2, "x_min": 18.0, "x_max": 56.0, "yaw": 0.0},
 		# Lantern Garden & Mira's Sanctuary Cross Street (Z = -138.0)
-		{"z": -126.0, "x_min": -56.0, "x_max": -18.0, "yaw": PI},
-		{"z": -150.2, "x_min": -56.0, "x_max": -18.0, "yaw": 0.0},
-		{"z": -126.0, "x_min": 18.0, "x_max": 56.0, "yaw": PI},
-		{"z": -150.2, "x_min": 18.0, "x_max": 56.0, "yaw": 0.0},
+		{"z": -125.0, "x_min": -56.0, "x_max": -18.0, "yaw": PI},
+		{"z": -151.0, "x_min": -56.0, "x_max": -18.0, "yaw": 0.0},
+		{"z": -125.0, "x_min": 18.0, "x_max": 56.0, "yaw": PI},
+		{"z": -151.0, "x_min": 18.0, "x_max": 56.0, "yaw": 0.0},
 	]
 	for row_spec in ew_street_rows:
 		var rz: float = float(row_spec["z"])
@@ -3289,8 +3418,8 @@ func _build_wall_to_wall_inner_quarters(bld_root: Node3D) -> void:
 		var x_cur: float = float(row_spec["x_min"])
 		var x_end: float = float(row_spec["x_max"])
 		while x_cur <= x_end:
-			var xz_sc: float = rng.randf_range(1.42, 1.62)
-			var y_sc: float = rng.randf_range(1.48, 1.75)
+			var xz_sc: float = rng.randf_range(1.55, 1.85)
+			var y_sc: float = rng.randf_range(2.15, 3.05)
 			var kind: String = street_kinds[counter % street_kinds.size()]
 			if (counter % 7 == 0) and absf(x_cur) > 24.0:
 				kind = "cream_spire"
@@ -3301,21 +3430,21 @@ func _build_wall_to_wall_inner_quarters(bld_root: Node3D) -> void:
 	# --- D. ORDERLY NORTH-SOUTH ALLEY & OUTER QUARTER ROWS (Strictly facing each alley/quarter) ---
 	var ns_alley_rows: Array[Dictionary] = [
 		# SE Alley X = 28.0 (East side faces -X)
-		{"x": 38.0, "z_min": 18.0, "z_max": 30.0, "yaw": -PI * 0.5},
+		{"x": 39.2, "z_min": 18.0, "z_max": 30.0, "yaw": -PI * 0.5},
 		# NW Tier 1 Alley X = -41.0 (West side faces +X, East side faces -X)
-		{"x": -51.5, "z_min": -126.0, "z_max": -92.0, "yaw": PI * 0.5},
-		{"x": -31.0, "z_min": -126.0, "z_max": -92.0, "yaw": -PI * 0.5},
+		{"x": -52.5, "z_min": -126.0, "z_max": -92.0, "yaw": PI * 0.5},
+		{"x": -30.0, "z_min": -126.0, "z_max": -92.0, "yaw": -PI * 0.5},
 		# NE Tier 1 Alley X = 38.0 (West side faces +X, East side faces -X)
-		{"x": 28.0, "z_min": -126.0, "z_max": -92.0, "yaw": PI * 0.5},
-		{"x": 48.5, "z_min": -126.0, "z_max": -92.0, "yaw": -PI * 0.5},
+		{"x": 27.0, "z_min": -126.0, "z_max": -92.0, "yaw": PI * 0.5},
+		{"x": 49.5, "z_min": -126.0, "z_max": -92.0, "yaw": -PI * 0.5},
 		# Outer West & East Quarter Rows (facing inward toward the city, strictly inside terrace bounds)
-		{"x": -56.5, "z_min": -150.0, "z_max": 52.0, "yaw": PI * 0.5},
-		{"x": 56.5, "z_min": -150.0, "z_max": 52.0, "yaw": -PI * 0.5},
+		{"x": -57.5, "z_min": -150.0, "z_max": 52.0, "yaw": PI * 0.5},
+		{"x": 57.5, "z_min": -150.0, "z_max": 52.0, "yaw": -PI * 0.5},
 		# Pre-Palace Flanking Quarters (orderly rows facing Upper Overlook Terrace)
-		{"x": -36.5, "z_min": -200.0, "z_max": -166.0, "yaw": PI * 0.5},
-		{"x": -48.5, "z_min": -200.0, "z_max": -166.0, "yaw": PI * 0.5},
-		{"x": 36.5, "z_min": -200.0, "z_max": -166.0, "yaw": -PI * 0.5},
-		{"x": 48.5, "z_min": -200.0, "z_max": -166.0, "yaw": -PI * 0.5},
+		{"x": -37.5, "z_min": -200.0, "z_max": -166.0, "yaw": PI * 0.5},
+		{"x": -50.5, "z_min": -200.0, "z_max": -166.0, "yaw": PI * 0.5},
+		{"x": 37.5, "z_min": -200.0, "z_max": -166.0, "yaw": -PI * 0.5},
+		{"x": 50.5, "z_min": -200.0, "z_max": -166.0, "yaw": -PI * 0.5},
 	]
 	for col_spec in ns_alley_rows:
 		var cx: float = float(col_spec["x"])
@@ -3323,8 +3452,8 @@ func _build_wall_to_wall_inner_quarters(bld_root: Node3D) -> void:
 		var z_cur: float = float(col_spec["z_min"])
 		var z_end: float = float(col_spec["z_max"])
 		while z_cur <= z_end:
-			var xz_sc: float = rng.randf_range(1.42, 1.62)
-			var y_sc: float = rng.randf_range(1.48, 1.75)
+			var xz_sc: float = rng.randf_range(1.55, 1.85)
+			var y_sc: float = rng.randf_range(2.15, 3.05)
 			var kind: String = street_kinds[counter % street_kinds.size()]
 			if (counter % 6 == 0) and absf(cx) > 28.0:
 				kind = "cream_spire"
@@ -3340,15 +3469,15 @@ func _build_wall_to_wall_inner_quarters(bld_root: Node3D) -> void:
 		Vector2(38.0, -108.0),
 	]
 	for pk_c in park_centers:
-		var ring_r: float = 15.8
+		var ring_r: float = 16.8
 		var slots: int = 8
 		for s_i in range(slots):
 			var ang: float = (TAU * float(s_i)) / float(slots) + PI / 8.0
 			var hx: float = pk_c.x + cos(ang) * ring_r
 			var hz: float = pk_c.y + sin(ang) * ring_r
 			var face_park: float = atan2(pk_c.x - hx, pk_c.y - hz)
-			var xz_sc: float = rng.randf_range(1.42, 1.56)
-			var y_sc: float = rng.randf_range(1.48, 1.68)
+			var xz_sc: float = rng.randf_range(1.55, 1.78)
+			var y_sc: float = rng.randf_range(2.15, 2.85)
 			var kind: String = street_kinds[counter % street_kinds.size()]
 			if _try_add_inner_house(hx, hz, face_park, kind, xz_sc, y_sc, col_body):
 				counter += 1
@@ -3390,6 +3519,10 @@ func _place_landmark_building(
 		fb_root2.scale = Vector3(model_scale, model_scale, model_scale)
 		holder.add_child(fb_root2)
 		_build_procedural_landmark(fb_root2, fallback_kind)
+
+	# Matte non-glossy harmonizer + chaotic glowing windows + crisp shadows on ALL landmarks & venues
+	_harmonize_building_materials_recursive(holder)
+	_set_shadow_casting_recursive(holder, GeometryInstance3D.SHADOW_CASTING_SETTING_ON)
 
 	# Solid BoxShape3D collision so player cannot walk through the building
 	var body: StaticBody3D = StaticBody3D.new()
@@ -3521,6 +3654,8 @@ func _build_bridge_of_memory(parent: Node3D) -> void:
 			_build_procedural_bridge_visuals(bridge_root)
 	else:
 		_build_procedural_bridge_visuals(bridge_root)
+
+	_set_shadow_casting_recursive(bridge_root, GeometryInstance3D.SHADOW_CASTING_SETTING_ON)
 
 	# Walkable bridge collision: South ramp + Center flat deck + North ramp
 	# Canal spans Z in [-7, +7] local. Ramps span Z = +11.2..+4.2 and Z = -4.2..-11.2
@@ -3793,18 +3928,19 @@ func _build_terraced_endless_city() -> void:
 					z_cur += z_step
 					continue
 
-				# Continuous deep retaining wall slab (bottom at Y = -1.5, top strictly at Y = ty, depth 14.2m)
+				# Continuous deep retaining wall slab anchored at unjittered tier centerline (depth 16.8m, 0 overhang!)
 				var wall_h: float = ty + 1.5
+				var wall_cx: float = side * (bx + north_flare + lake_flare)
 				if slot_idx % 2 == 1:
 					var wall_yaw: float = PI * 0.5
 					wall_xforms.append(Transform3D(
-						Basis.from_euler(Vector3(0.0, wall_yaw, 0.0)).scaled(Vector3(z_step * 2.45, wall_h, 14.2)),
-						Vector3(x_pos, wall_h * 0.5 - 1.5, z_pos + z_step * 0.45)
+						Basis.from_euler(Vector3(0.0, wall_yaw, 0.0)).scaled(Vector3(z_step * 2.45, wall_h, 16.8)),
+						Vector3(wall_cx, wall_h * 0.5 - 1.5, z_cur + z_step * 0.45)
 					))
 					if slot_idx % 4 == 1:
 						pier_xforms.append(Transform3D(
 							Basis.from_euler(Vector3(0.0, 0.0, 0.0)).scaled(Vector3(2.0, wall_h + 0.3, 2.0)),
-							Vector3(x_pos - side * 6.6, wall_h * 0.5 - 1.35, z_pos + z_step * 0.6)
+							Vector3(wall_cx - side * 7.8, wall_h * 0.5 - 1.35, z_cur + z_step * 0.6)
 						))
 
 				# Sculptural cliff rock grounded at Y = -0.5, flat top strictly flush at Y = ty
@@ -3817,10 +3953,10 @@ func _build_terraced_endless_city() -> void:
 					)
 					cliff_xforms.append(Transform3D(
 						Basis.from_euler(Vector3(0.0, rng.randf_range(0.0, TAU), 0.0)).scaled(rock_sc),
-						Vector3(x_pos - side * 6.2, -0.5, z_pos + rng.randf_range(-2.0, 2.0))
+						Vector3(wall_cx - side * 7.4, -0.5, z_pos + rng.randf_range(-2.0, 2.0))
 					))
 
-				# Grand-scale terrace house/spire facing inward, seated firmly at ty - 0.15 (0 floating!)
+				# Grand-scale terrace house/spire facing inward, seated firmly at ty - 0.18 (0 floating!)
 				var h_kind: String = ""
 				if t_idx == 4:
 					h_kind = crown_kinds[(slot_idx + t_idx) % crown_kinds.size()]
@@ -3830,12 +3966,12 @@ func _build_terraced_endless_city() -> void:
 					h_kind = lower_kinds[(slot_idx + t_idx) % lower_kinds.size()]
 
 				var face_yaw: float = (-PI * 0.5 if side > 0.0 else PI * 0.5) + rng.randf_range(-0.10, 0.10)
-				var h_sc: float = rng.randf_range(1.35, 1.55) + float(t_idx) * 0.04
-				var h_sy: float = h_sc * (rng.randf_range(1.18, 1.42) if (t_idx == 4 and h_kind == "cream_spire") else rng.randf_range(0.96, 1.18))
-				var h_arr: Array[Transform3D] = _city_house_batches[h_kind] as Array[Transform3D]
+				var h_sc: float = rng.randf_range(1.48, 1.72)
+				var h_sy: float = rng.randf_range(2.45, 3.05) if (t_idx == 4 and h_kind == "cream_spire") else rng.randf_range(2.05, 2.75)
+				var h_arr: Array[Transform3D] = _city_outer_house_batches[h_kind] as Array[Transform3D]
 				h_arr.append(Transform3D(
 					Basis.from_euler(Vector3(0.0, face_yaw, 0.0)).scaled(Vector3(h_sc, h_sy, h_sc)),
-					Vector3(x_pos, ty - 0.15, z_pos)
+					Vector3(x_pos, ty - 0.18, z_pos)
 				))
 
 				# Sculptural Fairytale Trees seated strictly inside the retaining wall top (ty - 0.15)
@@ -3873,12 +4009,12 @@ func _build_terraced_endless_city() -> void:
 			var x_pos: float = x_cur + rng.randf_range(-0.45, 0.45)
 			var z_pos: float = bz + rng.randf_range(-0.6, 0.6)
 
-			# Bottom at Y = -1.5, top strictly flush at Y = ty, depth 14.2m!
+			# Bottom at Y = -1.5, top strictly flush at Y = ty, anchored at unjittered bz, depth 16.8m!
 			var wall_h: float = ty + 1.5
 			if s_idx % 2 == 1:
 				wall_xforms.append(Transform3D(
-					Basis.from_scale(Vector3(x_step * 2.45, wall_h, 14.2)),
-					Vector3(x_pos + x_step * 0.45, wall_h * 0.5 - 1.5, z_pos)
+					Basis.from_scale(Vector3(x_step * 2.45, wall_h, 16.8)),
+					Vector3(x_cur + x_step * 0.45, wall_h * 0.5 - 1.5, bz)
 				))
 
 			if (s_idx + t_idx) % 4 == 0:
@@ -3886,7 +4022,7 @@ func _build_terraced_endless_city() -> void:
 				var r_sc: Vector3 = Vector3(rng.randf_range(1.2, 1.6), cliff_sy_b, rng.randf_range(1.2, 1.6))
 				cliff_xforms.append(Transform3D(
 					Basis.from_euler(Vector3(0.0, rng.randf_range(0.0, TAU), 0.0)).scaled(r_sc),
-					Vector3(x_pos, -0.5, z_pos - 6.2)
+					Vector3(x_pos, -0.5, bz - 7.4)
 				))
 
 			var h_kind: String = ""
@@ -3896,12 +4032,12 @@ func _build_terraced_endless_city() -> void:
 				h_kind = upper_kinds[(s_idx + t_idx) % upper_kinds.size()]
 			else:
 				h_kind = lower_kinds[(s_idx + t_idx) % lower_kinds.size()]
-			var h_sc: float = rng.randf_range(1.35, 1.55) + float(t_idx) * 0.04
-			var h_sy: float = h_sc * (rng.randf_range(1.18, 1.42) if (t_idx == 4 and h_kind == "cream_spire") else rng.randf_range(0.96, 1.18))
-			var h_arr: Array[Transform3D] = _city_house_batches[h_kind] as Array[Transform3D]
+			var h_sc: float = rng.randf_range(1.48, 1.72)
+			var h_sy: float = rng.randf_range(2.45, 3.05) if (t_idx == 4 and h_kind == "cream_spire") else rng.randf_range(2.05, 2.75)
+			var h_arr: Array[Transform3D] = _city_outer_house_batches[h_kind] as Array[Transform3D]
 			h_arr.append(Transform3D(
 				Basis.from_euler(Vector3(0.0, PI + rng.randf_range(-0.12, 0.12), 0.0)).scaled(Vector3(h_sc, h_sy, h_sc)),
-				Vector3(x_pos, ty - 0.15, z_pos)
+				Vector3(x_pos, ty - 0.18, z_pos)
 			))
 
 			if s_idx % 3 == 0:
@@ -3934,10 +4070,10 @@ func _build_terraced_endless_city() -> void:
 				var ty: float = 3.5 + t_prog * 14.0
 				var z_pos: float = z_base + bank * t_prog * 7.5
 
-				# Retaining wall supporting each riverfront terrace house (top strictly at Y = ty, depth 13.6m)
+				# Retaining wall supporting each riverfront terrace house (top strictly at Y = ty, depth 16.2m)
 				var wall_h_c: float = ty + 1.5
 				wall_xforms.append(Transform3D(
-					Basis.from_scale(Vector3(12.8, wall_h_c, 13.6)),
+					Basis.from_scale(Vector3(12.8, wall_h_c, 16.2)),
 					Vector3(x_pos, wall_h_c * 0.5 - 1.5, z_pos)
 				))
 
@@ -3946,16 +4082,17 @@ func _build_terraced_endless_city() -> void:
 					var cliff_sy_c: float = (ty + 0.5) / 6.0
 					cliff_xforms.append(Transform3D(
 						Basis.from_euler(Vector3(0.0, rng.randf_range(0.0, TAU), 0.0)).scaled(Vector3(1.5, cliff_sy_c, 1.4)),
-						Vector3(x_pos, -0.5, z_pos - bank * 5.0)
+						Vector3(x_pos, -0.5, z_pos - bank * 5.4)
 					))
 
 				var h_kind: String = "cream_spire" if (d_idx >= 5 or d_idx % 4 == 0) else lower_kinds[d_idx % lower_kinds.size()]
 				var face_yaw: float = 0.0 if bank < 0.0 else PI
-				var h_sc: float = 1.35 + t_prog * 0.20
-				var h_arr: Array[Transform3D] = _city_house_batches[h_kind] as Array[Transform3D]
+				var h_sc: float = rng.randf_range(1.48, 1.72)
+				var h_sy_c: float = rng.randf_range(2.05, 2.75)
+				var h_arr: Array[Transform3D] = _city_outer_house_batches[h_kind] as Array[Transform3D]
 				h_arr.append(Transform3D(
-					Basis.from_euler(Vector3(0.0, face_yaw + rng.randf_range(-0.10, 0.10), 0.0)).scaled(Vector3(h_sc, h_sc, h_sc)),
-					Vector3(x_pos, ty - 0.15, z_pos)
+					Basis.from_euler(Vector3(0.0, face_yaw + rng.randf_range(-0.10, 0.10), 0.0)).scaled(Vector3(h_sc, h_sy_c, h_sc)),
+					Vector3(x_pos, ty - 0.18, z_pos)
 				))
 
 				if d_idx % 3 == 0:
@@ -3970,15 +4107,15 @@ func _build_terraced_endless_city() -> void:
 
 				x_abs += 11.5
 
-	# --- D. COMMIT WALLS, CLIFFS & 5 UNIFIED HOUSE MULTIMESHES (Trees commit in _build_city_props_and_flora) ---
+	# --- D. COMMIT WALLS, CLIFFS & SPLIT INNER (SHADOWS ON) / OUTER (SHADOWS OFF) HOUSE MULTIMESHES ---
 	# 1. Terraced retaining walls & piers (2 draw calls, textured via pixar_building_facade.gdshader)
 	var wall_mesh: BoxMesh = BoxMesh.new()
 	wall_mesh.size = Vector3(1.0, 1.0, 1.0)
-	_create_simple_multimesh(tier_root, "TerraceRetainingWallsMM", wall_mesh, _mat_terrace_stone, wall_xforms)
+	_create_simple_multimesh(tier_root, "TerraceRetainingWallsMM", wall_mesh, _mat_terrace_stone, wall_xforms, false)
 
 	var pier_mesh: BoxMesh = BoxMesh.new()
 	pier_mesh.size = Vector3(1.0, 1.0, 1.0)
-	_create_simple_multimesh(tier_root, "TerraceButtressPiersMM", pier_mesh, _mat_stone_quay, pier_xforms)
+	_create_simple_multimesh(tier_root, "TerraceButtressPiersMM", pier_mesh, _mat_stone_quay, pier_xforms, false)
 
 	# 2. Sculptural cliff rocks (cliff_terrace_rock.glb or procedural rock fallback)
 	_spawn_scene_multimesh_batch(
@@ -3988,22 +4125,38 @@ func _build_terraced_endless_city() -> void:
 		cliff_xforms,
 		_create_fallback_cliff_parts(),
 		null,
+		false,
 		false
 	)
 
-	# 3. UNIFIED 5 Harmonized House MultiMeshInstance3Ds with procedural stucco/tile facade shader
+	# 3. Inner City Houses (cast_shadows = TRUE) & Distant Outer Hillside Houses (cast_shadows = FALSE)
 	var house_kinds: Array[String] = ["red_gable", "blue_balcony", "ochre_timber", "terracotta_terrace", "cream_spire"]
 	for h_kind in house_kinds:
-		var xforms: Array[Transform3D] = _city_house_batches[h_kind] as Array[Transform3D]
+		var inner_xforms: Array[Transform3D] = _city_inner_house_batches[h_kind] as Array[Transform3D]
+		var outer_xforms: Array[Transform3D] = _city_outer_house_batches[h_kind] as Array[Transform3D]
 		var h_scene: PackedScene = _get_pixar_house_scene(h_kind)
+		var fb_parts: Array[Dictionary] = _create_fallback_house_parts(h_kind)
 		_spawn_scene_multimesh_batch(
 			tier_root,
-			"CityHouses_%s_MM" % h_kind,
+			"CityInnerHouses_%s_MM" % h_kind,
 			h_scene,
-			xforms,
-			_create_fallback_house_parts(h_kind),
+			inner_xforms,
+			fb_parts,
 			null,
-			true
+			true,
+			true,
+			h_kind
+		)
+		_spawn_scene_multimesh_batch(
+			tier_root,
+			"CityOuterHouses_%s_MM" % h_kind,
+			h_scene,
+			outer_xforms,
+			fb_parts,
+			null,
+			true,
+			false,
+			h_kind
 		)
 
 
@@ -4097,7 +4250,7 @@ func _build_city_props_and_flora() -> void:
 			pos
 		))
 
-	# --- COMMIT ALL 4 UNIFIED FAIRYTALE TREE MULTIMESHES (4 draw calls for the entire city!) ---
+	# --- COMMIT ALL 4 UNIFIED FAIRYTALE TREE MULTIMESHES (4 draw calls, cast_shadows = ON!) ---
 	_spawn_scene_multimesh_batch(
 		props_root,
 		"AkashaTrees_BlossomCoral_MM",
@@ -4105,7 +4258,8 @@ func _build_city_props_and_flora() -> void:
 		_tree_blossom_xforms,
 		_create_fallback_tree_parts(_mat_tree_blossom),
 		_mat_tree_blossom,
-		false
+		false,
+		true
 	)
 	_spawn_scene_multimesh_batch(
 		props_root,
@@ -4114,7 +4268,8 @@ func _build_city_props_and_flora() -> void:
 		_tree_willow_gold_xforms,
 		_create_fallback_tree_parts(_mat_tree_willow_gold),
 		_mat_tree_willow_gold,
-		false
+		false,
+		true
 	)
 	_spawn_scene_multimesh_batch(
 		props_root,
@@ -4123,7 +4278,8 @@ func _build_city_props_and_flora() -> void:
 		_tree_willow_lavender_xforms,
 		_create_fallback_tree_parts(_mat_tree_willow_lavender),
 		_mat_tree_willow_lavender,
-		false
+		false,
+		true
 	)
 	_spawn_scene_multimesh_batch(
 		props_root,
@@ -4132,7 +4288,8 @@ func _build_city_props_and_flora() -> void:
 		_tree_bonsai_azure_xforms,
 		_create_fallback_tree_parts(_mat_tree_bonsai_azure),
 		_mat_tree_bonsai_azure,
-		false
+		false,
+		true
 	)
 
 	# Lush bushes framing plazas, Mira's Sanctuary, and Park
@@ -4175,7 +4332,8 @@ func _build_city_props_and_flora() -> void:
 		urn_xforms,
 		_create_fallback_garden_urn_parts(),
 		null,
-		false
+		false,
+		true
 	)
 
 
@@ -4298,7 +4456,8 @@ func _build_street_life_and_akasha_magic() -> void:
 		bench_xforms,
 		_create_fallback_bench_parts(),
 		null,
-		false
+		false,
+		true
 	)
 
 	# --- 2. 8 DIRECTIONAL SIGNPOSTS AT ALL MAIN INTERSECTIONS (prop_city_signpost.glb) ---
@@ -4327,7 +4486,8 @@ func _build_street_life_and_akasha_magic() -> void:
 		signpost_xforms,
 		_create_fallback_signpost_parts(),
 		null,
-		false
+		false,
+		true
 	)
 
 	# --- 3. 24 BAROQUE STREET LAMPS (prop_street_lamp.glb, strictly clear of roads & benches!) ---
@@ -4367,7 +4527,8 @@ func _build_street_life_and_akasha_magic() -> void:
 		lamp_xforms,
 		_create_fallback_lamp_parts(),
 		null,
-		false
+		false,
+		true
 	)
 
 	# --- 4. 6 FESTIVE FLOWER CARTS (prop_flower_cart.glb, seated cleanly on exact surface Y) ---
@@ -4394,14 +4555,15 @@ func _build_street_life_and_akasha_magic() -> void:
 		cart_xforms,
 		_create_fallback_flower_cart_parts(),
 		null,
-		false
+		false,
+		true
 	)
 
-	# --- 5. 3 TOWN BULLETIN BOARDS (prop_town_bulletin.glb, seated cleanly on exact surface Y) ---
+	# --- 5. 3 TOWN BULLETIN BOARDS (prop_town_bulletin.glb, seated cleanly inside resized plazas) ---
 	var bulletin_specs: Array[Dictionary] = [
-		{"pos": Vector3(-33.5, TIER_1_Y, 14.5), "yaw": PI * 0.35},      # 1. У входа в Школу Юных Душ
+		{"pos": Vector3(-33.2, TIER_1_Y, 13.6), "yaw": PI * 0.35},      # 1. У входа в Школу Юных Душ (inside R=7.6)
 		{"pos": Vector3(-9.8, TIER_0_Y, 52.0), "yaw": PI * 0.55},       # 2. На Площади Пробуждения (clear of SW Street)
-		{"pos": Vector3(-39.0, TIER_1_Y, -71.5), "yaw": PI * 0.15},     # 3. У Библиотеки Ориона
+		{"pos": Vector3(-38.5, TIER_1_Y, -72.2), "yaw": PI * 0.15},     # 3. У Библиотеки Ориона (inside R=7.6)
 	]
 	var bulletin_xforms: Array[Transform3D] = []
 	for b_spec in bulletin_specs:
@@ -4418,7 +4580,8 @@ func _build_street_life_and_akasha_magic() -> void:
 		bulletin_xforms,
 		_create_fallback_bulletin_parts(),
 		null,
-		false
+		false,
+		true
 	)
 
 	# --- 6. 8 OUTDOOR CAFE BISTRO SETS (prop_cafe_bistro_set.glb, seated cleanly on exact surface Y) ---
@@ -4450,7 +4613,8 @@ func _build_street_life_and_akasha_magic() -> void:
 		bistro_xforms,
 		_create_fallback_cafe_bistro_parts(),
 		null,
-		false
+		false,
+		true
 	)
 
 	# --- 7. 3D STYLIZED GRASS & 5-PETAL DAISY CLUSTERS (prop_grass_daisy_cluster.glb) ---
@@ -4631,7 +4795,7 @@ func _is_clear_for_grass_cluster(x: float, z: float, placed_pts: Array[Vector2])
 		return false
 	if z >= 9.0 and z <= 40.0 and absf(x - 28.0) < 4.1:
 		return false
-	if z >= -140.0 and z <= -76.0 and (absf(x + 41.0) < 4.1 or absf(x - 38.0) < 4.1):
+	if z >= -140.0 and z <= -76.0 and (absf(x + 41.0) < 4.1 or absf(x - 37.0) < 4.1):
 		return false
 
 	# 4. Clear of Canal water, stone quay, railing, south canal benches/lamps/bistros & staircases
@@ -4669,12 +4833,12 @@ func _is_clear_for_grass_cluster(x: float, z: float, placed_pts: Array[Vector2])
 		Vector3(30.0, 10.0, 6.7),
 		Vector3(0.0, -17.0, 8.4),
 		Vector3(0.0, -217.5, 11.7),
-		Vector3(-38.0, 8.0, 10.7),
+		Vector3(-35.2, 8.0, 8.6),
 		Vector3(0.0, -78.0, 12.0),
-		Vector3(-42.0, -78.0, 10.7),
-		Vector3(42.0, -78.0, 10.7),
+		Vector3(-39.5, -78.0, 8.6),
+		Vector3(42.0, -78.0, 8.8),
 		Vector3(-34.0, -138.0, 11.7),
-		Vector3(30.0, -138.0, 9.7),
+		Vector3(34.0, -138.0, 7.8),
 		Vector3(0.0, -184.0, 12.4),
 		Vector3(-36.0, 44.0, 9.7),
 		Vector3(36.0, 38.0, 9.7),
@@ -4687,14 +4851,14 @@ func _is_clear_for_grass_cluster(x: float, z: float, placed_pts: Array[Vector2])
 		if ddx * ddx + ddz * ddz < d_info.z * d_info.z:
 			return false
 
-	# 8. Clear of 4 landmark buildings, 4 interactive venues, 4 waterfalls, Baroque Palace & inner houses
-	if absf(x + 48.0) < 11.5 and absf(z - 8.0) < 10.5:
+	# 8. Clear of 4 landmark buildings (1.28x), 4 interactive venues, 4 waterfalls, Baroque Palace & inner houses
+	if absf(x + 53.5) < 11.6 and absf(z - 8.0) < 11.2:
 		return false
-	if absf(x + 54.0) < 12.5 and absf(z + 78.0) < 11.0:
+	if absf(x + 59.5) < 12.5 and absf(z + 78.0) < 12.8:
 		return false
-	if absf(x - 54.0) < 8.5 and absf(z + 78.0) < 8.5:
+	if absf(x - 56.5) < 8.2 and absf(z + 78.0) < 8.2:
 		return false
-	if absf(x - 40.0) < 9.5 and absf(z + 138.0) < 8.8:
+	if absf(x - 49.0) < 8.8 and absf(z + 138.0) < 9.4:
 		return false
 	if x >= 6.5 and x <= 24.5 and absf(z - 28.0) < 8.5:
 		return false
@@ -5118,7 +5282,8 @@ func _create_simple_multimesh(
 	mm_name: String,
 	mesh_res: Mesh,
 	mat_override: Material,
-	xforms: Array[Transform3D]
+	xforms: Array[Transform3D],
+	cast_shadows: bool = false
 ) -> void:
 	if xforms.is_empty() or mesh_res == null:
 		return
@@ -5134,14 +5299,18 @@ func _create_simple_multimesh(
 	mmi.multimesh = mm
 	if mat_override != null:
 		mmi.material_override = mat_override
-	mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	mmi.cast_shadow = (
+		GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+		if cast_shadows
+		else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	)
 	mmi.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 	parent.add_child(mmi)
 
 
 ## Extracts every sub-mesh from a PackedScene (grounded to min_y = 0) and renders
 ## all transforms via MultiMeshInstance3D per sub-mesh, upgrading house walls/roofs
-## to pixar_building_facade.gdshader while preserving warm emissive windows at 60 FPS!
+## to pixar_building_facade.gdshader and windows to pixar_window_glow.gdshader at 60 FPS!
 func _spawn_scene_multimesh_batch(
 	parent: Node3D,
 	batch_name: String,
@@ -5149,7 +5318,9 @@ func _spawn_scene_multimesh_batch(
 	xforms: Array[Transform3D],
 	fallback_parts: Array[Dictionary],
 	canopy_tint_override: Material,
-	apply_facade_shader: bool = false
+	apply_facade_shader: bool = false,
+	cast_shadows: bool = false,
+	house_palette_kind: String = ""
 ) -> void:
 	if xforms.is_empty():
 		return
@@ -5162,11 +5333,24 @@ func _spawn_scene_multimesh_batch(
 			var min_y: float = _find_min_local_y(temp_root, Transform3D.IDENTITY)
 			var ground_offset_y: float = -min_y if min_y < 1.0e8 else 0.0
 			var ground_xf: Transform3D = Transform3D(Basis.IDENTITY, Vector3(0.0, ground_offset_y, 0.0))
-			_collect_submesh_parts(temp_root, ground_xf, sub_parts, canopy_tint_override, apply_facade_shader)
+			_collect_submesh_parts(
+				temp_root,
+				ground_xf,
+				sub_parts,
+				canopy_tint_override,
+				apply_facade_shader,
+				house_palette_kind
+			)
 		temp_inst.free()
 
 	if sub_parts.is_empty():
 		sub_parts = fallback_parts
+
+	var shadow_mode: GeometryInstance3D.ShadowCastingSetting = (
+		GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+		if cast_shadows
+		else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	)
 
 	for p_idx in range(sub_parts.size()):
 		var part: Dictionary = sub_parts[p_idx]
@@ -5188,7 +5372,7 @@ func _spawn_scene_multimesh_batch(
 		mmi.multimesh = mm
 		if p_mat != null:
 			mmi.material_override = p_mat
-		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		mmi.cast_shadow = shadow_mode
 		mmi.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 		parent.add_child(mmi)
 
@@ -5198,7 +5382,8 @@ func _collect_submesh_parts(
 	parent_xf: Transform3D,
 	out_parts: Array[Dictionary],
 	canopy_tint_override: Material,
-	apply_facade_shader: bool = false
+	apply_facade_shader: bool = false,
+	house_palette_kind: String = ""
 ) -> void:
 	var cur_xf: Transform3D = parent_xf
 	if node is Node3D:
@@ -5228,7 +5413,7 @@ func _collect_submesh_parts(
 							dup_mesh.surface_set_material(s_idx, ov_mat)
 						var eff_mat: Material = ov_mat if ov_mat != null else dup_mesh.surface_get_material(s_idx)
 						if apply_facade_shader and eff_mat != null:
-							var upgraded_mat: Material = _upgrade_to_facade_material(eff_mat)
+							var upgraded_mat: Material = _upgrade_to_facade_material(eff_mat, house_palette_kind)
 							dup_mesh.surface_set_material(s_idx, upgraded_mat)
 						elif canopy_tint_override != null and surf_count > 1:
 							var s_name: String = ""
@@ -5257,7 +5442,7 @@ func _collect_submesh_parts(
 					final_mesh = dup_mesh
 
 			if apply_facade_shader and chosen_mat != null:
-				chosen_mat = _upgrade_to_facade_material(chosen_mat)
+				chosen_mat = _upgrade_to_facade_material(chosen_mat, house_palette_kind)
 
 			if canopy_tint_override != null and surf_count <= 1:
 				var aabb: AABB = mi.mesh.get_aabb()
@@ -5304,7 +5489,7 @@ func _collect_submesh_parts(
 			})
 
 	for child in node.get_children():
-		_collect_submesh_parts(child, cur_xf, out_parts, canopy_tint_override, apply_facade_shader)
+		_collect_submesh_parts(child, cur_xf, out_parts, canopy_tint_override, apply_facade_shader, house_palette_kind)
 
 
 func _create_radial_plaza_disc_mesh(radius: float, height: float, segments: int) -> ArrayMesh:

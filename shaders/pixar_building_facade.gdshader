@@ -14,13 +14,13 @@ uniform vec3 base_color : source_color = vec3(0.82, 0.36, 0.30);
 uniform vec3 accent_color : source_color = vec3(0.68, 0.26, 0.22);
 
 group_uniforms pbr_settings;
-uniform float roughness_val : hint_range(0.1, 1.0) = 0.72;
+uniform float roughness_val : hint_range(0.1, 1.0) = 0.86;
 uniform float metallic_val : hint_range(0.0, 1.0) = 0.0;
 
 group_uniforms procedural_detail;
 uniform float grain_strength : hint_range(0.0, 1.0) = 0.38;
-uniform float per_building_variation : hint_range(0.0, 0.35) = 0.16;
-uniform float base_ao_height : hint_range(0.2, 4.0) = 1.8;
+uniform float per_building_variation : hint_range(0.0, 0.35) = 0.10;
+uniform float base_ao_height : hint_range(0.2, 4.0) = 2.4;
 
 varying vec3 v_world_pos;
 varying vec3 v_world_normal;
@@ -91,17 +91,19 @@ vec3 apply_building_variation(vec3 col, vec3 h, float amount) {
 	float value_shift = 1.0 + (h.y - 0.5) * 2.0 * (amount * 0.62);
 	varied *= value_shift;
 
-	// Saturation variation per building
+	// Saturation variation per building (clamped for cohesive Toy Story / Ralph palette)
 	float luma = dot(varied, vec3(0.2126, 0.7152, 0.0722));
 	float sat_factor = 1.0 + (h.z - 0.5) * 2.0 * (amount * 0.85);
-	varied = mix(vec3(luma), varied, clamp(sat_factor, 0.55, 1.45));
+	varied = mix(vec3(luma), varied, clamp(sat_factor, 0.78, 1.14));
 
 	return clamp(varied, vec3(0.0), vec3(1.0));
 }
 
 void vertex() {
 	v_world_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
-	v_world_normal = normalize((MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz);
+	vec3 wn_raw = (MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz;
+	float wn_len = length(wn_raw);
+	v_world_normal = (wn_len > 0.0001) ? (wn_raw / wn_len) : vec3(0.0, 1.0, 0.0);
 	v_local_y = VERTEX.y;
 
 	// Stable per-building hash derived from world-space building origin (MODEL_MATRIX[3].xyz)
@@ -110,7 +112,8 @@ void vertex() {
 }
 
 void fragment() {
-	vec3 wn = normalize(v_world_normal);
+	float vwn_len = length(v_world_normal);
+	vec3 wn = (vwn_len > 0.0001) ? (v_world_normal / vwn_len) : vec3(0.0, 1.0, 0.0);
 	vec3 abs_n = abs(wn);
 	float safe_grain = clamp(grain_strength, 0.0, 1.0);
 	float safe_var = clamp(per_building_variation, 0.0, 0.35);
@@ -177,33 +180,44 @@ void fragment() {
 	float grain_mod = mix(1.0 - 0.10 * safe_grain, 1.0 + 0.09 * safe_grain, fine_grain * 0.6 + med_plaster * 0.4);
 	surface_col *= grain_mod;
 
-	// 5. Vertical Ground AO gradient near building base (v_local_y < base_ao_height)
+	// 5. Vertical Ground AO gradient & sculpted warm-stone foundation plinth (v_local_y < base_ao_height)
 	float safe_ao_h = max(base_ao_height, 0.2);
 	float ao_t = smoothstep(0.0, safe_ao_h, v_local_y);
 	// Softly curve the falloff with guarded pow() for grounded Pixar contact depth
-	float ao_curve = pow(max(ao_t, 0.0001), 0.78);
+	float ao_curve = pow(max(ao_t, 0.0001), 0.72);
 	// Slight organic unevenness along the ground damp/weathering line
-	float base_edge_jitter = (broad_stucco - 0.5) * 0.14 * (1.0 - ao_t);
-	float ground_ao = clamp(mix(0.62, 1.0, ao_curve) + base_edge_jitter, 0.55, 1.0);
+	float base_edge_jitter = (broad_stucco - 0.5) * 0.10 * (1.0 - ao_t);
+	float ground_ao = clamp(mix(0.48, 1.0, ao_curve) + base_edge_jitter, 0.46, 1.0);
 
-	// Grounded cozy darkening in albedo + cool-earthy depth near foundation
-	vec3 foundation_tint = mix(vec3(0.76, 0.73, 0.74), vec3(1.0), ao_curve);
-	surface_col *= foundation_tint;
+	// Sculpted warm-stone foundation plinth & cool ambient grounding tint at v_local_y < 0.85
+	float plinth_t = 1.0 - smoothstep(0.55, 0.85, v_local_y);
+	float plinth_mask = plinth_t * (1.0 - roof_mask);
+	vec3 plinth_stone = mix(vec3(0.46, 0.43, 0.40), vec3(0.56, 0.52, 0.48), med_plaster * 0.6 + fine_grain * 0.4);
+	float plinth_lip = (1.0 - smoothstep(0.0, 0.08, abs(v_local_y - 0.82))) * (1.0 - roof_mask);
+	surface_col = mix(surface_col, surface_col * 0.55 + plinth_stone * 0.35, plinth_mask * 0.55);
+	surface_col *= (1.0 - plinth_lip * 0.14);
+
+	float contact_t = 1.0 - smoothstep(0.0, 0.85, v_local_y);
+	vec3 foundation_tint = mix(vec3(0.68, 0.67, 0.72), vec3(1.0), ao_curve);
+	vec3 cool_ground_tint = mix(vec3(1.0), vec3(0.84, 0.86, 0.92), contact_t * 0.65);
+	surface_col *= foundation_tint * cool_ground_tint;
 
 	// Combine ground AO with subtle procedural crevice AO (mortar / roof tiles)
 	float crevice_ao = mix(mortar_line * 0.24, roof_crevice * 0.28, roof_mask);
-	float final_ao = clamp(ground_ao * (1.0 - crevice_ao), 0.45, 1.0);
+	float final_ao = clamp(ground_ao * (1.0 - crevice_ao), 0.38, 1.0);
 
-	// 6. Tactile PBR roughness & metallic outputs
-	float rough_detail = (fine_grain - 0.5) * 0.14 * safe_grain
-		+ (1.0 - ao_curve) * 0.10
-		+ mix(mortar_line * 0.16, roof_crevice * 0.14, roof_mask);
-	float final_roughness = clamp(roughness_val + rough_detail, 0.10, 0.98);
+	// 6. Tactile matte PBR roughness & metallic outputs (zero glossy roofs/walls)
+	float rough_detail = (fine_grain - 0.5) * 0.12 * safe_grain
+		+ (1.0 - ao_curve) * 0.08
+		+ mix(mortar_line * 0.14, roof_crevice * 0.12, roof_mask);
 	float final_metallic = clamp(metallic_val, 0.0, 1.0);
+	float matte_roughness = clamp(max(roughness_val, 0.78) + rough_detail, 0.76, 0.96);
+	float metal_roughness = clamp(roughness_val + rough_detail, 0.15, 0.96);
+	float final_roughness = (final_metallic < 0.25) ? matte_roughness : metal_roughness;
 
 	ALBEDO = clamp(surface_col, vec3(0.0), vec3(1.0));
 	ROUGHNESS = final_roughness;
 	METALLIC = final_metallic;
-	SPECULAR = mix(0.42, 0.54, roof_mask);
+	SPECULAR = mix(0.14, 0.08, roof_mask);
 	AO = final_ao;
 }
