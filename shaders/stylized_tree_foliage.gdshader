@@ -27,7 +27,7 @@ uniform float per_tree_variation : hint_range(0.0, 0.25) = 0.10;
 varying float v_local_y;
 varying vec3 v_world_pos;
 varying vec3 v_world_normal;
-varying float v_tree_hash;
+varying flat float v_tree_hash;
 
 float hash31(vec3 p) {
 	p = fract(p * vec3(0.1031, 0.1030, 0.0973));
@@ -89,14 +89,14 @@ void fragment() {
 	vec3 col = mix(shadow_bottom_color, mid_foliage_color, smoothstep(0.08, 0.54, grad));
 	col = mix(col, top_sun_color, smoothstep(0.48, 0.92, grad));
 
-	// 2. Subtle 3D painterly brushstroke leaf texture (distance-faded for clean far silhouettes)
+	// 2. Silky painterly brushstroke leaf texture (softened frequencies + clean LOD fade for zero TAA/FSR flicker)
 	float cam_dist = length(VERTEX);
-	float near_fade = 1.0 - smoothstep(18.0, 75.0, cam_dist);
+	float near_fade = 1.0 - smoothstep(14.0, 52.0, cam_dist);
 
-	vec3 leaf_p = v_world_pos * 1.85 + vec3(v_tree_hash * 17.3, v_tree_hash * 9.1, -v_tree_hash * 13.7);
+	vec3 leaf_p = v_world_pos * 1.15 + vec3(v_tree_hash * 17.3, v_tree_hash * 9.1, -v_tree_hash * 13.7);
 	float brush_macro = noise3d(leaf_p);
-	float brush_micro = noise3d(leaf_p * 2.35 + vec3(4.7, -3.2, 6.1));
-	float leaf_dab = mix(brush_macro, brush_macro * 0.62 + brush_micro * 0.38, near_fade);
+	float brush_micro = noise3d(leaf_p * 1.8 + vec3(4.7, -3.2, 6.1));
+	float leaf_dab = mix(brush_macro, brush_macro * 0.70 + brush_micro * 0.30, near_fade);
 
 	float dab_shadow = (1.0 - smoothstep(0.18, 0.52, leaf_dab)) * leaf_texture_strength;
 	float dab_light = smoothstep(0.54, 0.88, leaf_dab) * leaf_texture_strength;

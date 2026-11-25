@@ -66,6 +66,7 @@ const PROP_RAILING_PILLAR_PATH: String = "res://assets/models/city/props/prop_ra
 const PROP_CAFE_BISTRO_PATH: String = "res://assets/models/city/props/prop_cafe_bistro_set.glb"
 const PROP_GARDEN_URN_PATH: String = "res://assets/models/city/props/prop_garden_urn.glb"
 const PROP_GRASS_DAISY_PATH: String = "res://assets/models/city/props/prop_grass_daisy_cluster.glb"
+const PROP_SKY_LANTERN_PATH: String = "res://assets/models/city/props/prop_sky_lantern.glb"
 
 const VALLEY_CENTER_Z: float = -100.0
 const VALLEY_WIDTH: float = 560.0
@@ -112,8 +113,6 @@ var _mat_water_lake: Material = null
 var _mat_waterfall: Material = null
 var _mat_waterfall_foam: StandardMaterial3D = null
 var _mat_canal_bed: StandardMaterial3D = null
-var _mat_beacon_beam: StandardMaterial3D = null
-var _mat_beacon_crystal: StandardMaterial3D = null
 var _mat_beacon_ring: StandardMaterial3D = null
 
 # Harmonized Akasha palette materials (terraces, cliffs, painterly trees, soft facades)
@@ -166,11 +165,12 @@ var _scene_prop_railing_pillar: PackedScene = null
 var _scene_prop_cafe_bistro: PackedScene = null
 var _scene_prop_garden_urn: PackedScene = null
 var _scene_prop_grass_daisy: PackedScene = null
+var _scene_sky_lantern: PackedScene = null
 
 # Split 5-type house batches: Inner City (cast_shadows=ON) vs Outer Hillside (cast_shadows=OFF)
 var _city_inner_house_batches: Dictionary = {}
 var _city_outer_house_batches: Dictionary = {}
-var _placed_inner_houses: Array[Vector2] = []
+var _placed_inner_house_records: Array[Vector3] = []
 var _tree_blossom_xforms: Array[Transform3D] = []
 var _tree_willow_gold_xforms: Array[Transform3D] = []
 var _tree_willow_lavender_xforms: Array[Transform3D] = []
@@ -179,6 +179,8 @@ var _park_bench_xforms: Array[Transform3D] = []
 var _ornate_railing_xforms: Array[Transform3D] = []
 var _railing_pillar_xforms: Array[Transform3D] = []
 var _railing_pillar_positions: Array[Vector3] = []
+var _sky_lantern_batches: Array[Dictionary] = []
+var _sky_lantern_instances: Array[Dictionary] = []
 
 # District & interactive venue registries (contract with all tracks)
 var _districts: Array[Dictionary] = []
@@ -193,8 +195,6 @@ var _orrery_rotator: Node3D = null
 var _balloon_floater: Node3D = null
 var _balloon_base_y: float = 0.0
 var _quest_beacon_root: Node3D = null
-var _quest_beacon_crystal: MeshInstance3D = null
-var _quest_beacon_beam: MeshInstance3D = null
 var _quest_beacon_ring: MeshInstance3D = null
 var _quest_beacon_active: bool = false
 
@@ -269,15 +269,47 @@ func _process(delta: float) -> void:
 		_balloon_floater.rotation.y = sin(_anim_time * 0.38) * 0.12
 
 	if _quest_beacon_active and _quest_beacon_root != null and _quest_beacon_root.visible:
-		if _quest_beacon_crystal != null:
-			_quest_beacon_crystal.position.y = 3.2 + sin(_anim_time * 2.6) * 0.35
-			_quest_beacon_crystal.rotation.y = _anim_time * 1.4
 		if _quest_beacon_ring != null:
-			var pulse: float = 1.0 + sin(_anim_time * 3.0) * 0.12
-			_quest_beacon_ring.scale = Vector3(pulse, 1.0, pulse)
-		if _quest_beacon_beam != null and _mat_beacon_beam != null:
-			var alpha_pulse: float = 0.16 + 0.06 * sin(_anim_time * 2.2)
-			_mat_beacon_beam.albedo_color.a = clampf(alpha_pulse, 0.08, 0.28)
+			var pulse: float = 1.0 + sin(_anim_time * 2.6) * 0.09
+			_quest_beacon_ring.scale = Vector3(pulse, 0.16, pulse)
+
+	if not _sky_lantern_batches.is_empty() and not _sky_lantern_instances.is_empty():
+		var min_y: float = TIER_1_Y + 2.2
+		var max_y: float = TIER_1_Y + 14.0
+		var y_span: float = max_y - min_y
+		var l_count: int = _sky_lantern_instances.size()
+		for i in range(l_count):
+			var info: Dictionary = _sky_lantern_instances[i]
+			var bx: float = float(info["base_x"])
+			var bz: float = float(info["base_z"])
+			var h0: float = float(info["start_h"])
+			var rise_spd: float = float(info["rise_speed"])
+			var phase: float = float(info["phase"])
+			var sway_r: float = float(info["sway_r"])
+			var yaw_spd: float = float(info["yaw_speed"])
+			var base_sc: float = float(info["scale"])
+
+			var cycle_h: float = fposmod(h0 + _anim_time * rise_spd, y_span)
+			var cur_y: float = min_y + cycle_h + sin(_anim_time * 1.35 + phase) * 0.14
+			var cur_x: float = bx + cos(_anim_time * 0.48 + phase) * sway_r
+			var cur_z: float = bz + sin(_anim_time * 0.42 + phase * 1.2) * sway_r
+
+			# Smooth scale fade-in at bottom 1.2m and fade-out at top 1.8m for seamless wrap-around
+			var fade_in: float = clampf(cycle_h / 1.2, 0.0, 1.0)
+			var fade_out: float = clampf((y_span - cycle_h) / 1.8, 0.0, 1.0)
+			var cur_sc: float = maxf(0.001, base_sc * minf(fade_in, fade_out))
+
+			var tilt_x: float = sin(_anim_time * 1.05 + phase) * 0.045
+			var tilt_z: float = cos(_anim_time * 0.92 + phase * 1.1) * 0.045
+			var cur_yaw: float = phase + _anim_time * yaw_spd
+			var l_rot: Basis = Basis.from_euler(Vector3(tilt_x, cur_yaw, tilt_z)).scaled(Vector3(cur_sc, cur_sc, cur_sc))
+			var l_xf: Transform3D = Transform3D(l_rot, Vector3(cur_x, cur_y, cur_z))
+
+			for b_dict in _sky_lantern_batches:
+				var mm: MultiMesh = b_dict["mm"] as MultiMesh
+				var local_xf: Transform3D = b_dict["local_xf"] as Transform3D
+				if mm != null and i < mm.instance_count:
+					mm.set_instance_transform(i, l_xf * local_xf)
 
 
 # ===========================================================================
@@ -1136,10 +1168,11 @@ func _preload_prop_scenes() -> void:
 	_scene_prop_cafe_bistro = _safe_load_scene(PROP_CAFE_BISTRO_PATH)
 	_scene_prop_garden_urn = _safe_load_scene(PROP_GARDEN_URN_PATH)
 	_scene_prop_grass_daisy = _safe_load_scene(PROP_GRASS_DAISY_PATH)
+	_scene_sky_lantern = _safe_load_scene(PROP_SKY_LANTERN_PATH)
 
 
 func _init_house_batches() -> void:
-	_placed_inner_houses.clear()
+	_placed_inner_house_records.clear()
 	_tree_blossom_xforms.clear()
 	_tree_willow_gold_xforms.clear()
 	_tree_willow_lavender_xforms.clear()
@@ -1148,6 +1181,8 @@ func _init_house_batches() -> void:
 	_ornate_railing_xforms.clear()
 	_railing_pillar_xforms.clear()
 	_railing_pillar_positions.clear()
+	_sky_lantern_batches.clear()
+	_sky_lantern_instances.clear()
 	_city_inner_house_batches = {
 		"red_gable": [] as Array[Transform3D],
 		"blue_balcony": [] as Array[Transform3D],
@@ -1729,8 +1764,8 @@ func _build_canal_and_lake() -> void:
 	var curb_torus: TorusMesh = TorusMesh.new()
 	curb_torus.inner_radius = LAKE_RADIUS - 0.55
 	curb_torus.outer_radius = LAKE_RADIUS + 0.55
-	curb_torus.rings = 48
-	curb_torus.ring_segments = 12
+	curb_torus.rings = 64
+	curb_torus.ring_segments = 16
 	lake_curb.mesh = curb_torus
 	lake_curb.position = Vector3(LAKE_CENTER.x, 0.05, LAKE_CENTER.z)
 	lake_curb.scale = Vector3(1.0, 0.35, 1.0)
@@ -1864,7 +1899,7 @@ func _create_cascading_waterfall(
 	splash_cyl.top_radius = width * 0.56
 	splash_cyl.bottom_radius = width * 0.64
 	splash_cyl.height = 0.08
-	splash_cyl.radial_segments = 20
+	splash_cyl.radial_segments = 36
 	splash.mesh = splash_cyl
 	splash.position = Vector3(0.0, 0.06, arch_out)
 	splash.material_override = _mat_waterfall_foam
@@ -1896,8 +1931,8 @@ func _create_cascading_waterfall(
 	var puff_mesh: SphereMesh = SphereMesh.new()
 	puff_mesh.radius = 0.52
 	puff_mesh.height = 0.82
-	puff_mesh.radial_segments = 8
-	puff_mesh.rings = 5
+	puff_mesh.radial_segments = 18
+	puff_mesh.rings = 12
 	puff_mesh.material = _mat_waterfall_foam
 	mist.draw_pass_1 = puff_mesh
 	holder.add_child(mist)
@@ -2536,7 +2571,7 @@ func _add_pocket_park(
 
 	# 1. Outer stone walking promenade disc (R = radius, top strictly at center.y + PLAZA_TOP_Y = +0.085)
 	var walk_disc: MeshInstance3D = MeshInstance3D.new()
-	walk_disc.mesh = _create_radial_plaza_disc_mesh(radius, 0.06, 40)
+	walk_disc.mesh = _create_radial_plaza_disc_mesh(radius, 0.06, 64)
 	walk_disc.position = Vector3(0.0, PLAZA_TOP_Y - 0.06, 0.0)
 	walk_disc.material_override = _mat_marble_plaza
 	walk_disc.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -2549,7 +2584,7 @@ func _add_pocket_park(
 	lawn_cyl.top_radius = lawn_r
 	lawn_cyl.bottom_radius = lawn_r + 0.14
 	lawn_cyl.height = 0.06
-	lawn_cyl.radial_segments = 36
+	lawn_cyl.radial_segments = 64
 	lawn_disc.mesh = lawn_cyl
 	lawn_disc.position = Vector3(0.0, PARK_LAWN_TOP_Y - 0.03, 0.0)
 	lawn_disc.material_override = _mat_park_lawn
@@ -2561,8 +2596,8 @@ func _add_pocket_park(
 	var torus_outer: TorusMesh = TorusMesh.new()
 	torus_outer.inner_radius = radius - 0.14
 	torus_outer.outer_radius = radius + 0.14
-	torus_outer.rings = 40
-	torus_outer.ring_segments = 10
+	torus_outer.rings = 64
+	torus_outer.ring_segments = 16
 	rim_outer.mesh = torus_outer
 	rim_outer.position = Vector3(0.0, PLAZA_TOP_Y + 0.008, 0.0)
 	rim_outer.scale = Vector3(1.0, 0.24, 1.0)
@@ -2574,8 +2609,8 @@ func _add_pocket_park(
 	var torus_inner: TorusMesh = TorusMesh.new()
 	torus_inner.inner_radius = lawn_r - 0.12
 	torus_inner.outer_radius = lawn_r + 0.12
-	torus_inner.rings = 40
-	torus_inner.ring_segments = 10
+	torus_inner.rings = 64
+	torus_inner.ring_segments = 16
 	rim_inner.mesh = torus_inner
 	rim_inner.position = Vector3(0.0, PARK_LAWN_TOP_Y + 0.006, 0.0)
 	rim_inner.scale = Vector3(1.0, 0.24, 1.0)
@@ -2694,7 +2729,7 @@ func _add_marble_plaza(
 
 	# Plaza disc with exact centered planar UVs (0.5, 0.5) -> top face strictly at center.y + PLAZA_TOP_Y (+0.085)
 	var disc: MeshInstance3D = MeshInstance3D.new()
-	disc.mesh = _create_radial_plaza_disc_mesh(radius, 0.065, 44)
+	disc.mesh = _create_radial_plaza_disc_mesh(radius, 0.065, 64)
 	disc.position = Vector3(0.0, PLAZA_TOP_Y - 0.065, 0.0)
 	disc.material_override = _mat_marble_plaza
 	disc.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -2705,8 +2740,8 @@ func _add_marble_plaza(
 	var torus: TorusMesh = TorusMesh.new()
 	torus.inner_radius = radius - 0.18
 	torus.outer_radius = radius + 0.18
-	torus.rings = 44
-	torus.ring_segments = 10
+	torus.rings = 64
+	torus.ring_segments = 16
 	rim.mesh = torus
 	rim.position = Vector3(0.0, PLAZA_TOP_Y + 0.008, 0.0)
 	rim.scale = Vector3(1.0, 0.22, 1.0)
@@ -2993,6 +3028,8 @@ func _build_procedural_grand_fountain(parent: Node3D) -> void:
 	var sp: SphereMesh = SphereMesh.new()
 	sp.radius = 0.44
 	sp.height = 0.88
+	sp.radial_segments = 32
+	sp.rings = 16
 	top_orb.mesh = sp
 	top_orb.position = Vector3(0.0, 4.05, 0.0)
 	top_orb.material_override = _mat_warm_window
@@ -3020,8 +3057,8 @@ func _build_procedural_cloud_balloon(parent: Node3D) -> void:
 	var env_sp: SphereMesh = SphereMesh.new()
 	env_sp.radius = 3.4
 	env_sp.height = 7.4
-	env_sp.radial_segments = 18
-	env_sp.rings = 10
+	env_sp.radial_segments = 36
+	env_sp.rings = 20
 	env_mi.mesh = env_sp
 	env_mi.position = Vector3(0.0, 2.8, 0.0)
 	env_mi.material_override = _mat_roof_terracotta
@@ -3032,8 +3069,8 @@ func _build_procedural_cloud_balloon(parent: Node3D) -> void:
 	var band_torus: TorusMesh = TorusMesh.new()
 	band_torus.inner_radius = 3.25
 	band_torus.outer_radius = 3.55
-	band_torus.rings = 24
-	band_torus.ring_segments = 8
+	band_torus.rings = 48
+	band_torus.ring_segments = 16
 	band_mi.mesh = band_torus
 	band_mi.position = Vector3(0.0, 2.8, 0.0)
 	band_mi.material_override = _mat_gold_trim
@@ -3063,8 +3100,8 @@ func _build_procedural_akashic_orrery(pedestal_parent: Node3D, rot_parent: Node3
 		var torus: TorusMesh = TorusMesh.new()
 		torus.inner_radius = r_val - 0.12
 		torus.outer_radius = r_val + 0.12
-		torus.rings = 32
-		torus.ring_segments = 10
+		torus.rings = 48
+		torus.ring_segments = 16
 		r_mi.mesh = torus
 		r_mi.position = Vector3(0.0, 4.95, 0.0)
 		r_mi.rotation = ring_tilts[idx]
@@ -3076,6 +3113,8 @@ func _build_procedural_akashic_orrery(pedestal_parent: Node3D, rot_parent: Node3
 	var sp: SphereMesh = SphereMesh.new()
 	sp.radius = 0.68
 	sp.height = 1.36
+	sp.radial_segments = 32
+	sp.rings = 16
 	core_orb.mesh = sp
 	core_orb.position = Vector3(0.0, 4.95, 0.0)
 	core_orb.material_override = _mat_warm_window
@@ -3098,6 +3137,8 @@ func _build_procedural_memory_arch(parent: Node3D) -> void:
 	var sp: SphereMesh = SphereMesh.new()
 	sp.radius = 0.55
 	sp.height = 1.10
+	sp.radial_segments = 32
+	sp.rings = 16
 	finial.mesh = sp
 	finial.position = Vector3(0.0, 13.35, 0.0)
 	finial.material_override = _mat_warm_window
@@ -3283,11 +3324,188 @@ func _is_point_clear_for_house(x: float, z: float, half_r: float) -> bool:
 
 func _is_far_enough_from_inner_houses(x: float, z: float, min_dist: float) -> bool:
 	var min_sq: float = min_dist * min_dist
-	for pt in _placed_inner_houses:
-		var dx: float = x - pt.x
-		var dz: float = z - pt.y
+	for rec in _placed_inner_house_records:
+		var dx: float = x - rec.x
+		var dz: float = z - rec.y
 		if dx * dx + dz * dz < min_sq:
 			return false
+	return true
+
+
+func _is_clear_of_inner_houses_footprint(x: float, z: float, clearance_r: float) -> bool:
+	for rec in _placed_inner_house_records:
+		var dx: float = x - rec.x
+		var dz: float = z - rec.y
+		var min_r: float = rec.z + clearance_r
+		if dx * dx + dz * dz < min_r * min_r:
+			return false
+	return true
+
+
+## Strict 100% grass-only vegetation validator: guarantees ZERO trees, bushes,
+## or grass clusters ever grow on stone paving, roads, plazas, terrace decks,
+## pocket park stone walkways, canal/lake, or clip into ANY house or building.
+func _is_pure_grass_spot(x: float, z: float, clearance_r: float) -> bool:
+	# 1. Flat meadow ground check (never straddle a terrace drop-off or cliff)
+	var y_c: float = _get_city_ground_y(x, z)
+	var half_g: float = maxf(0.85, clearance_r * 0.42)
+	if absf(_get_city_ground_y(x - half_g, z - half_g) - y_c) > 0.1:
+		return false
+	if absf(_get_city_ground_y(x + half_g, z - half_g) - y_c) > 0.1:
+		return false
+	if absf(_get_city_ground_y(x - half_g, z + half_g) - y_c) > 0.1:
+		return false
+	if absf(_get_city_ground_y(x + half_g, z + half_g) - y_c) > 0.1:
+		return false
+
+	# 2. NO stone/paved terrace decks, Upper Overlook, North Terrace stone coping, or Upper Temple Forecourt
+	# WestSchoolTerraceDeck: X in [-64.5..-25.5], Z in [-16.5..32.5]
+	if x >= -64.5 - clearance_r and x <= -25.5 + clearance_r and z >= -16.5 - clearance_r and z <= 32.5 + clearance_r:
+		return false
+	# UpperOverlook stone paving: X in [-24.8..24.8], Z in [-198.8..-169.2]
+	if x >= -24.8 - clearance_r and x <= 24.8 + clearance_r and z >= -198.8 - clearance_r and z <= -169.2 + clearance_r:
+		return false
+	# Upper Temple Forecourt & Baroque Palace: Z <= -204.0
+	if z <= -204.0 + clearance_r:
+		return false
+	# North Mid Terrace south stone coping apron (Z in [-56.2..-52.0], |X| <= 66.0)
+	if absf(x) <= 66.5 + clearance_r and z >= -56.4 - clearance_r and z <= -51.6 + clearance_r:
+		return false
+
+	# 3. NO roads, boulevards, side streets, alleys, sidewalks, or staircases (expanded by +clearance_r)
+	# MainBoulevard_South (w=10.0 + curbs -> half 5.3)
+	if z >= -21.5 - clearance_r and z <= 56.5 + clearance_r and absf(x) < 5.3 + clearance_r:
+		return false
+	# MainBoulevard_North (w=12.0 + curbs -> half 6.3)
+	if z >= -158.5 - clearance_r and z <= -54.5 + clearance_r and absf(x) < 6.3 + clearance_r:
+		return false
+	# Street_SchoolApproach & Staircase_WestSchool (Z=8.0, w=8.0 -> half 4.4)
+	if x >= -26.5 - clearance_r and x <= 0.5 + clearance_r and absf(z - 8.0) < 4.5 + clearance_r:
+		return false
+	# Street_QuietLakesPark (Z=10.0, X in [0..44], w=7.0 -> half 3.8)
+	if x >= -0.5 - clearance_r and x <= 44.5 + clearance_r and absf(z - 10.0) < 3.8 + clearance_r:
+		return false
+	# Street_OrionLibrary & Street_KronosTower (Z=-78.0, X in [-40..42.5], w=7.5 -> half 4.1)
+	if x >= -40.5 - clearance_r and x <= 42.5 + clearance_r and absf(z + 78.0) < 4.1 + clearance_r:
+		return false
+	# Street_LanternGarden & Street_MiraSanctuary (Z=-138.0, X in [-34.5..34.5], w=7.5 -> half 4.1)
+	if x >= -35.0 - clearance_r and x <= 35.0 + clearance_r and absf(z + 138.0) < 4.1 + clearance_r:
+		return false
+	# SideStreet_SouthWest (Z=44.0, X in [-52..-6], w=5.4 -> half 3.0)
+	if x >= -52.5 - clearance_r and x <= -5.5 + clearance_r and absf(z - 44.0) < 3.0 + clearance_r:
+		return false
+	# Alley_SouthWest (X=-23.55, Z in [18..44], w=3.0 -> half 1.9)
+	if z >= 17.5 - clearance_r and z <= 44.5 + clearance_r and absf(x + 23.55) < 1.9 + clearance_r:
+		return false
+	# Alley_SouthWest_Cross (Z=18.0, X in [-25.5..-4.5], w=3.6 -> half 2.2)
+	if x >= -25.5 - clearance_r and x <= -4.5 + clearance_r and absf(z - 18.0) < 2.2 + clearance_r:
+		return false
+	# SideStreet_SouthEast (Z=38.0, X in [6..52], w=5.4 -> half 3.0)
+	if x >= 5.5 - clearance_r and x <= 52.5 + clearance_r and absf(z - 38.0) < 3.0 + clearance_r:
+		return false
+	# Alley_SouthEast (X=28.0, Z in [13..38], w=5.4 -> half 3.0)
+	if z >= 13.0 - clearance_r and z <= 38.0 + clearance_r and absf(x - 28.0) < 3.0 + clearance_r:
+		return false
+	# Alley_NorthWest_Orion (X=-41.0, Z in [-134..-85], w=5.4 -> half 3.0)
+	if z >= -134.5 - clearance_r and z <= -85.0 + clearance_r and absf(x + 41.0) < 3.0 + clearance_r:
+		return false
+	# Alley_NorthEast_Kronos (X=37.0, Z in [-133..-84], w=5.4 -> half 3.0)
+	if z >= -133.0 - clearance_r and z <= -83.5 + clearance_r and absf(x - 37.0) < 3.0 + clearance_r:
+		return false
+	# Staircase_GrandNorth & Staircase_Tier2Ascent
+	if absf(x) < 7.2 + clearance_r and z >= -56.0 - clearance_r and z <= -42.5 + clearance_r:
+		return false
+	if absf(x) < 8.5 + clearance_r and z >= -213.0 - clearance_r and z <= -157.0 + clearance_r:
+		return false
+
+	# 4. NO 12 circular stone plazas (expanded by plaza_r + clearance_r)
+	var plazas: Array[Vector3] = [
+		Vector3(0.0, 48.0, 12.5),
+		Vector3(42.0, 10.0, 5.7),
+		Vector3(30.0, 10.0, 5.5),
+		Vector3(0.0, -17.0, 7.2),
+		Vector3(0.0, -217.5, 10.5),
+		Vector3(-35.2, 8.0, 7.4),
+		Vector3(0.0, -78.0, 10.8),
+		Vector3(-39.5, -78.0, 7.4),
+		Vector3(42.0, -78.0, 7.6),
+		Vector3(-34.0, -138.0, 10.5),
+		Vector3(34.0, -138.0, 6.6),
+		Vector3(0.0, -184.0, 11.2),
+	]
+	for pl in plazas:
+		var pdx: float = x - pl.x
+		var pdz: float = z - pl.y
+		var min_pr: float = pl.z + 0.25 + clearance_r
+		if pdx * pdx + pdz * pdz < min_pr * min_pr:
+			return false
+
+	# 5. NO outer stone walkway of the 4 pocket parks (dist in [4.8..9.2] + clearance; inner lawn <= 4.6m only)
+	var pocket_parks: Array[Vector2] = [
+		Vector2(-36.0, 44.0),
+		Vector2(36.0, 38.0),
+		Vector2(-41.0, -108.0),
+		Vector2(38.0, -108.0),
+	]
+	for pk in pocket_parks:
+		var pk_dx: float = x - pk.x
+		var pk_dz: float = z - pk.y
+		var pk_dist: float = sqrt(pk_dx * pk_dx + pk_dz * pk_dz)
+		var outer_block: float = maxf(9.2, 8.7 + clearance_r)
+		if pk_dist < outer_block:
+			return false
+
+	# 6. NO Canal (Z in [-40.5..-23.5]), Lake ((54, 12), R=14.2), Waterfalls, Cloud Balloon, or Retaining Walls
+	if z >= -40.5 - clearance_r and z <= -23.5 + clearance_r:
+		return false
+	var ldx: float = x - LAKE_CENTER.x
+	var ldz: float = z - LAKE_CENTER.z
+	var lake_block: float = 14.2 + clearance_r
+	if ldx * ldx + ldz * ldz < lake_block * lake_block:
+		return false
+	var cbdx: float = x - 66.0
+	var cbdz: float = z - 26.0
+	var cb_block: float = 8.0 + clearance_r
+	if cbdx * cbdx + cbdz * cbdz < cb_block * cb_block:
+		return false
+	var wf_pts: Array[Vector2] = [
+		Vector2(-68.0, -32.0),
+		Vector2(68.0, -32.0),
+		Vector2(-82.0, -28.0),
+		Vector2(67.0, 12.0),
+	]
+	for wpt in wf_pts:
+		var wdx: float = x - wpt.x
+		var wdz: float = z - wpt.y
+		var w_block: float = 7.8 + clearance_r
+		if wdx * wdx + wdz * wdz < w_block * w_block:
+			return false
+	# Retaining walls & terrace edges
+	if absf(z + 52.0) < 2.2 + clearance_r or absf(z + 158.0) < 2.2 + clearance_r:
+		return false
+
+	# 7. NO 4 landmark buildings (1.28x) or 4 interactive venues
+	if absf(x + 53.5) < 11.4 + clearance_r and absf(z - 8.0) < 11.2 + clearance_r:
+		return false
+	if absf(x + 59.5) < 12.2 + clearance_r and absf(z + 78.0) < 12.6 + clearance_r:
+		return false
+	if absf(x - 56.5) < 8.0 + clearance_r and absf(z + 78.0) < 8.0 + clearance_r:
+		return false
+	if absf(x - 49.0) < 8.8 + clearance_r and absf(z + 138.0) < 9.4 + clearance_r:
+		return false
+	if x >= 12.5 - clearance_r and x <= 23.0 + clearance_r and absf(z - 28.0) < 6.2 + clearance_r:
+		return false
+	if x >= -23.0 - clearance_r and x <= -12.5 + clearance_r and absf(z - 28.0) < 6.2 + clearance_r:
+		return false
+	if x >= 15.0 - clearance_r and x <= 27.5 + clearance_r and absf(z + 108.0) < 7.2 + clearance_r:
+		return false
+	if x >= -30.5 - clearance_r and x <= -15.5 + clearance_r and absf(z + 108.0) < 10.6 + clearance_r:
+		return false
+
+	# 8. Strictly clear of EVERY placed inner house (rec.z = actual enlarged half_r 6.2..7.03m + clearance_r!)
+	if not _is_clear_of_inner_houses_footprint(x, z, clearance_r):
+		return false
+
 	return true
 
 
@@ -3315,7 +3533,7 @@ func _try_add_inner_house(
 	var base_y: float = minf(y_c, minf(minf(y_nw, y_ne), minf(y_sw, y_se)))
 	var seated_y: float = base_y - 0.22
 
-	_placed_inner_houses.append(Vector2(x, z))
+	_placed_inner_house_records.append(Vector3(x, z, half_r))
 	var h_arr: Array[Transform3D] = _city_inner_house_batches[h_kind] as Array[Transform3D]
 	var xf: Transform3D = Transform3D(
 		Basis.from_euler(Vector3(0.0, face_yaw, 0.0)).scaled(Vector3(xz_scale, y_scale, xz_scale)),
@@ -3572,6 +3790,7 @@ func _build_procedural_landmark(parent: Node3D, kind: String) -> void:
 		dc.top_radius = 2.1
 		dc.bottom_radius = 2.1
 		dc.height = 0.24
+		dc.radial_segments = 32
 		dial.mesh = dc
 		dial.position = Vector3(0.0, 12.8, 3.85)
 		dial.rotation.x = PI * 0.5
@@ -3582,7 +3801,7 @@ func _build_procedural_landmark(parent: Node3D, kind: String) -> void:
 		cone.top_radius = 0.15
 		cone.bottom_radius = 4.4
 		cone.height = 7.5
-		cone.radial_segments = 8
+		cone.radial_segments = 32
 		spire.mesh = cone
 		spire.position = Vector3(0.0, 20.2, 0.0)
 		spire.material_override = _mat_blue_roof
@@ -3841,7 +4060,7 @@ func _build_procedural_pixar_house(parent: Node3D, kind: String) -> void:
 		cone.top_radius = 0.08
 		cone.bottom_radius = 2.95
 		cone.height = 4.6
-		cone.radial_segments = 10
+		cone.radial_segments = 28
 		cone_inst.mesh = cone
 		cone_inst.position = Vector3(0.0, 9.35, 0.0)
 		cone_inst.material_override = roof_mat
@@ -4170,24 +4389,25 @@ func _build_city_props_and_flora() -> void:
 	add_child(props_root)
 
 	# --- 1. CORAL-PINK SAKURA BLOSSOM TREES (akasha_tree_blossom.glb) ---
-	# Framing Main Boulevard, Upper Overlook Terrace, Baroque Palace Forecourt & School
+	# 100% pure green meadow grass (ZERO on stone terraces, plazas, roads, or inside houses!)
 	var blossom_spots: Array[Vector3] = [
-		Vector3(-12.5, 0.0, 38.5), Vector3(12.5, 0.0, 44.0),
-		Vector3(-9.5, 0.0, 13.5), Vector3(9.5, 0.0, 17.5),
-		Vector3(-9.5, 0.0, -60.0), Vector3(9.5, 0.0, -60.0),
-		Vector3(-9.5, 0.0, -96.0), Vector3(9.5, 0.0, -96.0),
-		Vector3(-9.5, 0.0, -124.0), Vector3(9.5, 0.0, -124.0),
-		# Upper Overlook Terrace scenic framing blossoms (Tier 2 Y = 5.6)
-		Vector3(-18.5, 0.0, -176.0), Vector3(18.5, 0.0, -176.0),
-		Vector3(-18.5, 0.0, -192.0), Vector3(18.5, 0.0, -192.0),
-		# Baroque Palace Forecourt (Tier 0 Y = 0.0)
-		Vector3(-12.5, 0.0, -216.0), Vector3(12.5, 0.0, -216.0),
-		# School of Souls courtyard (Tier 1 Y = 3.2)
-		Vector3(-34.0, 0.0, 20.0), Vector3(-34.0, 0.0, -4.0),
+		# Awakening Plaza outer sunny grass meadow (Tier 0 Y = 0.0)
+		Vector3(-19.0, 0.0, 56.0), Vector3(19.0, 0.0, 56.0),
+		Vector3(-16.0, 0.0, 64.0), Vector3(16.0, 0.0, 64.0),
+		# Canal south grassy bank & Quiet Lakes Park grass meadow (Tier 0 Y = 0.0)
+		Vector3(16.0, 0.0, -17.0), Vector3(28.0, 0.0, -17.5),
+		Vector3(42.0, 0.0, -17.5), Vector3(36.5, 0.0, 24.0),
+		Vector3(40.0, 0.0, 25.0), Vector3(32.0, 0.0, -4.0),
+		Vector3(20.0, 0.0, -6.0),
+		# North Terrace sunny outer green lawns (Tier 1 Y = 3.2)
+		Vector3(-15.0, 0.0, -63.0), Vector3(15.0, 0.0, -63.0),
+		Vector3(-42.0, 0.0, -62.5), Vector3(56.0, 0.0, -63.0),
+		Vector3(-18.0, 0.0, -150.5), Vector3(18.0, 0.0, -150.5),
+		Vector3(-56.0, 0.0, -150.0), Vector3(26.0, 0.0, -150.5),
 	]
 	for i in range(blossom_spots.size()):
 		var raw_pos: Vector3 = blossom_spots[i]
-		if not _is_far_enough_from_inner_houses(raw_pos.x, raw_pos.z, 3.8):
+		if not _is_pure_grass_spot(raw_pos.x, raw_pos.z, 3.6):
 			continue
 		var pos: Vector3 = Vector3(raw_pos.x, _get_city_ground_y(raw_pos.x, raw_pos.z), raw_pos.z)
 		var sc: float = 0.94 + float(i % 4) * 0.07
@@ -4197,15 +4417,17 @@ func _build_city_props_and_flora() -> void:
 		))
 
 	# --- 2. GOLDEN-AMBER WEEPING WILLOWS (akasha_tree_willow.glb) ---
-	# Framing Awakening Plaza flanks, Canal Embankment & Kronos Tower
+	# Framing Awakening Plaza outer meadow, Canal grassy bank & Kronos green lawn
 	var willow_gold_spots: Array[Vector3] = [
-		Vector3(-28.0, 0.0, 56.0), Vector3(28.0, 0.0, 56.0),
-		Vector3(46.0, 0.0, 26.0), Vector3(42.0, 0.0, -64.0),
-		Vector3(-36.0, 0.0, -2.0),
+		Vector3(-30.0, 0.0, 58.0), Vector3(30.0, 0.0, 58.0),
+		Vector3(-46.0, 0.0, 56.0), Vector3(46.0, 0.0, 52.0),
+		Vector3(54.0, 0.0, 48.0), Vector3(42.0, 0.0, -15.0),
+		Vector3(24.0, 0.0, -15.5), Vector3(58.0, 0.0, -62.0),
+		Vector3(62.0, 0.0, -96.0), Vector3(62.0, 0.0, -120.0),
 	]
 	for i in range(willow_gold_spots.size()):
 		var raw_pos: Vector3 = willow_gold_spots[i]
-		if not _is_far_enough_from_inner_houses(raw_pos.x, raw_pos.z, 4.0):
+		if not _is_pure_grass_spot(raw_pos.x, raw_pos.z, 3.6):
 			continue
 		var pos: Vector3 = Vector3(raw_pos.x, _get_city_ground_y(raw_pos.x, raw_pos.z), raw_pos.z)
 		var sc: float = 1.02 + float(i % 3) * 0.08
@@ -4215,15 +4437,16 @@ func _build_city_props_and_flora() -> void:
 		))
 
 	# --- 3. ROSE-LAVENDER WEEPING WILLOWS (akasha_tree_willow.glb) ---
-	# Enchanted grove in Lantern Garden & around Mira's Sanctuary (Tier 1 Y = 3.2)
+	# Enchanted outer grass meadow around Lantern Garden & Mira's Sanctuary (Tier 1 Y = 3.2)
 	var willow_lav_spots: Array[Vector3] = [
-		Vector3(-44.0, 0.0, -128.0), Vector3(-44.0, 0.0, -148.0),
-		Vector3(-24.0, 0.0, -149.0), Vector3(-24.0, 0.0, -127.0),
-		Vector3(24.0, 0.0, -148.0), Vector3(46.0, 0.0, -128.0),
+		Vector3(-51.0, 0.0, -138.0), Vector3(-49.0, 0.0, -124.0),
+		Vector3(-49.0, 0.0, -150.0), Vector3(-22.0, 0.0, -151.0),
+		Vector3(-58.0, 0.0, -148.0), Vector3(22.0, 0.0, -151.0),
+		Vector3(36.0, 0.0, -151.5), Vector3(62.0, 0.0, -148.0),
 	]
 	for i in range(willow_lav_spots.size()):
 		var raw_pos: Vector3 = willow_lav_spots[i]
-		if not _is_far_enough_from_inner_houses(raw_pos.x, raw_pos.z, 3.8):
+		if not _is_pure_grass_spot(raw_pos.x, raw_pos.z, 3.6):
 			continue
 		var pos: Vector3 = Vector3(raw_pos.x, _get_city_ground_y(raw_pos.x, raw_pos.z), raw_pos.z)
 		var sc: float = 0.98 + float(i % 3) * 0.08
@@ -4233,15 +4456,16 @@ func _build_city_props_and_flora() -> void:
 		))
 
 	# --- 4. AZURE-TURQUOISE CELESTIAL BONSAI (akasha_tree_bonsai.glb) ---
-	# Serene Lake of Silence shoreline & Orion Library terrace
+	# Serene Lake of Silence grass meadow & Orion Library outer green lawn
 	var bonsai_spots: Array[Vector3] = [
-		Vector3(36.0, 0.0, 24.0), Vector3(54.0, 0.0, 29.0),
-		Vector3(52.0, 0.0, -5.0), Vector3(62.0, 0.0, -3.0),
-		Vector3(-42.0, 0.0, -64.0), Vector3(-44.0, 0.0, -92.0),
+		Vector3(35.0, 0.0, 22.0), Vector3(48.0, 0.0, -8.5),
+		Vector3(52.0, 0.0, -7.5), Vector3(62.0, 0.0, -7.0),
+		Vector3(-58.0, 0.0, -61.5), Vector3(-62.0, 0.0, -96.0),
+		Vector3(-62.0, 0.0, -122.0), Vector3(-54.0, 0.0, -151.0),
 	]
 	for i in range(bonsai_spots.size()):
 		var raw_pos: Vector3 = bonsai_spots[i]
-		if not _is_far_enough_from_inner_houses(raw_pos.x, raw_pos.z, 3.8):
+		if not _is_pure_grass_spot(raw_pos.x, raw_pos.z, 3.6):
 			continue
 		var pos: Vector3 = Vector3(raw_pos.x, _get_city_ground_y(raw_pos.x, raw_pos.z), raw_pos.z)
 		var sc: float = 1.00 + float(i % 3) * 0.08
@@ -4292,19 +4516,25 @@ func _build_city_props_and_flora() -> void:
 		true
 	)
 
-	# Lush bushes framing plazas, Mira's Sanctuary, and Park
+	# Lush bushes strictly on pure meadow grass (Awakening meadow, Quiet Lakes, Canal banks & North Terrace)
 	var bush_spots: Array[Vector3] = [
-		Vector3(-11.0, 0.0, 54.0), Vector3(11.0, 0.0, 54.0),
-		Vector3(-30.0, 0.0, 14.0), Vector3(-30.0, 0.0, 2.0),
-		Vector3(24.0, 0.0, 16.0), Vector3(28.0, 0.0, 4.0),
-		Vector3(-32.0, 0.0, -72.0), Vector3(-32.0, 0.0, -84.0),
-		Vector3(32.0, 0.0, -72.0), Vector3(32.0, 0.0, -84.0),
-		Vector3(28.0, 0.0, -130.0), Vector3(28.0, 0.0, -146.0),
-		Vector3(-26.0, 0.0, -132.0), Vector3(-26.0, 0.0, -144.0),
+		Vector3(-15.5, 0.0, 52.0), Vector3(15.5, 0.0, 52.0),
+		Vector3(-24.0, 0.0, 56.0), Vector3(24.0, 0.0, 56.0),
+		Vector3(22.0, 0.0, 17.0), Vector3(22.0, 0.0, 3.0),
+		Vector3(36.0, 0.0, 20.0), Vector3(38.0, 0.0, -2.0),
+		Vector3(48.0, 0.0, -6.0), Vector3(48.0, 0.0, 29.0),
+		Vector3(-18.0, 0.0, -45.5), Vector3(18.0, 0.0, -45.5),
+		Vector3(-36.0, 0.0, -45.5), Vector3(36.0, 0.0, -45.5),
+		Vector3(18.0, 0.0, -17.0), Vector3(34.0, 0.0, -17.0),
+		Vector3(-24.0, 0.0, -149.5), Vector3(-48.0, 0.0, -146.0),
+		Vector3(-49.0, 0.0, -130.0), Vector3(24.0, 0.0, -149.5),
+		Vector3(34.0, 0.0, -150.0), Vector3(62.5, 0.0, -126.0),
+		Vector3(-54.0, 0.0, -63.0), Vector3(54.0, 0.0, -63.0),
+		Vector3(-60.0, 0.0, -98.0), Vector3(60.0, 0.0, -98.0),
 	]
 	for i in range(bush_spots.size()):
 		var rb: Vector3 = bush_spots[i]
-		if not _is_far_enough_from_inner_houses(rb.x, rb.z, 3.5):
+		if not _is_pure_grass_spot(rb.x, rb.z, 2.4):
 			continue
 		var bpos: Vector3 = Vector3(rb.x, _get_city_ground_y(rb.x, rb.z), rb.z)
 		_place_prop_scene(props_root, _scene_bush, "CityBush_%02d" % i, bpos, float(i) * 0.9, 1.0, "bush")
@@ -4756,126 +4986,22 @@ func _build_street_life_and_akasha_magic() -> void:
 
 
 func _is_clear_for_grass_cluster(x: float, z: float, placed_pts: Array[Vector2]) -> bool:
-	# 1. Flat meadow ground check (never straddle a terrace drop-off or cliff)
-	var y_c: float = _get_city_ground_y(x, z)
-	var half_g: float = 0.85
-	if absf(_get_city_ground_y(x - half_g, z - half_g) - y_c) > 0.1:
-		return false
-	if absf(_get_city_ground_y(x + half_g, z - half_g) - y_c) > 0.1:
-		return false
-	if absf(_get_city_ground_y(x - half_g, z + half_g) - y_c) > 0.1:
-		return false
-	if absf(_get_city_ground_y(x + half_g, z + half_g) - y_c) > 0.1:
+	# 1. Must satisfy strict 100% grass-only rule (zero stone decks, roads, plazas, canal, houses)
+	if not _is_pure_grass_spot(x, z, 1.4):
 		return false
 
-	# 2. Must be pure meadow (NOT on any plaza disc, pocket park stone promenade, or Overlook paving)
+	# 2. Must sit strictly on pure meadow ground (not raised plaza/park lawn discs)
+	var y_c: float = _get_city_ground_y(x, z)
 	if absf(_get_prop_surface_y(x, z) - y_c) > 0.005:
 		return false
 
-	# 3. Clear of ALL roads, avenues, side streets, and quarter alleys (+1.4m margin)
-	if z >= -23.0 and z <= 58.0 and absf(x) < 6.4:
-		return false
-	if z >= -160.0 and z <= -52.0 and absf(x) < 7.4:
-		return false
-	if z >= -230.0 and z <= -208.0 and absf(x) < 8.5:
-		return false
-	if x >= -46.0 and x <= 46.0 and z >= 2.6 and z <= 15.0:
-		return false
-	if x >= -50.0 and x <= 50.0 and absf(z + 78.0) < 5.2:
-		return false
-	if x >= -36.0 and x <= 36.0 and absf(z + 138.0) < 5.2:
-		return false
-	if x >= -54.0 and x <= -4.0 and absf(z - 44.0) < 4.1:
-		return false
-	if z >= 16.5 and z <= 46.0 and absf(x + 23.55) < 3.0:
-		return false
-	if x >= -26.0 and x <= -4.0 and absf(z - 18.0) < 3.3:
-		return false
-	if x >= 4.0 and x <= 54.0 and absf(z - 38.0) < 4.1:
-		return false
-	if z >= 9.0 and z <= 40.0 and absf(x - 28.0) < 4.1:
-		return false
-	if z >= -140.0 and z <= -76.0 and (absf(x + 41.0) < 4.1 or absf(x - 37.0) < 4.1):
-		return false
-
-	# 4. Clear of Canal water, stone quay, railing, south canal benches/lamps/bistros & staircases
+	# 3. Extra margin from south canal benches/lamps/bistros & Baroque Palace
 	if z >= -41.0 and z <= -20.5:
-		return false
-	if x >= -28.5 and x <= -11.5 and z >= 2.0 and z <= 14.0:
-		return false
-	if absf(x) < 9.0 and z >= -57.0 and z <= -40.5:
-		return false
-	if absf(x) < 26.5 and z >= -216.0 and z <= -155.0:
-		return false
-
-	# 5. Clear of terrace retaining walls
-	if x >= -28.5 and x <= -23.5 and z >= -18.5 and z <= 34.5:
-		return false
-	if x >= -66.0 and x <= -23.5 and (absf(z - 32.0) < 2.2 or absf(z + 16.0) < 2.2):
-		return false
-	if absf(z + 52.0) < 2.2 or absf(z + 158.0) < 2.2:
-		return false
-
-	# 6. Clear of Lake of Silence (R=13.55 curb + 1.0m margin) & Cloud Balloon (66, 26)
-	var ldx: float = x - LAKE_CENTER.x
-	var ldz: float = z - LAKE_CENTER.z
-	if ldx * ldx + ldz * ldz < 14.5 * 14.5:
-		return false
-	var cbdx: float = x - 66.0
-	var cbdz: float = z - 26.0
-	if cbdx * cbdx + cbdz * cbdz < 8.5 * 8.5:
-		return false
-
-	# 7. Clear of all 12 circular plazas + 4 pocket parks (+1.2m margin outside stone rim)
-	var discs: Array[Vector3] = [
-		Vector3(0.0, 48.0, 13.8),
-		Vector3(42.0, 10.0, 6.9),
-		Vector3(30.0, 10.0, 6.7),
-		Vector3(0.0, -17.0, 8.4),
-		Vector3(0.0, -217.5, 11.7),
-		Vector3(-35.2, 8.0, 8.6),
-		Vector3(0.0, -78.0, 12.0),
-		Vector3(-39.5, -78.0, 8.6),
-		Vector3(42.0, -78.0, 8.8),
-		Vector3(-34.0, -138.0, 11.7),
-		Vector3(34.0, -138.0, 7.8),
-		Vector3(0.0, -184.0, 12.4),
-		Vector3(-36.0, 44.0, 9.7),
-		Vector3(36.0, 38.0, 9.7),
-		Vector3(-41.0, -108.0, 9.7),
-		Vector3(38.0, -108.0, 9.7),
-	]
-	for d_info in discs:
-		var ddx: float = x - d_info.x
-		var ddz: float = z - d_info.y
-		if ddx * ddx + ddz * ddz < d_info.z * d_info.z:
-			return false
-
-	# 8. Clear of 4 landmark buildings (1.28x), 4 interactive venues, 4 waterfalls, Baroque Palace & inner houses
-	if absf(x + 53.5) < 11.6 and absf(z - 8.0) < 11.2:
-		return false
-	if absf(x + 59.5) < 12.5 and absf(z + 78.0) < 12.8:
-		return false
-	if absf(x - 56.5) < 8.2 and absf(z + 78.0) < 8.2:
-		return false
-	if absf(x - 49.0) < 8.8 and absf(z + 138.0) < 9.4:
-		return false
-	if x >= 6.5 and x <= 24.5 and absf(z - 28.0) < 8.5:
-		return false
-	if x >= -24.5 and x <= -6.5 and absf(z - 28.0) < 8.5:
-		return false
-	if x >= 6.5 and x <= 29.5 and absf(z + 108.0) < 9.0:
-		return false
-	if x >= -32.5 and x <= -6.5 and absf(z + 108.0) < 12.5:
-		return false
-	if Vector2(x, z).distance_to(Vector2(67.0, 12.0)) < 8.5:
 		return false
 	if Vector2(x, z).distance_to(Vector2(0.0, -280.0)) < 84.0:
 		return false
-	if not _is_far_enough_from_inner_houses(x, z, 5.4):
-		return false
 
-	# 9. Minimum spacing between grass clusters
+	# 4. Minimum spacing between grass clusters
 	var q_pt: Vector2 = Vector2(x, z)
 	for pt in placed_pts:
 		if pt.distance_squared_to(q_pt) < 1.65 * 1.65:
@@ -4914,47 +5040,128 @@ func _create_colored_multimesh(
 
 
 # ===========================================================================
-# 9. LANTERN GARDEN FLOATING SKY LANTERNS (GPUParticles3D, Tier 1 Y = 3.2)
+# 9. LANTERN GARDEN FLOATING PIXAR SKY LANTERNS (MultiMesh, Tier 1 Y = 3.2)
+#    18 gently rising & swaying multi-material Pixar Sky Lanterns (prop_sky_lantern.glb)
 # ===========================================================================
 
 func _build_lantern_garden_particles() -> void:
-	var particles: GPUParticles3D = GPUParticles3D.new()
-	particles.name = "LanternGardenSkyLanterns"
-	particles.position = Vector3(-34.0, TIER_1_Y + 1.8, -138.0)
-	particles.amount = 24
-	particles.lifetime = 11.0
-	particles.preprocess = 5.0
-	particles.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	particles.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
+	var lantern_root: Node3D = Node3D.new()
+	lantern_root.name = "LanternGardenSkyLanterns"
+	lantern_root.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
+	add_child(lantern_root)
 
-	var proc_mat: ParticleProcessMaterial = ParticleProcessMaterial.new()
-	proc_mat.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
-	proc_mat.emission_box_extents = Vector3(11.0, 0.6, 11.0)
-	proc_mat.direction = Vector3(0.0, 1.0, 0.0)
-	proc_mat.spread = 16.0
-	proc_mat.gravity = Vector3(0.0, 0.06, 0.0)
-	proc_mat.initial_velocity_min = 0.32
-	proc_mat.initial_velocity_max = 0.65
-	proc_mat.scale_min = 0.75
-	proc_mat.scale_max = 1.25
-	particles.process_material = proc_mat
+	var sub_parts: Array[Dictionary] = []
+	if _scene_sky_lantern != null:
+		var temp_inst: Node = _scene_sky_lantern.instantiate()
+		if temp_inst is Node3D:
+			var temp_root: Node3D = temp_inst as Node3D
+			var min_y: float = _find_min_local_y(temp_root, Transform3D.IDENTITY)
+			var ground_offset_y: float = -min_y if min_y < 1.0e8 else 0.0
+			var ground_xf: Transform3D = Transform3D(Basis.IDENTITY, Vector3(0.0, ground_offset_y, 0.0))
+			_collect_submesh_parts(temp_root, ground_xf, sub_parts, null, false, "")
+		temp_inst.free()
 
-	var lantern_mesh: CylinderMesh = CylinderMesh.new()
-	lantern_mesh.top_radius = 0.18
-	lantern_mesh.bottom_radius = 0.14
-	lantern_mesh.height = 0.38
-	lantern_mesh.radial_segments = 8
+	if sub_parts.is_empty():
+		sub_parts = _create_fallback_sky_lantern_parts()
 
-	var lantern_mat: StandardMaterial3D = StandardMaterial3D.new()
-	lantern_mat.albedo_color = Color("#FFE7A0")
-	lantern_mat.roughness = 0.30
-	lantern_mat.emission_enabled = true
-	lantern_mat.emission = Color("#FFCA62")
-	lantern_mat.emission_energy_multiplier = 2.2
-	lantern_mesh.material = lantern_mat
+	var lantern_count: int = 18
+	var center_x: float = -34.0
+	var center_z: float = -138.0
+	var min_y_h: float = TIER_1_Y + 2.2
+	var max_y_h: float = TIER_1_Y + 14.0
+	var y_span: float = max_y_h - min_y_h
 
-	particles.draw_pass_1 = lantern_mesh
-	add_child(particles)
+	var rng: RandomNumberGenerator = RandomNumberGenerator.new()
+	rng.seed = 202699
+
+	_sky_lantern_instances.clear()
+	_sky_lantern_batches.clear()
+
+	for i in range(lantern_count):
+		var ang: float = (TAU * float(i)) / float(lantern_count) + rng.randf_range(-0.18, 0.18)
+		var rad: float = rng.randf_range(2.6, 10.4)
+		var bx: float = center_x + cos(ang) * rad
+		var bz: float = center_z + sin(ang) * rad
+		var start_h: float = (y_span * float(i)) / float(lantern_count) + rng.randf_range(0.0, 0.55)
+		_sky_lantern_instances.append({
+			"base_x": bx,
+			"base_z": bz,
+			"start_h": fposmod(start_h, y_span),
+			"rise_speed": rng.randf_range(0.42, 0.68),
+			"phase": rng.randf_range(0.0, TAU),
+			"sway_r": rng.randf_range(0.32, 0.72),
+			"yaw_speed": rng.randf_range(-0.35, 0.35),
+			"scale": rng.randf_range(0.88, 1.22),
+		})
+
+	for p_idx in range(sub_parts.size()):
+		var part: Dictionary = sub_parts[p_idx]
+		var p_mesh: Mesh = part["mesh"] as Mesh
+		if p_mesh == null:
+			continue
+		var p_local_xf: Transform3D = part["xform"] as Transform3D
+		var p_mat: Material = part["material"] as Material
+
+		var mm: MultiMesh = MultiMesh.new()
+		mm.transform_format = MultiMesh.TRANSFORM_3D
+		mm.mesh = p_mesh
+		mm.instance_count = lantern_count
+		for i in range(lantern_count):
+			var info: Dictionary = _sky_lantern_instances[i]
+			var init_y: float = min_y_h + float(info["start_h"])
+			var sc: float = float(info["scale"])
+			var init_xf: Transform3D = Transform3D(
+				Basis.from_scale(Vector3(sc, sc, sc)),
+				Vector3(float(info["base_x"]), init_y, float(info["base_z"]))
+			)
+			mm.set_instance_transform(i, init_xf * p_local_xf)
+
+		var mmi: MultiMeshInstance3D = MultiMeshInstance3D.new()
+		mmi.name = "LanternGardenSkyLanterns_MM_%d" % p_idx
+		mmi.multimesh = mm
+		if p_mat != null:
+			mmi.material_override = p_mat
+		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		mmi.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
+		lantern_root.add_child(mmi)
+
+		_sky_lantern_batches.append({
+			"mm": mm,
+			"local_xf": p_local_xf,
+		})
+
+
+func _create_fallback_sky_lantern_parts() -> Array[Dictionary]:
+	var silk_mat: StandardMaterial3D = StandardMaterial3D.new()
+	silk_mat.albedo_color = Color("#FFE6A6")
+	silk_mat.roughness = 0.32
+	silk_mat.emission_enabled = true
+	silk_mat.emission = Color("#FFBE55")
+	silk_mat.emission_energy_multiplier = 2.0
+
+	var body: SphereMesh = SphereMesh.new()
+	body.radius = 0.24
+	body.height = 0.56
+	body.radial_segments = 28
+	body.rings = 16
+
+	var rim: TorusMesh = TorusMesh.new()
+	rim.inner_radius = 0.14
+	rim.outer_radius = 0.19
+	rim.rings = 28
+	rim.ring_segments = 12
+
+	var cap: CylinderMesh = CylinderMesh.new()
+	cap.top_radius = 0.11
+	cap.bottom_radius = 0.16
+	cap.height = 0.06
+	cap.radial_segments = 24
+
+	return [
+		{"mesh": body, "xform": Transform3D(Basis.IDENTITY, Vector3(0.0, 0.32, 0.0)), "material": silk_mat},
+		{"mesh": rim, "xform": Transform3D(Basis.IDENTITY, Vector3(0.0, 0.06, 0.0)), "material": _mat_gold_trim},
+		{"mesh": cap, "xform": Transform3D(Basis.IDENTITY, Vector3(0.0, 0.60, 0.0)), "material": _mat_gold_trim},
+	]
 
 
 # ===========================================================================
@@ -5044,6 +5251,8 @@ func _create_quest_artifact(
 		var sp: SphereMesh = SphereMesh.new()
 		sp.radius = 0.28
 		sp.height = 0.72
+		sp.radial_segments = 32
+		sp.rings = 16
 		mesh_inst.mesh = sp
 	elif shape_kind == "page":
 		var pg: BoxMesh = BoxMesh.new()
@@ -5055,7 +5264,7 @@ func _create_quest_artifact(
 		crystal.top_radius = 0.04
 		crystal.bottom_radius = 0.28
 		crystal.height = 0.64
-		crystal.radial_segments = 6
+		crystal.radial_segments = 24
 		mesh_inst.mesh = crystal
 	floater.add_child(mesh_inst)
 
@@ -5063,8 +5272,8 @@ func _create_quest_artifact(
 	var torus: TorusMesh = TorusMesh.new()
 	torus.inner_radius = 0.44
 	torus.outer_radius = 0.50
-	torus.rings = 24
-	torus.ring_segments = 8
+	torus.rings = 40
+	torus.ring_segments = 16
 	halo.mesh = torus
 	halo.rotation.x = deg_to_rad(25.0)
 	halo.material_override = _mat_gold_trim
@@ -5090,7 +5299,7 @@ func _create_quest_artifact(
 
 
 # ===========================================================================
-# 11. 3D QUEST BEACON (Golden Guiding Pillar + Floating Diamond)
+# 11. 3D QUEST BEACON (Subtle Low-Profile Golden Ground Halo Ring Only)
 # ===========================================================================
 
 func _build_quest_beacon() -> void:
@@ -5100,47 +5309,8 @@ func _build_quest_beacon() -> void:
 	_quest_beacon_root.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 	add_child(_quest_beacon_root)
 
-	_mat_beacon_beam = StandardMaterial3D.new()
-	_mat_beacon_beam.albedo_color = Color(1.0, 0.88, 0.46, 0.18)
-	_mat_beacon_beam.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	_mat_beacon_beam.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
-	_mat_beacon_beam.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	_mat_beacon_beam.cull_mode = BaseMaterial3D.CULL_DISABLED
-	_mat_beacon_beam.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED
-
-	_quest_beacon_beam = MeshInstance3D.new()
-	_quest_beacon_beam.name = "BeaconBeam"
-	var beam_cyl: CylinderMesh = CylinderMesh.new()
-	beam_cyl.top_radius = 0.25
-	beam_cyl.bottom_radius = 0.65
-	beam_cyl.height = 18.0
-	beam_cyl.radial_segments = 16
-	_quest_beacon_beam.mesh = beam_cyl
-	_quest_beacon_beam.position = Vector3(0.0, 9.0, 0.0)
-	_quest_beacon_beam.material_override = _mat_beacon_beam
-	_quest_beacon_beam.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	_quest_beacon_beam.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
-	_quest_beacon_root.add_child(_quest_beacon_beam)
-
-	_mat_beacon_crystal = StandardMaterial3D.new()
-	_mat_beacon_crystal.albedo_color = Color("#FFE999")
-	_mat_beacon_crystal.roughness = 0.18
-	_mat_beacon_crystal.metallic = 0.45
-	_mat_beacon_crystal.emission_enabled = true
-	_mat_beacon_crystal.emission = Color("#FFD460")
-	_mat_beacon_crystal.emission_energy_multiplier = 2.4
-
-	_quest_beacon_crystal = MeshInstance3D.new()
-	_quest_beacon_crystal.name = "BeaconDiamond"
-	_quest_beacon_crystal.mesh = _create_diamond_mesh(0.42, 0.95)
-	_quest_beacon_crystal.position = Vector3(0.0, 3.2, 0.0)
-	_quest_beacon_crystal.material_override = _mat_beacon_crystal
-	_quest_beacon_crystal.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	_quest_beacon_crystal.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
-	_quest_beacon_root.add_child(_quest_beacon_crystal)
-
 	_mat_beacon_ring = StandardMaterial3D.new()
-	_mat_beacon_ring.albedo_color = Color(1.0, 0.86, 0.42, 0.68)
+	_mat_beacon_ring.albedo_color = Color(1.0, 0.86, 0.42, 0.42)
 	_mat_beacon_ring.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	_mat_beacon_ring.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 
@@ -5148,12 +5318,12 @@ func _build_quest_beacon() -> void:
 	_quest_beacon_ring.name = "BeaconGroundRing"
 	var ring_torus: TorusMesh = TorusMesh.new()
 	ring_torus.inner_radius = 1.05
-	ring_torus.outer_radius = 1.28
-	ring_torus.rings = 32
-	ring_torus.ring_segments = 8
+	ring_torus.outer_radius = 1.24
+	ring_torus.rings = 48
+	ring_torus.ring_segments = 16
 	_quest_beacon_ring.mesh = ring_torus
-	_quest_beacon_ring.position = Vector3(0.0, 0.08, 0.0)
-	_quest_beacon_ring.scale = Vector3(1.0, 0.18, 1.0)
+	_quest_beacon_ring.position = Vector3(0.0, 0.09, 0.0)
+	_quest_beacon_ring.scale = Vector3(1.0, 0.16, 1.0)
 	_quest_beacon_ring.material_override = _mat_beacon_ring
 	_quest_beacon_ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	_quest_beacon_ring.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
@@ -5244,33 +5414,6 @@ func _add_invisible_wall(
 	col.position = pos
 	col.rotation.y = yaw_rad
 	body.add_child(col)
-
-
-func _create_diamond_mesh(radius: float, half_height: float) -> ArrayMesh:
-	var st: SurfaceTool = SurfaceTool.new()
-	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-
-	var top: Vector3 = Vector3(0.0, half_height, 0.0)
-	var bot: Vector3 = Vector3(0.0, -half_height, 0.0)
-	var eq: Array[Vector3] = [
-		Vector3(radius, 0.0, 0.0),
-		Vector3(0.0, 0.0, radius),
-		Vector3(-radius, 0.0, 0.0),
-		Vector3(0.0, 0.0, -radius),
-	]
-
-	for i in range(4):
-		var ni: int = (i + 1) % 4
-		st.add_vertex(top)
-		st.add_vertex(eq[i])
-		st.add_vertex(eq[ni])
-
-		st.add_vertex(bot)
-		st.add_vertex(eq[ni])
-		st.add_vertex(eq[i])
-
-	st.generate_normals()
-	return st.commit()
 
 
 # ===========================================================================
@@ -5572,7 +5715,7 @@ func _create_fallback_house_parts(kind: String) -> Array[Dictionary]:
 		tower_cyl.top_radius = 2.4
 		tower_cyl.bottom_radius = 2.6
 		tower_cyl.height = 6.6
-		tower_cyl.radial_segments = 10
+		tower_cyl.radial_segments = 24
 		parts.append({
 			"mesh": tower_cyl,
 			"xform": Transform3D(Basis.IDENTITY, Vector3(0.0, 3.3, 0.0)),
@@ -5582,7 +5725,7 @@ func _create_fallback_house_parts(kind: String) -> Array[Dictionary]:
 		spire_cone.top_radius = 0.08
 		spire_cone.bottom_radius = 2.95
 		spire_cone.height = 4.8
-		spire_cone.radial_segments = 10
+		spire_cone.radial_segments = 24
 		parts.append({
 			"mesh": spire_cone,
 			"xform": Transform3D(Basis.IDENTITY, Vector3(0.0, 9.0, 0.0)),
@@ -5611,7 +5754,7 @@ func _create_fallback_cliff_parts() -> Array[Dictionary]:
 	rock_cyl.top_radius = 3.8
 	rock_cyl.bottom_radius = 5.4
 	rock_cyl.height = 6.0
-	rock_cyl.radial_segments = 7
+	rock_cyl.radial_segments = 24
 	return [{
 		"mesh": rock_cyl,
 		"xform": Transform3D(Basis.IDENTITY, Vector3(0.0, 3.0, 0.0)),
@@ -5624,13 +5767,13 @@ func _create_fallback_tree_parts(foliage_mat: Material) -> Array[Dictionary]:
 	trunk.top_radius = 0.24
 	trunk.bottom_radius = 0.36
 	trunk.height = 3.2
-	trunk.radial_segments = 7
+	trunk.radial_segments = 24
 
 	var crown: SphereMesh = SphereMesh.new()
 	crown.radius = 2.25
 	crown.height = 3.4
-	crown.radial_segments = 10
-	crown.rings = 6
+	crown.radial_segments = 24
+	crown.rings = 14
 
 	return [
 		{
@@ -5666,7 +5809,7 @@ func _create_fallback_signpost_parts() -> Array[Dictionary]:
 	pole.top_radius = 0.08
 	pole.bottom_radius = 0.11
 	pole.height = 2.6
-	pole.radial_segments = 8
+	pole.radial_segments = 24
 	var arrow_a: BoxMesh = BoxMesh.new()
 	arrow_a.size = Vector3(0.95, 0.24, 0.06)
 	var arrow_b: BoxMesh = BoxMesh.new()
@@ -5683,17 +5826,17 @@ func _create_fallback_lamp_parts() -> Array[Dictionary]:
 	base.top_radius = 0.18
 	base.bottom_radius = 0.28
 	base.height = 0.55
-	base.radial_segments = 8
+	base.radial_segments = 24
 	var pole: CylinderMesh = CylinderMesh.new()
 	pole.top_radius = 0.07
 	pole.bottom_radius = 0.10
 	pole.height = 3.2
-	pole.radial_segments = 8
+	pole.radial_segments = 24
 	var globe: SphereMesh = SphereMesh.new()
 	globe.radius = 0.26
 	globe.height = 0.52
-	globe.radial_segments = 10
-	globe.rings = 6
+	globe.radial_segments = 24
+	globe.rings = 14
 	return [
 		{"mesh": base, "xform": Transform3D(Basis.IDENTITY, Vector3(0.0, 0.275, 0.0)), "material": _mat_stone_quay},
 		{"mesh": pole, "xform": Transform3D(Basis.IDENTITY, Vector3(0.0, 2.0, 0.0)), "material": _mat_gold_trim},
@@ -5709,8 +5852,8 @@ func _create_fallback_flower_cart_parts() -> Array[Dictionary]:
 	var blooms: SphereMesh = SphereMesh.new()
 	blooms.radius = 0.42
 	blooms.height = 0.50
-	blooms.radial_segments = 8
-	blooms.rings = 5
+	blooms.radial_segments = 24
+	blooms.rings = 12
 	return [
 		{"mesh": body, "xform": Transform3D(Basis.IDENTITY, Vector3(0.0, 0.62, 0.0)), "material": _mat_bench_wood},
 		{"mesh": canopy, "xform": Transform3D(Basis.IDENTITY, Vector3(0.0, 2.05, 0.0)), "material": _mat_roof_terracotta},
@@ -5743,7 +5886,7 @@ func _create_fallback_ornate_railing_parts() -> Array[Dictionary]:
 	baluster.top_radius = 0.07
 	baluster.bottom_radius = 0.09
 	baluster.height = 0.80
-	baluster.radial_segments = 8
+	baluster.radial_segments = 24
 	return [
 		{"mesh": plinth, "xform": Transform3D(Basis.IDENTITY, Vector3(0.0, 0.09, 0.0)), "material": _mat_stone_quay},
 		{"mesh": handrail, "xform": Transform3D(Basis.IDENTITY, Vector3(0.0, 1.05, 0.0)), "material": _mat_marble_wall},
@@ -5759,8 +5902,8 @@ func _create_fallback_railing_pillar_parts() -> Array[Dictionary]:
 	var finial: SphereMesh = SphereMesh.new()
 	finial.radius = 0.18
 	finial.height = 0.36
-	finial.radial_segments = 10
-	finial.rings = 6
+	finial.radial_segments = 24
+	finial.rings = 14
 	return [
 		{"mesh": shaft, "xform": Transform3D(Basis.IDENTITY, Vector3(0.0, 0.62, 0.0)), "material": _mat_stone_quay},
 		{"mesh": finial, "xform": Transform3D(Basis.IDENTITY, Vector3(0.0, 1.38, 0.0)), "material": _mat_gold_trim},
@@ -5772,17 +5915,17 @@ func _create_fallback_cafe_bistro_parts() -> Array[Dictionary]:
 	table_top.top_radius = 0.55
 	table_top.bottom_radius = 0.55
 	table_top.height = 0.08
-	table_top.radial_segments = 12
+	table_top.radial_segments = 28
 	var pole: CylinderMesh = CylinderMesh.new()
 	pole.top_radius = 0.05
 	pole.bottom_radius = 0.07
 	pole.height = 2.35
-	pole.radial_segments = 8
+	pole.radial_segments = 24
 	var umbrella: CylinderMesh = CylinderMesh.new()
 	umbrella.top_radius = 0.12
 	umbrella.bottom_radius = 1.05
 	umbrella.height = 0.42
-	umbrella.radial_segments = 12
+	umbrella.radial_segments = 28
 	return [
 		{"mesh": table_top, "xform": Transform3D(Basis.IDENTITY, Vector3(0.0, 0.76, 0.0)), "material": _mat_marble_plaza},
 		{"mesh": pole, "xform": Transform3D(Basis.IDENTITY, Vector3(0.0, 1.18, 0.0)), "material": _mat_bench_wood},
@@ -5795,12 +5938,12 @@ func _create_fallback_garden_urn_parts() -> Array[Dictionary]:
 	ped.top_radius = 0.34
 	ped.bottom_radius = 0.44
 	ped.height = 0.85
-	ped.radial_segments = 12
+	ped.radial_segments = 28
 	var bush: SphereMesh = SphereMesh.new()
 	bush.radius = 0.46
 	bush.height = 0.62
-	bush.radial_segments = 10
-	bush.rings = 6
+	bush.radial_segments = 24
+	bush.rings = 14
 	return [
 		{"mesh": ped, "xform": Transform3D(Basis.IDENTITY, Vector3(0.0, 0.425, 0.0)), "material": _mat_marble_plaza},
 		{"mesh": bush, "xform": Transform3D(Basis.IDENTITY, Vector3(0.0, 1.05, 0.0)), "material": _mat_foliage_green},
@@ -5811,13 +5954,13 @@ func _create_fallback_grass_daisy_parts() -> Array[Dictionary]:
 	var tuft: SphereMesh = SphereMesh.new()
 	tuft.radius = 0.48
 	tuft.height = 0.36
-	tuft.radial_segments = 8
-	tuft.rings = 5
+	tuft.radial_segments = 24
+	tuft.rings = 12
 	var daisy: SphereMesh = SphereMesh.new()
 	daisy.radius = 0.14
 	daisy.height = 0.08
-	daisy.radial_segments = 8
-	daisy.rings = 4
+	daisy.radial_segments = 24
+	daisy.rings = 12
 	return [
 		{"mesh": tuft, "xform": Transform3D(Basis.IDENTITY, Vector3(0.0, 0.16, 0.0)), "material": _mat_foliage_green},
 		{"mesh": daisy, "xform": Transform3D(Basis.IDENTITY, Vector3(0.18, 0.34, 0.12)), "material": _mat_marble_wall},
@@ -5877,7 +6020,7 @@ func _add_cylinder_part(
 	cyl.top_radius = radius
 	cyl.bottom_radius = radius
 	cyl.height = height
-	cyl.radial_segments = 16
+	cyl.radial_segments = 32
 	mi.mesh = cyl
 	mi.position = pos
 	mi.material_override = mat
