@@ -767,8 +767,6 @@ func _connect_signals() -> void:
 			_akasha_npcs.connect("npc_interacted", _on_akasha_npc_interacted)
 
 	if _city_map_ui != null and is_instance_valid(_city_map_ui):
-		if _city_map_ui.has_signal("fast_travel_requested"):
-			_city_map_ui.connect("fast_travel_requested", _on_city_fast_travel)
 		if _city_map_ui.has_signal("map_closed"):
 			_city_map_ui.connect("map_closed", _on_city_map_closed)
 
@@ -807,44 +805,6 @@ func _sync_quest_ui_and_world() -> void:
 		for piece_id: String in piece_ids:
 			var collected: bool = bool(qm.call("is_blueprint_piece_collected", piece_id))
 			_city_builder.set_quest_item_visible(piece_id, not collected)
-
-
-func _on_city_fast_travel(district_id: String) -> void:
-	if _is_transitioning or not _is_in_gameplay or player == null:
-		return
-	_is_transitioning = true
-	_set_player_control(false)
-	_update_prompt("")
-
-	if SceneFlowManager != null:
-		await SceneFlowManager.fade_to_veil(0.3, true)
-
-	var dest: Vector3 = START_PLAYER_POS
-	if _city_builder != null and is_instance_valid(_city_builder):
-		dest = _city_builder.get_district_spawn_position(district_id)
-
-	if player.has_method("teleport_to"):
-		player.call("teleport_to", dest, 0.0)
-	else:
-		player.global_position = dest
-		player.velocity = Vector3.ZERO
-		player.rotation.y = 0.0
-
-	_current_district_id = district_id
-	if SaveManager != null:
-		SaveManager.save_player_checkpoint(dest)
-
-	if SceneFlowManager != null:
-		await SceneFlowManager.fade_from_veil(0.4)
-
-	_is_transitioning = false
-	if _is_in_gameplay and not _epilogue_triggered:
-		_set_player_control(true)
-		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
-		if _city_builder != null and is_instance_valid(_city_builder):
-			var d_info: Dictionary = _city_builder.get_district_info_at(dest)
-			if not d_info.is_empty() and sky_hud != null and sky_hud.has_method("show_district_banner"):
-				sky_hud.call("show_district_banner", str(d_info.get("name", "")))
 
 
 func _on_city_map_closed() -> void:
@@ -1279,7 +1239,18 @@ func _unhandled_input(event: InputEvent) -> void:
 					_set_player_control(false)
 					_update_prompt("")
 					var p_pos_map: Vector3 = player.global_position if player != null else START_PLAYER_POS
-					_city_map_ui.open_map(p_pos_map)
+					var p_yaw_map: float = 0.0
+					if player != null:
+						var cam_yaw_val: Variant = player.get("cam_yaw")
+						if cam_yaw_val is float:
+							p_yaw_map = cam_yaw_val as float
+						else:
+							var facing_yaw_val: Variant = player.get("facing_yaw")
+							if facing_yaw_val is float:
+								p_yaw_map = facing_yaw_val as float
+							else:
+								p_yaw_map = player.rotation.y
+					_city_map_ui.open_map(p_pos_map, p_yaw_map)
 					get_viewport().set_input_as_handled()
 				return
 			if key_ev.keycode == KEY_ESCAPE:
