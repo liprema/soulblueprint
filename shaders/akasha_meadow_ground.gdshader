@@ -10,12 +10,12 @@ shader_type spatial;
 // - Soft velvet Fresnel rim sheen on sunlit crests (zero plastic shine)
 
 group_uniforms meadow_palette;
-uniform vec3 valley_emerald_color : source_color = vec3(0.165, 0.431, 0.122);   // #2A6E1F Deep Lush Emerald Valley
-uniform vec3 meadow_mid_color : source_color = vec3(0.345, 0.651, 0.153);       // #58A627 Vibrant Sunlit Meadow Green
-uniform vec3 crest_chartreuse_color : source_color = vec3(0.612, 0.831, 0.227); // #9CD43A Warm Golden-Chartreuse Crest
-uniform vec3 velvet_rim_color : source_color = vec3(0.820, 0.945, 0.460);       // Soft Sunlit Velvet Halo
-uniform vec3 daisy_petal_color : source_color = vec3(0.910, 0.935, 1.000);      // Soft White-Periwinkle Daisy Fleck
-uniform vec3 daisy_center_color : source_color = vec3(0.985, 0.905, 0.560);     // Subtle Warm Clover/Daisy Center
+uniform vec3 valley_emerald_color : source_color = vec3(0.12, 0.34, 0.11);       // Deep Lush Emerald Valley
+uniform vec3 meadow_mid_color : source_color = vec3(0.24, 0.50, 0.16);           // Rich Sunlit Meadow Green
+uniform vec3 crest_chartreuse_color : source_color = vec3(0.42, 0.64, 0.22);     // Velvety Warm Chartreuse Crest
+uniform vec3 velvet_rim_color : source_color = vec3(0.820, 0.945, 0.460);        // Soft Sunlit Velvet Halo
+uniform vec3 daisy_petal_color : source_color = vec3(0.910, 0.935, 1.000);       // Soft White-Periwinkle Daisy Fleck
+uniform vec3 daisy_center_color : source_color = vec3(0.985, 0.905, 0.560);      // Subtle Warm Clover/Daisy Center
 
 group_uniforms grass_texture;
 uniform float macro_patch_scale : hint_range(0.02, 0.5) = 0.085;
@@ -26,9 +26,9 @@ uniform float daisy_density : hint_range(0.0, 1.0) = 0.55;
 
 group_uniforms wind_motion;
 uniform vec2 wind_direction = vec2(0.84, 0.54);
-uniform float wind_wave_speed : hint_range(0.0, 3.0) = 0.72;
+uniform float wind_wave_speed : hint_range(0.0, 3.0) = 0.0;
 uniform float wind_wave_scale : hint_range(0.02, 0.4) = 0.11;
-uniform float wind_shimmer_strength : hint_range(0.0, 0.35) = 0.14;
+uniform float wind_shimmer_strength : hint_range(0.0, 0.35) = 0.0;
 
 group_uniforms surface_properties;
 uniform float base_roughness : hint_range(0.65, 0.96) = 0.84;

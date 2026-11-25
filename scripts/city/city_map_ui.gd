@@ -1,117 +1,146 @@
 class_name CityMapUI
 extends CanvasLayer
 
-## Interactive City of Souls Map & Memory Bag overlay for SoulBlueprint (Godot 4.3+).
-## Palette: noble sapphire + antique gold + warm ivory (Sky / Genshin / Pixar Soul).
-## Opens/closes via [M] or [Esc], supports instant fast travel to all 9 districts.
+## Interactive Illustrated City of Souls Map & Memory Bag overlay (Godot 4.3+).
+## AAA Parchment Chronicle & Antique Gold aesthetic (Genshin Impact / Zelda TotK / Pixar).
+## Opens/closes via [M] or [Esc], supports instant fast travel to all 9 landmarks.
 
 signal fast_travel_requested(district_id: String)
 signal map_closed
 
-const COLOR_BACKDROP: Color = Color(0.025, 0.055, 0.125, 0.80)
-const COLOR_SAPPHIRE_DEEP: Color = Color(0.055, 0.102, 0.208, 0.97)
-const COLOR_SAPPHIRE_PANEL: Color = Color(0.075, 0.138, 0.275, 0.96)
-const COLOR_SAPPHIRE_CARD: Color = Color(0.098, 0.176, 0.338, 0.92)
-const COLOR_SAPPHIRE_CANVAS: Color = Color(0.043, 0.086, 0.184, 1.0)
-const COLOR_GOLD: Color = Color(0.875, 0.725, 0.376, 1.0) # #DFB960 antique gold
-const COLOR_GOLD_BRIGHT: Color = Color(0.969, 0.855, 0.525, 1.0) # #F7DA86 sunlit gold
-const COLOR_GOLD_SOFT: Color = Color(0.875, 0.725, 0.376, 0.24)
-const COLOR_GOLD_GRID: Color = Color(0.875, 0.725, 0.376, 0.11)
-const COLOR_IVORY: Color = Color(0.988, 0.973, 0.933, 1.0) # warm ivory
-const COLOR_IVORY_MUTED: Color = Color(0.835, 0.845, 0.895, 0.82)
-const COLOR_PLAYER_CYAN: Color = Color(0.455, 0.847, 1.0, 1.0) # luminous soul azure
-const COLOR_WATER_CANAL: Color = Color(0.185, 0.445, 0.685, 0.52)
-const COLOR_WATER_SHIMMER: Color = Color(0.475, 0.765, 0.945, 0.38)
-const COLOR_ROAD_GOLD: Color = Color(0.875, 0.725, 0.376, 0.46)
-const COLOR_ROAD_HIGHLIGHT: Color = Color(0.969, 0.855, 0.525, 0.22)
+const MAP_TEXTURE_PATH: String = "res://assets/ui/city_map_illustrated.jpg"
+const DEFAULT_MAP_ASPECT: float = 1376.0 / 768.0
+
+# --- Warm Chronicle & Antique Gold Palette ---
+const COLOR_BACKDROP: Color = Color(0.055, 0.052, 0.072, 0.78)
+const COLOR_BOOK_COVER: Color = Color(0.145, 0.112, 0.082, 0.96)
+const COLOR_PARCHMENT: Color = Color(0.980, 0.950, 0.880, 0.96)
+const COLOR_PARCHMENT_CARD: Color = Color(0.955, 0.914, 0.824, 0.94)
+const COLOR_PARCHMENT_SOFT: Color = Color(0.968, 0.935, 0.855, 0.92)
+const COLOR_PARCHMENT_EMPTY: Color = Color(0.945, 0.905, 0.818, 0.76)
+
+const COLOR_GOLD_ANTIQUE: Color = Color(0.788, 0.627, 0.282, 1.0) # #C9A048
+const COLOR_GOLD_BRIGHT: Color = Color(0.933, 0.780, 0.365, 1.0) # sunlit gold
+const COLOR_GOLD_DEEP: Color = Color(0.604, 0.435, 0.118, 1.0) # #9A6F1E readable gold on parchment
+const COLOR_GOLD_SOFT: Color = Color(0.788, 0.627, 0.282, 0.42)
+const COLOR_GOLD_FILL: Color = Color(0.845, 0.680, 0.305, 0.96)
+const COLOR_GOLD_FILL_HOVER: Color = Color(0.920, 0.762, 0.370, 1.0)
+const COLOR_GOLD_FILL_PRESSED: Color = Color(0.710, 0.550, 0.225, 1.0)
+
+const COLOR_INK_PRIMARY: Color = Color(0.118, 0.173, 0.282, 1.0) # #1E2C48 deep sapphire-chocolate
+const COLOR_INK_SECONDARY: Color = Color(0.285, 0.258, 0.228, 1.0) # warm espresso ink
+const COLOR_INK_MUTED: Color = Color(0.455, 0.405, 0.340, 0.90)
+const COLOR_TEAL_ACCENT: Color = Color(0.115, 0.445, 0.545, 1.0) # river turquoise ink
+const COLOR_IVORY_PIN: Color = Color(0.992, 0.968, 0.905, 0.97)
+const COLOR_IVORY_PIN_HOVER: Color = Color(1.0, 0.985, 0.915, 1.0)
+const COLOR_QUEST_PIN_FILL: Color = Color(0.945, 0.775, 0.295, 0.98)
+const COLOR_PLAYER_TURQUOISE: Color = Color(0.260, 0.875, 0.965, 1.0)
+const COLOR_PLAYER_CORE: Color = Color(0.965, 0.995, 1.0, 1.0)
 
 const WORLD_MIN_X: float = -64.0
 const WORLD_MAX_X: float = 64.0
-const WORLD_MIN_Z: float = -302.0
-const WORLD_MAX_Z: float = 72.0
+const WORLD_MIN_Z: float = -285.0
+const WORLD_MAX_Z: float = 60.0
+
+const PIN_DIAMETER: float = 34.0
+const PIN_RADIUS: float = 17.0
+const PIN_WRAPPER_W: float = 168.0
+const PIN_WRAPPER_H: float = 62.0
 
 const DISTRICTS: Array = [
 	{
-		"id": "awakening_plaza",
-		"name": "Площадь Пробуждения",
-		"short_name": "Площадь Пробуждения",
-		"pos": Vector3(0.0, 0.0, 48.0),
-		"description": "Южные врата Города Душ, где новорождённые души делают первый шаг под сводами Акаши.",
-	},
-	{
-		"id": "school_of_souls",
-		"name": "Школа Юных Душ",
-		"short_name": "Школа Юных Душ",
-		"pos": Vector3(-42.0, 0.0, 8.0),
-		"description": "Светлый дворик Наставницы Алатеи. Здесь души учатся слышать сердце и сплетают свой Чертёж.",
-	},
-	{
-		"id": "quiet_lakes_park",
-		"name": "Озёрный Парк Тишины",
-		"short_name": "Парк Тишины",
-		"pos": Vector3(44.0, 0.0, 10.0),
-		"description": "Зеркальная гладь Озера Тишины среди белых ив. Вода бережно хранит несказанные слова любви.",
-	},
-	{
-		"id": "central_boulevard",
-		"name": "Центральный Бульвар",
-		"short_name": "Центральный Бульвар",
-		"pos": Vector3(0.0, 0.0, -32.0),
-		"description": "Сердце Города и Императорская Аллея, соединяющая кварталы памяти с северным Храмом.",
-	},
-	{
-		"id": "orion_library",
-		"name": "Библиотека Ориона",
-		"short_name": "Библиотека Ориона",
-		"pos": Vector3(-48.0, 0.0, -78.0),
-		"description": "Своды Звёздных Свитков, где Архивариус Орион бережёт хроники всех прожитых и будущих жизней.",
-	},
-	{
-		"id": "kronos_tower",
-		"name": "Башня Времени Кроноса",
-		"short_name": "Башня Кроноса",
-		"pos": Vector3(48.0, 0.0, -78.0),
-		"description": "Обсерватория золотых песочных часов, с балкона которой виден хрупкий бег земных вёсен.",
+		"id": "earth_mirror_temple",
+		"name": "Верхний Храм Зеркала Земли",
+		"short_name": "Храм Зеркала Земли",
+		"uv": Vector2(0.50, 0.16),
+		"pos": Vector3(0.0, 8.0, -280.0),
+		"icon": "◆",
+		"description": "Северная вершина Обители. В его сводах сияет Зеркало Земли — порог первого воплощения.",
 	},
 	{
 		"id": "lantern_garden",
 		"name": "Сад Небесных Фонариков",
 		"short_name": "Сад Фонариков",
+		"uv": Vector2(0.28, 0.34),
 		"pos": Vector3(-34.0, 0.0, -138.0),
+		"icon": "◈",
 		"description": "Тихая терраса, откуда души отпускают к небу огни благодарности и светлой памяти.",
 	},
 	{
 		"id": "mira_sanctuary",
 		"name": "Дом Утешения Миры",
 		"short_name": "Дом Миры",
+		"uv": Vector2(0.69, 0.33),
 		"pos": Vector3(34.0, 0.0, -138.0),
+		"icon": "◈",
 		"description": "Тёплая обитель Матери Утешения, где исцеляют усталость после возвращения с Земли.",
 	},
 	{
-		"id": "earth_mirror_temple",
-		"name": "Храм Зеркала Земли",
-		"short_name": "Храм Зеркала Земли",
-		"pos": Vector3(0.0, 8.0, -280.0),
-		"description": "Северная вершина Обители. В его сводах сияет Зеркало Земли — порог первого воплощения.",
+		"id": "orion_library",
+		"name": "Библиотека Ориона",
+		"short_name": "Библиотека Ориона",
+		"uv": Vector2(0.36, 0.43),
+		"pos": Vector3(-48.0, 0.0, -78.0),
+		"icon": "◈",
+		"description": "Своды Звёздных Свитков, где Архивариус Орион бережёт хроники всех прожитых и будущих жизней.",
+	},
+	{
+		"id": "kronos_tower",
+		"name": "Башня Времени Кроноса",
+		"short_name": "Башня Кроноса",
+		"uv": Vector2(0.62, 0.44),
+		"pos": Vector3(48.0, 0.0, -78.0),
+		"icon": "◈",
+		"description": "Обсерватория золотых песочных часов, с балкона которой виден хрупкий бег земных вёсен.",
+	},
+	{
+		"id": "central_boulevard",
+		"name": "Мост Памяти и Бульвар",
+		"short_name": "Мост Памяти",
+		"uv": Vector2(0.50, 0.54),
+		"pos": Vector3(0.0, 0.0, -32.0),
+		"icon": "◈",
+		"description": "Каменный мост через сияющую реку и Императорская Аллея, соединяющая кварталы с Храмом.",
+	},
+	{
+		"id": "school_of_souls",
+		"name": "Школа Юных Душ",
+		"short_name": "Школа Юных Душ",
+		"uv": Vector2(0.33, 0.68),
+		"pos": Vector3(-42.0, 0.0, 8.0),
+		"icon": "◈",
+		"description": "Светлый дворик Наставницы Алатеи. Здесь души учатся слышать сердце и сплетают свой Чертёж.",
+	},
+	{
+		"id": "quiet_lakes_park",
+		"name": "Озёрный Парк Тишины",
+		"short_name": "Озеро Тишины",
+		"uv": Vector2(0.75, 0.76),
+		"pos": Vector3(44.0, 0.0, 10.0),
+		"icon": "◈",
+		"description": "Зеркальная гладь Озера Тишины с лодочками. Вода бережно хранит несказанные слова любви.",
+	},
+	{
+		"id": "awakening_plaza",
+		"name": "Площадь Пробуждения",
+		"short_name": "Площадь Пробуждения",
+		"uv": Vector2(0.50, 0.83),
+		"pos": Vector3(0.0, 0.0, 48.0),
+		"icon": "◈",
+		"description": "Южные врата Города Душ с фонтаном, где новорождённые души делают первый шаг под сводами Акаши.",
 	},
 ]
 
-const ROAD_CONNECTIONS: Array = [
-	["awakening_plaza", "central_boulevard"],
-	["central_boulevard", "earth_mirror_temple"],
-	["awakening_plaza", "school_of_souls"],
-	["awakening_plaza", "quiet_lakes_park"],
-	["school_of_souls", "central_boulevard"],
-	["quiet_lakes_park", "central_boulevard"],
-	["school_of_souls", "orion_library"],
-	["quiet_lakes_park", "kronos_tower"],
-	["central_boulevard", "orion_library"],
-	["central_boulevard", "kronos_tower"],
-	["orion_library", "lantern_garden"],
-	["kronos_tower", "mira_sanctuary"],
-	["lantern_garden", "mira_sanctuary"],
-	["lantern_garden", "earth_mirror_temple"],
-	["mira_sanctuary", "earth_mirror_temple"],
+# Smooth piecewise Z -> V anchor points matching the illustrated map's perspective
+const Z_TO_V_KNOTS: Array = [
+	Vector2(-285.0, 0.15),
+	Vector2(-280.0, 0.16),
+	Vector2(-138.0, 0.34),
+	Vector2(-78.0, 0.44),
+	Vector2(-32.0, 0.54),
+	Vector2(10.0, 0.71),
+	Vector2(48.0, 0.83),
+	Vector2(60.0, 0.87),
 ]
 
 var _is_open: bool = false
@@ -119,8 +148,10 @@ var _previous_mouse_mode: Input.MouseMode = Input.MOUSE_MODE_CAPTURED
 var _player_pos: Vector3 = Vector3(0.0, 0.0, 48.0)
 var _time: float = 0.0
 var _hovered_district_id: String = ""
+var _active_target_district_id: String = ""
 
 var _root_control: Control
+var _map_texture_rect: TextureRect
 var _map_canvas: Control
 var _tooltip_panel: PanelContainer
 var _tooltip_title: Label
@@ -133,10 +164,13 @@ var _bag_count_label: Label
 var _bag_list_vbox: VBoxContainer
 var _close_button: Button
 var _fade_tween: Tween
+var _tooltip_tween: Tween
 
 var _district_by_id: Dictionary = {}
 var _district_nodes: Dictionary = {} # district_id -> Control wrapper
 var _district_buttons: Dictionary = {} # district_id -> Button
+var _district_nameplates: Dictionary = {} # district_id -> PanelContainer
+var _pin_scale_tweens: Dictionary = {} # district_id -> Tween
 
 
 func _ready() -> void:
@@ -173,7 +207,7 @@ func _input(event: InputEvent) -> void:
 
 
 # ---------------------------------------------------------------------------
-# Public API
+# Public API (100% preserved)
 # ---------------------------------------------------------------------------
 
 func open_map(player_pos: Vector3) -> void:
@@ -186,6 +220,7 @@ func open_map(player_pos: Vector3) -> void:
 
 	refresh_quest_and_inventory()
 	_update_district_node_positions()
+	call_deferred("_update_district_node_positions")
 	_update_district_button_styles()
 	_set_hovered_district("")
 
@@ -193,7 +228,7 @@ func open_map(player_pos: Vector3) -> void:
 		_fade_tween.kill()
 	_root_control.modulate.a = 0.0
 	_fade_tween = create_tween()
-	_fade_tween.tween_property(_root_control, "modulate:a", 1.0, 0.18) \
+	_fade_tween.tween_property(_root_control, "modulate:a", 1.0, 0.22) \
 		.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 
 	if _map_canvas != null:
@@ -206,6 +241,17 @@ func close_map() -> void:
 	_is_open = false
 	if _fade_tween != null and _fade_tween.is_running():
 		_fade_tween.kill()
+	if _tooltip_tween != null and _tooltip_tween.is_running():
+		_tooltip_tween.kill()
+	for tw_var: Variant in _pin_scale_tweens.values():
+		var tw: Tween = tw_var as Tween
+		if tw != null and tw.is_running():
+			tw.kill()
+	_pin_scale_tweens.clear()
+	for btn_var: Variant in _district_buttons.values():
+		var btn: Button = btn_var as Button
+		if btn != null:
+			btn.scale = Vector2.ONE
 	visible = false
 	_root_control.modulate.a = 0.0
 	Input.mouse_mode = _previous_mouse_mode
@@ -228,9 +274,10 @@ func refresh_quest_and_inventory() -> void:
 		var title: String = str(qm.call("get_current_quest_title"))
 		var objective: String = str(qm.call("get_current_objective"))
 		var target_district: String = str(qm.call("get_current_target_district"))
+		_active_target_district_id = target_district
 		_quest_title_label.text = title
 		_quest_objective_label.text = objective
-		_quest_district_label.text = "Ориентир: %s" % _get_district_name(target_district)
+		_quest_district_label.text = "◈ Ориентир: %s" % _get_district_name(target_district)
 
 		var items_var: Variant = qm.call("get_items")
 		if items_var is Array:
@@ -238,9 +285,10 @@ func refresh_quest_and_inventory() -> void:
 		else:
 			_rebuild_inventory_list([])
 	else:
+		_active_target_district_id = "awakening_plaza"
 		_quest_title_label.text = "Первые шаги в Городе Душ"
 		_quest_objective_label.text = "Поговорите с Люми на Площади Пробуждения"
-		_quest_district_label.text = "Ориентир: Площадь Пробуждения"
+		_quest_district_label.text = "◈ Ориентир: Площадь Пробуждения"
 		_rebuild_inventory_list([])
 
 	_update_district_button_styles()
@@ -269,231 +317,332 @@ func _build_ui() -> void:
 	_root_control.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(_root_control)
 
+	# Soft atmospheric twilight veil behind the Chronicle Book
 	var backdrop: ColorRect = ColorRect.new()
 	backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
 	backdrop.color = COLOR_BACKDROP
 	backdrop.mouse_filter = Control.MOUSE_FILTER_STOP
 	_root_control.add_child(backdrop)
 
-	# Outer soft-margin container
+	# Outer breathing margin (1280x720 -> 1236x680 spread)
 	var outer_margin: MarginContainer = MarginContainer.new()
 	outer_margin.set_anchors_preset(Control.PRESET_FULL_RECT)
-	outer_margin.add_theme_constant_override("margin_left", 32)
-	outer_margin.add_theme_constant_override("margin_right", 32)
-	outer_margin.add_theme_constant_override("margin_top", 24)
-	outer_margin.add_theme_constant_override("margin_bottom", 24)
+	outer_margin.add_theme_constant_override("margin_left", 22)
+	outer_margin.add_theme_constant_override("margin_right", 22)
+	outer_margin.add_theme_constant_override("margin_top", 20)
+	outer_margin.add_theme_constant_override("margin_bottom", 20)
 	_root_control.add_child(outer_margin)
 
-	# Main ornate sapphire + gold frame
-	var frame_panel: PanelContainer = PanelContainer.new()
-	frame_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	frame_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	frame_panel.add_theme_stylebox_override("panel", _make_panel_style(COLOR_SAPPHIRE_DEEP, COLOR_GOLD, 2, 14))
-	outer_margin.add_child(frame_panel)
+	# Outer Chronicle Book binding frame
+	var book_frame: PanelContainer = PanelContainer.new()
+	book_frame.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	book_frame.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	book_frame.add_theme_stylebox_override(
+		"panel",
+		_make_panel_style(COLOR_BOOK_COVER, COLOR_GOLD_ANTIQUE, 2, 12, Color(0.02, 0.015, 0.025, 0.65), 18)
+	)
+	outer_margin.add_child(book_frame)
 
-	var frame_margin: MarginContainer = MarginContainer.new()
-	frame_margin.add_theme_constant_override("margin_left", 18)
-	frame_margin.add_theme_constant_override("margin_right", 18)
-	frame_margin.add_theme_constant_override("margin_top", 14)
-	frame_margin.add_theme_constant_override("margin_bottom", 16)
-	frame_panel.add_child(frame_margin)
+	var book_margin: MarginContainer = MarginContainer.new()
+	book_margin.add_theme_constant_override("margin_left", 12)
+	book_margin.add_theme_constant_override("margin_right", 12)
+	book_margin.add_theme_constant_override("margin_top", 12)
+	book_margin.add_theme_constant_override("margin_bottom", 12)
+	book_frame.add_child(book_margin)
 
-	var main_vbox: VBoxContainer = VBoxContainer.new()
-	main_vbox.add_theme_constant_override("separation", 12)
-	frame_margin.add_child(main_vbox)
-
-	# Top Header Bar
-	var header_hbox: HBoxContainer = HBoxContainer.new()
-	header_hbox.add_theme_constant_override("separation", 16)
-	main_vbox.add_child(header_hbox)
-
-	var title_vbox: VBoxContainer = VBoxContainer.new()
-	title_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	title_vbox.add_theme_constant_override("separation", 2)
-	header_hbox.add_child(title_vbox)
-
-	var title_label: Label = Label.new()
-	title_label.text = "КАРТА ГОРОДА ДУШ  ·  ОБИТЕЛЬ ХРОНИК АКАШИ"
-	title_label.add_theme_font_size_override("font_size", 20)
-	title_label.add_theme_color_override("font_color", COLOR_GOLD_BRIGHT)
-	title_vbox.add_child(title_label)
-
-	var subtitle_label: Label = Label.new()
-	subtitle_label.text = "Нажмите на любой квартал, чтобы мгновенно перенестись туда"
-	subtitle_label.add_theme_font_size_override("font_size", 12)
-	subtitle_label.add_theme_color_override("font_color", COLOR_IVORY_MUTED)
-	title_vbox.add_child(subtitle_label)
-
-	var legend_hbox: HBoxContainer = HBoxContainer.new()
-	legend_hbox.alignment = BoxContainer.ALIGNMENT_END
-	legend_hbox.add_theme_constant_override("separation", 14)
-	header_hbox.add_child(legend_hbox)
-
-	legend_hbox.add_child(_make_legend_pill("✦ Активная цель", COLOR_GOLD_BRIGHT))
-	legend_hbox.add_child(_make_legend_pill("◈ Ваша Душа", COLOR_PLAYER_CYAN))
-	legend_hbox.add_child(_make_legend_pill("○ Квартал", COLOR_IVORY))
-
-	# Golden hairline divider under header
-	var header_line: ColorRect = ColorRect.new()
-	header_line.custom_minimum_size = Vector2(0.0, 1.0)
-	header_line.color = COLOR_GOLD_SOFT
-	main_vbox.add_child(header_line)
-
-	# Content Split: 68% Map Canvas | 32% Quest & Memory Bag Sidebar
+	# 70% Illustrated Map | 30% Parchment Chronicle Sidebar
 	var content_hbox: HBoxContainer = HBoxContainer.new()
-	content_hbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	content_hbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	content_hbox.add_theme_constant_override("separation", 16)
-	main_vbox.add_child(content_hbox)
+	content_hbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	content_hbox.add_theme_constant_override("separation", 12)
+	book_margin.add_child(content_hbox)
 
 	_build_map_panel(content_hbox)
 	_build_sidebar_panel(content_hbox)
 
 
 func _build_map_panel(parent: HBoxContainer) -> void:
+	# Thin antique-gold frame with soft drop shadow
 	var map_frame: PanelContainer = PanelContainer.new()
 	map_frame.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	map_frame.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	map_frame.size_flags_stretch_ratio = 0.68
-	map_frame.add_theme_stylebox_override("panel", _make_panel_style(COLOR_SAPPHIRE_CANVAS, COLOR_GOLD_SOFT, 1, 10))
+	map_frame.size_flags_stretch_ratio = 0.70
+	map_frame.add_theme_stylebox_override(
+		"panel",
+		_make_panel_style(Color(0.92, 0.87, 0.76, 1.0), COLOR_GOLD_ANTIQUE, 2, 8, Color(0.04, 0.03, 0.02, 0.45), 10)
+	)
 	parent.add_child(map_frame)
 
+	# Clip container so TextureRect & overlays respect the framed bounds cleanly
+	var map_clip: Control = Control.new()
+	map_clip.name = "MapClip"
+	map_clip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	map_clip.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	map_clip.clip_contents = true
+	map_frame.add_child(map_clip)
+
+	# Layer 0: Illustrated hand-painted parchment map
+	_map_texture_rect = TextureRect.new()
+	_map_texture_rect.name = "IllustratedMapTexture"
+	_map_texture_rect.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_map_texture_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_map_texture_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	_map_texture_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if ResourceLoader.exists(MAP_TEXTURE_PATH):
+		var map_tex: Texture2D = load(MAP_TEXTURE_PATH) as Texture2D
+		if map_tex != null:
+			_map_texture_rect.texture = map_tex
+	map_clip.add_child(_map_texture_rect)
+
+	# Layer 1: Live custom-drawn canvas (vignette, gold filigree, quest beacon, player soul marker)
 	_map_canvas = Control.new()
 	_map_canvas.name = "MapCanvas"
-	_map_canvas.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_map_canvas.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_map_canvas.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_map_canvas.clip_contents = true
+	_map_canvas.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_map_canvas.draw.connect(_on_map_canvas_draw)
 	_map_canvas.resized.connect(_update_district_node_positions)
-	map_frame.add_child(_map_canvas)
+	map_clip.add_child(_map_canvas)
 
-	# Create 9 interactive district node buttons
+	# Layer 2: 9 Circular Antique-Gold Medallion Pins + Compact Warm Nameplates
+	var pins_layer: Control = Control.new()
+	pins_layer.name = "PinsLayer"
+	pins_layer.set_anchors_preset(Control.PRESET_FULL_RECT)
+	pins_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	map_clip.add_child(pins_layer)
+
 	for entry_var: Variant in DISTRICTS:
 		if not (entry_var is Dictionary):
 			continue
 		var entry: Dictionary = entry_var as Dictionary
 		var d_id: String = str(entry.get("id", ""))
 		var short_name: String = str(entry.get("short_name", d_id))
+		var icon_glyph: String = str(entry.get("icon", "◈"))
 
 		var node_wrapper: Control = Control.new()
 		node_wrapper.name = "District_%s" % d_id
-		node_wrapper.custom_minimum_size = Vector2(150.0, 48.0)
-		node_wrapper.size = Vector2(150.0, 48.0)
+		node_wrapper.custom_minimum_size = Vector2(PIN_WRAPPER_W, PIN_WRAPPER_H)
+		node_wrapper.size = Vector2(PIN_WRAPPER_W, PIN_WRAPPER_H)
 		node_wrapper.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		_map_canvas.add_child(node_wrapper)
+		pins_layer.add_child(node_wrapper)
 
+		# Circular 34x34 golden medallion button centered horizontally in wrapper
 		var btn: Button = Button.new()
-		btn.text = "◈"
-		btn.custom_minimum_size = Vector2(28.0, 28.0)
-		btn.size = Vector2(28.0, 28.0)
-		btn.position = Vector2(61.0, 0.0)
+		btn.text = icon_glyph
+		btn.custom_minimum_size = Vector2(PIN_DIAMETER, PIN_DIAMETER)
+		btn.size = Vector2(PIN_DIAMETER, PIN_DIAMETER)
+		btn.position = Vector2((PIN_WRAPPER_W - PIN_DIAMETER) * 0.5, 0.0)
+		btn.pivot_offset = Vector2(PIN_RADIUS, PIN_RADIUS)
 		btn.focus_mode = Control.FOCUS_NONE
 		btn.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-		btn.add_theme_font_size_override("font_size", 13)
+		btn.add_theme_font_size_override("font_size", 15)
 		btn.pressed.connect(_on_district_clicked.bind(d_id))
-		btn.mouse_entered.connect(_set_hovered_district.bind(d_id))
+		btn.mouse_entered.connect(_on_district_mouse_entered.bind(d_id))
 		btn.mouse_exited.connect(_on_district_mouse_exited.bind(d_id))
 		node_wrapper.add_child(btn)
+
+		# Compact warm parchment nameplate pill directly under the medallion
+		var nameplate_center: CenterContainer = CenterContainer.new()
+		nameplate_center.position = Vector2(0.0, PIN_DIAMETER + 4.0)
+		nameplate_center.size = Vector2(PIN_WRAPPER_W, 24.0)
+		nameplate_center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		node_wrapper.add_child(nameplate_center)
+
+		var nameplate: PanelContainer = PanelContainer.new()
+		nameplate.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		nameplate.add_theme_stylebox_override(
+			"panel",
+			_make_panel_style(Color(0.985, 0.955, 0.885, 0.93), Color(0.788, 0.627, 0.282, 0.88), 1, 7, Color(0.12, 0.08, 0.03, 0.32), 4)
+		)
+		nameplate_center.add_child(nameplate)
+
+		var np_margin: MarginContainer = MarginContainer.new()
+		np_margin.add_theme_constant_override("margin_left", 7)
+		np_margin.add_theme_constant_override("margin_right", 7)
+		np_margin.add_theme_constant_override("margin_top", 2)
+		np_margin.add_theme_constant_override("margin_bottom", 2)
+		np_margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		nameplate.add_child(np_margin)
 
 		var name_lbl: Label = Label.new()
 		name_lbl.text = short_name
 		name_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		name_lbl.position = Vector2(0.0, 28.0)
-		name_lbl.size = Vector2(150.0, 20.0)
 		name_lbl.add_theme_font_size_override("font_size", 11)
-		name_lbl.add_theme_color_override("font_color", COLOR_IVORY)
-		name_lbl.add_theme_color_override("font_shadow_color", Color(0.02, 0.04, 0.1, 0.92))
-		name_lbl.add_theme_constant_override("shadow_offset_x", 1)
-		name_lbl.add_theme_constant_override("shadow_offset_y", 1)
+		name_lbl.add_theme_color_override("font_color", COLOR_INK_PRIMARY)
 		name_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		node_wrapper.add_child(name_lbl)
+		np_margin.add_child(name_lbl)
 
 		_district_nodes[d_id] = node_wrapper
 		_district_buttons[d_id] = btn
+		_district_nameplates[d_id] = nameplate
 
-	# Hover tooltip anchored at top-left of the map canvas (clear of all 9 district nodes)
+	# Layer 3: Compact Legend Pill in top-right corner of the map
+	var legend_panel: PanelContainer = PanelContainer.new()
+	legend_panel.anchor_left = 1.0
+	legend_panel.anchor_right = 1.0
+	legend_panel.anchor_top = 0.0
+	legend_panel.anchor_bottom = 0.0
+	legend_panel.offset_left = -214.0
+	legend_panel.offset_right = -14.0
+	legend_panel.offset_top = 14.0
+	legend_panel.offset_bottom = 42.0
+	legend_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	legend_panel.add_theme_stylebox_override(
+		"panel",
+		_make_panel_style(Color(0.980, 0.950, 0.880, 0.90), COLOR_GOLD_ANTIQUE, 1, 9, Color(0.10, 0.07, 0.03, 0.25), 5)
+	)
+	map_clip.add_child(legend_panel)
+
+	var leg_margin: MarginContainer = MarginContainer.new()
+	leg_margin.add_theme_constant_override("margin_left", 10)
+	leg_margin.add_theme_constant_override("margin_right", 10)
+	leg_margin.add_theme_constant_override("margin_top", 3)
+	leg_margin.add_theme_constant_override("margin_bottom", 3)
+	leg_margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	legend_panel.add_child(leg_margin)
+
+	var leg_hbox: HBoxContainer = HBoxContainer.new()
+	leg_hbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	leg_hbox.add_theme_constant_override("separation", 12)
+	leg_hbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	leg_margin.add_child(leg_hbox)
+
+	var leg_quest: Label = Label.new()
+	leg_quest.text = "✦ Цель"
+	leg_quest.add_theme_font_size_override("font_size", 11)
+	leg_quest.add_theme_color_override("font_color", COLOR_GOLD_DEEP)
+	leg_quest.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	leg_hbox.add_child(leg_quest)
+
+	var leg_soul: Label = Label.new()
+	leg_soul.text = "◈ Вы здесь"
+	leg_soul.add_theme_font_size_override("font_size", 11)
+	leg_soul.add_theme_color_override("font_color", COLOR_TEAL_ACCENT)
+	leg_soul.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	leg_hbox.add_child(leg_soul)
+
+	# Layer 4: Parchment-Gold Hover Tooltip Card anchored at top-left of the map
 	_tooltip_panel = PanelContainer.new()
 	_tooltip_panel.anchor_left = 0.0
 	_tooltip_panel.anchor_right = 0.0
 	_tooltip_panel.anchor_top = 0.0
 	_tooltip_panel.anchor_bottom = 0.0
-	_tooltip_panel.offset_left = 14.0
-	_tooltip_panel.offset_right = 306.0
-	_tooltip_panel.offset_top = 14.0
-	_tooltip_panel.offset_bottom = 112.0
+	_tooltip_panel.offset_left = 16.0
+	_tooltip_panel.offset_right = 312.0
+	_tooltip_panel.offset_top = 16.0
+	_tooltip_panel.offset_bottom = 132.0
 	_tooltip_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_tooltip_panel.add_theme_stylebox_override("panel", _make_panel_style(Color(0.055, 0.108, 0.225, 0.94), COLOR_GOLD, 1, 8))
-	_map_canvas.add_child(_tooltip_panel)
+	_tooltip_panel.add_theme_stylebox_override(
+		"panel",
+		_make_panel_style(Color(0.985, 0.958, 0.892, 0.96), COLOR_GOLD_ANTIQUE, 2, 10, Color(0.10, 0.07, 0.03, 0.38), 10)
+	)
+	map_clip.add_child(_tooltip_panel)
 
 	var tip_margin: MarginContainer = MarginContainer.new()
-	tip_margin.add_theme_constant_override("margin_left", 12)
-	tip_margin.add_theme_constant_override("margin_right", 12)
-	tip_margin.add_theme_constant_override("margin_top", 8)
-	tip_margin.add_theme_constant_override("margin_bottom", 8)
+	tip_margin.add_theme_constant_override("margin_left", 14)
+	tip_margin.add_theme_constant_override("margin_right", 14)
+	tip_margin.add_theme_constant_override("margin_top", 10)
+	tip_margin.add_theme_constant_override("margin_bottom", 10)
 	tip_margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_tooltip_panel.add_child(tip_margin)
 
 	var tip_vbox: VBoxContainer = VBoxContainer.new()
-	tip_vbox.add_theme_constant_override("separation", 3)
+	tip_vbox.add_theme_constant_override("separation", 5)
 	tip_vbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	tip_margin.add_child(tip_vbox)
 
 	_tooltip_title = Label.new()
+	_tooltip_title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_tooltip_title.add_theme_font_size_override("font_size", 14)
-	_tooltip_title.add_theme_color_override("font_color", COLOR_GOLD_BRIGHT)
+	_tooltip_title.add_theme_color_override("font_color", COLOR_INK_PRIMARY)
 	_tooltip_title.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	tip_vbox.add_child(_tooltip_title)
+
+	var tip_div: ColorRect = ColorRect.new()
+	tip_div.custom_minimum_size = Vector2(0.0, 1.0)
+	tip_div.color = COLOR_GOLD_SOFT
+	tip_div.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	tip_vbox.add_child(tip_div)
 
 	_tooltip_desc = Label.new()
 	_tooltip_desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_tooltip_desc.add_theme_font_size_override("font_size", 11)
-	_tooltip_desc.add_theme_color_override("font_color", COLOR_IVORY)
+	_tooltip_desc.add_theme_color_override("font_color", COLOR_INK_SECONDARY)
 	_tooltip_desc.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	tip_vbox.add_child(_tooltip_desc)
 
 	_tooltip_hint = Label.new()
-	_tooltip_hint.text = "Нажмите на узел квартала для быстрого перемещения"
-	_tooltip_hint.add_theme_font_size_override("font_size", 10)
-	_tooltip_hint.add_theme_color_override("font_color", COLOR_GOLD)
+	_tooltip_hint.text = "✦ Кликните для быстрого перелёта"
+	_tooltip_hint.add_theme_font_size_override("font_size", 11)
+	_tooltip_hint.add_theme_color_override("font_color", COLOR_GOLD_DEEP)
 	_tooltip_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	tip_vbox.add_child(_tooltip_hint)
 
 	_tooltip_panel.visible = false
+	_tooltip_panel.modulate.a = 0.0
 
 
 func _build_sidebar_panel(parent: HBoxContainer) -> void:
+	# Warm cream-parchment Chronicle page with antique-gold filigree border
 	var side_panel: PanelContainer = PanelContainer.new()
 	side_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	side_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	side_panel.size_flags_stretch_ratio = 0.32
-	side_panel.add_theme_stylebox_override("panel", _make_panel_style(COLOR_SAPPHIRE_PANEL, COLOR_GOLD_SOFT, 1, 10))
+	side_panel.size_flags_stretch_ratio = 0.30
+	side_panel.add_theme_stylebox_override(
+		"panel",
+		_make_panel_style(COLOR_PARCHMENT, COLOR_GOLD_ANTIQUE, 2, 8, Color(0.04, 0.03, 0.02, 0.40), 10)
+	)
 	parent.add_child(side_panel)
 
 	var side_margin: MarginContainer = MarginContainer.new()
-	side_margin.add_theme_constant_override("margin_left", 16)
-	side_margin.add_theme_constant_override("margin_right", 16)
-	side_margin.add_theme_constant_override("margin_top", 14)
-	side_margin.add_theme_constant_override("margin_bottom", 14)
+	side_margin.add_theme_constant_override("margin_left", 18)
+	side_margin.add_theme_constant_override("margin_right", 18)
+	side_margin.add_theme_constant_override("margin_top", 16)
+	side_margin.add_theme_constant_override("margin_bottom", 16)
 	side_panel.add_child(side_margin)
 
 	var side_vbox: VBoxContainer = VBoxContainer.new()
 	side_vbox.add_theme_constant_override("separation", 12)
 	side_margin.add_child(side_vbox)
 
+	# --- Chronicle Title Header ---
+	var title_vbox: VBoxContainer = VBoxContainer.new()
+	title_vbox.add_theme_constant_override("separation", 2)
+	side_vbox.add_child(title_vbox)
+
+	var title_label: Label = Label.new()
+	title_label.text = "КАРТА ГОРОДА ДУШ"
+	title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title_label.add_theme_font_size_override("font_size", 19)
+	title_label.add_theme_color_override("font_color", COLOR_INK_PRIMARY)
+	title_vbox.add_child(title_label)
+
+	var subtitle_label: Label = Label.new()
+	subtitle_label.text = "Обитель Хроник Акаши · Быстрый перелёт"
+	subtitle_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	subtitle_label.add_theme_font_size_override("font_size", 11)
+	subtitle_label.add_theme_color_override("font_color", COLOR_INK_MUTED)
+	title_vbox.add_child(subtitle_label)
+
+	side_vbox.add_child(_make_ornate_divider())
+
 	# --- Block 1: Current Quest ---
 	var quest_header: Label = Label.new()
-	quest_header.text = "ТЕКУЩЕЕ ПОРУЧЕНИЕ"
+	quest_header.text = "✦  ТЕКУЩЕЕ ПОРУЧЕНИЕ"
 	quest_header.add_theme_font_size_override("font_size", 12)
-	quest_header.add_theme_color_override("font_color", COLOR_GOLD)
+	quest_header.add_theme_color_override("font_color", COLOR_GOLD_DEEP)
 	side_vbox.add_child(quest_header)
 
 	var quest_card: PanelContainer = PanelContainer.new()
-	quest_card.add_theme_stylebox_override("panel", _make_panel_style(COLOR_SAPPHIRE_CARD, COLOR_GOLD_SOFT, 1, 8))
+	quest_card.add_theme_stylebox_override(
+		"panel",
+		_make_panel_style(COLOR_PARCHMENT_CARD, COLOR_GOLD_ANTIQUE, 1, 8, Color(0.20, 0.14, 0.05, 0.12), 4)
+	)
 	side_vbox.add_child(quest_card)
 
 	var quest_margin: MarginContainer = MarginContainer.new()
-	quest_margin.add_theme_constant_override("margin_left", 12)
-	quest_margin.add_theme_constant_override("margin_right", 12)
+	quest_margin.add_theme_constant_override("margin_left", 13)
+	quest_margin.add_theme_constant_override("margin_right", 13)
 	quest_margin.add_theme_constant_override("margin_top", 10)
 	quest_margin.add_theme_constant_override("margin_bottom", 10)
 	quest_card.add_child(quest_margin)
@@ -504,22 +653,23 @@ func _build_sidebar_panel(parent: HBoxContainer) -> void:
 
 	_quest_title_label = Label.new()
 	_quest_title_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_quest_title_label.add_theme_font_size_override("font_size", 16)
-	_quest_title_label.add_theme_color_override("font_color", COLOR_GOLD_BRIGHT)
+	_quest_title_label.add_theme_font_size_override("font_size", 15)
+	_quest_title_label.add_theme_color_override("font_color", COLOR_INK_PRIMARY)
 	quest_vbox.add_child(_quest_title_label)
 
 	_quest_objective_label = Label.new()
 	_quest_objective_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_quest_objective_label.add_theme_font_size_override("font_size", 13)
-	_quest_objective_label.add_theme_color_override("font_color", COLOR_IVORY)
+	_quest_objective_label.add_theme_font_size_override("font_size", 12)
+	_quest_objective_label.add_theme_color_override("font_color", COLOR_INK_SECONDARY)
 	quest_vbox.add_child(_quest_objective_label)
 
 	_quest_district_label = Label.new()
+	_quest_district_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_quest_district_label.add_theme_font_size_override("font_size", 11)
-	_quest_district_label.add_theme_color_override("font_color", COLOR_PLAYER_CYAN)
+	_quest_district_label.add_theme_color_override("font_color", COLOR_TEAL_ACCENT)
 	quest_vbox.add_child(_quest_district_label)
 
-	# Golden divider
+	# Subtle golden hairline divider
 	var mid_div: ColorRect = ColorRect.new()
 	mid_div.custom_minimum_size = Vector2(0.0, 1.0)
 	mid_div.color = COLOR_GOLD_SOFT
@@ -530,17 +680,31 @@ func _build_sidebar_panel(parent: HBoxContainer) -> void:
 	side_vbox.add_child(bag_header_hbox)
 
 	var bag_header: Label = Label.new()
-	bag_header.text = "СУМКА ПАМЯТИ"
+	bag_header.text = "✦  СУМКА ПАМЯТИ"
 	bag_header.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	bag_header.add_theme_font_size_override("font_size", 12)
-	bag_header.add_theme_color_override("font_color", COLOR_GOLD)
+	bag_header.add_theme_color_override("font_color", COLOR_GOLD_DEEP)
 	bag_header_hbox.add_child(bag_header)
+
+	var count_pill: PanelContainer = PanelContainer.new()
+	count_pill.add_theme_stylebox_override(
+		"panel",
+		_make_panel_style(COLOR_PARCHMENT_CARD, COLOR_GOLD_SOFT, 1, 8, Color(0.0, 0.0, 0.0, 0.0), 0)
+	)
+	bag_header_hbox.add_child(count_pill)
+
+	var count_margin: MarginContainer = MarginContainer.new()
+	count_margin.add_theme_constant_override("margin_left", 8)
+	count_margin.add_theme_constant_override("margin_right", 8)
+	count_margin.add_theme_constant_override("margin_top", 1)
+	count_margin.add_theme_constant_override("margin_bottom", 1)
+	count_pill.add_child(count_margin)
 
 	_bag_count_label = Label.new()
 	_bag_count_label.text = "0"
-	_bag_count_label.add_theme_font_size_override("font_size", 12)
-	_bag_count_label.add_theme_color_override("font_color", COLOR_IVORY_MUTED)
-	bag_header_hbox.add_child(_bag_count_label)
+	_bag_count_label.add_theme_font_size_override("font_size", 11)
+	_bag_count_label.add_theme_color_override("font_color", COLOR_INK_PRIMARY)
+	count_margin.add_child(_bag_count_label)
 
 	var bag_scroll: ScrollContainer = ScrollContainer.new()
 	bag_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -553,20 +717,58 @@ func _build_sidebar_panel(parent: HBoxContainer) -> void:
 	_bag_list_vbox.add_theme_constant_override("separation", 8)
 	bag_scroll.add_child(_bag_list_vbox)
 
-	# --- Block 3: Close Button ---
+	# --- Block 3: Golden Close Button ---
 	_close_button = Button.new()
 	_close_button.text = "Закрыть карту [M / Esc]"
-	_close_button.custom_minimum_size = Vector2(0.0, 40.0)
+	_close_button.custom_minimum_size = Vector2(0.0, 42.0)
 	_close_button.focus_mode = Control.FOCUS_NONE
 	_close_button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	_close_button.add_theme_font_size_override("font_size", 14)
-	_close_button.add_theme_color_override("font_color", COLOR_IVORY)
-	_close_button.add_theme_color_override("font_hover_color", COLOR_GOLD_BRIGHT)
-	_close_button.add_theme_stylebox_override("normal", _make_panel_style(COLOR_SAPPHIRE_CARD, COLOR_GOLD, 1, 8))
-	_close_button.add_theme_stylebox_override("hover", _make_panel_style(Color(0.14, 0.23, 0.42, 0.96), COLOR_GOLD_BRIGHT, 2, 8))
-	_close_button.add_theme_stylebox_override("pressed", _make_panel_style(COLOR_SAPPHIRE_DEEP, COLOR_GOLD_BRIGHT, 2, 8))
+	_close_button.add_theme_color_override("font_color", COLOR_INK_PRIMARY)
+	_close_button.add_theme_color_override("font_hover_color", COLOR_INK_PRIMARY)
+	_close_button.add_theme_color_override("font_pressed_color", COLOR_IVORY_PIN)
+	_close_button.add_theme_stylebox_override(
+		"normal",
+		_make_panel_style(COLOR_GOLD_FILL, COLOR_GOLD_DEEP, 2, 9, Color(0.22, 0.15, 0.04, 0.25), 5)
+	)
+	_close_button.add_theme_stylebox_override(
+		"hover",
+		_make_panel_style(COLOR_GOLD_FILL_HOVER, COLOR_GOLD_DEEP, 2, 9, Color(0.42, 0.30, 0.08, 0.32), 7)
+	)
+	_close_button.add_theme_stylebox_override(
+		"pressed",
+		_make_panel_style(COLOR_GOLD_FILL_PRESSED, COLOR_GOLD_DEEP, 2, 9, Color(0.15, 0.10, 0.03, 0.20), 2)
+	)
 	_close_button.pressed.connect(close_map)
 	side_vbox.add_child(_close_button)
+
+
+func _make_ornate_divider() -> HBoxContainer:
+	var hbox: HBoxContainer = HBoxContainer.new()
+	hbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	hbox.add_theme_constant_override("separation", 8)
+
+	var left_line: ColorRect = ColorRect.new()
+	left_line.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	left_line.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	left_line.custom_minimum_size = Vector2(0.0, 1.5)
+	left_line.color = COLOR_GOLD_ANTIQUE
+	hbox.add_child(left_line)
+
+	var star: Label = Label.new()
+	star.text = "✦"
+	star.add_theme_font_size_override("font_size", 12)
+	star.add_theme_color_override("font_color", COLOR_GOLD_ANTIQUE)
+	hbox.add_child(star)
+
+	var right_line: ColorRect = ColorRect.new()
+	right_line.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	right_line.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	right_line.custom_minimum_size = Vector2(0.0, 1.5)
+	right_line.color = COLOR_GOLD_ANTIQUE
+	hbox.add_child(right_line)
+
+	return hbox
 
 
 func _rebuild_inventory_list(items: Array) -> void:
@@ -577,22 +779,25 @@ func _rebuild_inventory_list(items: Array) -> void:
 
 	if items.is_empty():
 		var empty_panel: PanelContainer = PanelContainer.new()
-		empty_panel.add_theme_stylebox_override("panel", _make_panel_style(Color(0.068, 0.125, 0.25, 0.72), COLOR_GOLD_GRID, 1, 8))
+		empty_panel.add_theme_stylebox_override(
+			"panel",
+			_make_panel_style(COLOR_PARCHMENT_EMPTY, COLOR_GOLD_SOFT, 1, 8, Color(0.0, 0.0, 0.0, 0.0), 0)
+		)
 		_bag_list_vbox.add_child(empty_panel)
 
 		var empty_margin: MarginContainer = MarginContainer.new()
 		empty_margin.add_theme_constant_override("margin_left", 12)
 		empty_margin.add_theme_constant_override("margin_right", 12)
-		empty_margin.add_theme_constant_override("margin_top", 14)
-		empty_margin.add_theme_constant_override("margin_bottom", 14)
+		empty_margin.add_theme_constant_override("margin_top", 16)
+		empty_margin.add_theme_constant_override("margin_bottom", 16)
 		empty_panel.add_child(empty_margin)
 
 		var empty_lbl: Label = Label.new()
-		empty_lbl.text = "Пока пусто — исследуйте кварталы Города"
+		empty_lbl.text = "Пока пусто — исследуйте кварталы Города Душ"
 		empty_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		empty_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		empty_lbl.add_theme_font_size_override("font_size", 12)
-		empty_lbl.add_theme_color_override("font_color", COLOR_IVORY_MUTED)
+		empty_lbl.add_theme_color_override("font_color", COLOR_INK_MUTED)
 		empty_margin.add_child(empty_lbl)
 		return
 
@@ -604,7 +809,10 @@ func _rebuild_inventory_list(items: Array) -> void:
 		var item_desc: String = str(item.get("description", ""))
 
 		var card: PanelContainer = PanelContainer.new()
-		card.add_theme_stylebox_override("panel", _make_panel_style(COLOR_SAPPHIRE_CARD, COLOR_GOLD_SOFT, 1, 8))
+		card.add_theme_stylebox_override(
+			"panel",
+			_make_panel_style(COLOR_PARCHMENT_SOFT, COLOR_GOLD_ANTIQUE, 1, 8, Color(0.20, 0.14, 0.05, 0.10), 3)
+		)
 		_bag_list_vbox.add_child(card)
 
 		var card_margin: MarginContainer = MarginContainer.new()
@@ -615,15 +823,15 @@ func _rebuild_inventory_list(items: Array) -> void:
 		card.add_child(card_margin)
 
 		var hbox: HBoxContainer = HBoxContainer.new()
-		hbox.add_theme_constant_override("separation", 10)
+		hbox.add_theme_constant_override("separation", 9)
 		card_margin.add_child(hbox)
 
-		var diamond_lbl: Label = Label.new()
-		diamond_lbl.text = "◆"
-		diamond_lbl.vertical_alignment = VERTICAL_ALIGNMENT_TOP
-		diamond_lbl.add_theme_font_size_override("font_size", 16)
-		diamond_lbl.add_theme_color_override("font_color", COLOR_GOLD_BRIGHT)
-		hbox.add_child(diamond_lbl)
+		var star_lbl: Label = Label.new()
+		star_lbl.text = "✦"
+		star_lbl.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+		star_lbl.add_theme_font_size_override("font_size", 15)
+		star_lbl.add_theme_color_override("font_color", COLOR_GOLD_DEEP)
+		hbox.add_child(star_lbl)
 
 		var text_vbox: VBoxContainer = VBoxContainer.new()
 		text_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -634,7 +842,7 @@ func _rebuild_inventory_list(items: Array) -> void:
 		title_lbl.text = item_title
 		title_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		title_lbl.add_theme_font_size_override("font_size", 13)
-		title_lbl.add_theme_color_override("font_color", COLOR_GOLD_BRIGHT)
+		title_lbl.add_theme_color_override("font_color", COLOR_INK_PRIMARY)
 		text_vbox.add_child(title_lbl)
 
 		if not item_desc.is_empty():
@@ -642,28 +850,83 @@ func _rebuild_inventory_list(items: Array) -> void:
 			desc_lbl.text = item_desc
 			desc_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			desc_lbl.add_theme_font_size_override("font_size", 11)
-			desc_lbl.add_theme_color_override("font_color", COLOR_IVORY_MUTED)
+			desc_lbl.add_theme_color_override("font_color", COLOR_INK_SECONDARY)
 			text_vbox.add_child(desc_lbl)
 
 
 # ---------------------------------------------------------------------------
-# Map Projection & Custom Drawing
+# Map Projection (Exact UV alignment with STRETCH_KEEP_ASPECT_COVERED)
 # ---------------------------------------------------------------------------
 
-func _world_to_map(world_pos: Vector3, canvas_size: Vector2) -> Vector2:
-	var pad_x: float = 96.0
-	var pad_top: float = 52.0
-	var pad_bottom: float = 68.0
-	var usable_w: float = maxf(64.0, canvas_size.x - pad_x * 2.0)
-	var usable_h: float = maxf(64.0, canvas_size.y - pad_top - pad_bottom)
+func _get_covered_image_rect(canvas_size: Vector2) -> Rect2:
+	var tex_aspect: float = DEFAULT_MAP_ASPECT
+	if _map_texture_rect != null and _map_texture_rect.texture != null:
+		var tex_size: Vector2 = _map_texture_rect.texture.get_size()
+		if tex_size.y > 1.0:
+			tex_aspect = tex_size.x / tex_size.y
 
-	var nx: float = clampf((world_pos.x - WORLD_MIN_X) / (WORLD_MAX_X - WORLD_MIN_X), 0.0, 1.0)
-	var nz: float = clampf((world_pos.z - WORLD_MIN_Z) / (WORLD_MAX_Z - WORLD_MIN_Z), 0.0, 1.0)
+	if canvas_size.x < 1.0 or canvas_size.y < 1.0:
+		return Rect2(Vector2.ZERO, canvas_size)
 
+	var rect_aspect: float = canvas_size.x / canvas_size.y
+	if rect_aspect < tex_aspect:
+		var draw_h: float = canvas_size.y
+		var draw_w: float = draw_h * tex_aspect
+		var offset_x: float = (canvas_size.x - draw_w) * 0.5
+		return Rect2(Vector2(offset_x, 0.0), Vector2(draw_w, draw_h))
+	else:
+		var draw_w: float = canvas_size.x
+		var draw_h: float = draw_w / tex_aspect
+		var offset_y: float = (canvas_size.y - draw_h) * 0.5
+		return Rect2(Vector2(0.0, offset_y), Vector2(draw_w, draw_h))
+
+
+func _uv_to_canvas(uv: Vector2, canvas_size: Vector2) -> Vector2:
+	var img_rect: Rect2 = _get_covered_image_rect(canvas_size)
 	return Vector2(
-		pad_x + nx * usable_w,
-		pad_top + nz * usable_h
+		img_rect.position.x + uv.x * img_rect.size.x,
+		img_rect.position.y + uv.y * img_rect.size.y
 	)
+
+
+func _world_to_uv(world_pos: Vector3) -> Vector2:
+	var nx: float = clampf((world_pos.x - WORLD_MIN_X) / (WORLD_MAX_X - WORLD_MIN_X), 0.0, 1.0)
+	var u: float = lerpf(0.22, 0.78, nx)
+
+	var z_clamped: float = clampf(world_pos.z, WORLD_MIN_Z, WORLD_MAX_Z)
+	var v: float = 0.54
+	var knot_count: int = Z_TO_V_KNOTS.size()
+	if knot_count >= 2:
+		var first_knot: Vector2 = Z_TO_V_KNOTS[0] as Vector2
+		var last_knot: Vector2 = Z_TO_V_KNOTS[knot_count - 1] as Vector2
+		if z_clamped <= first_knot.x:
+			v = first_knot.y
+		elif z_clamped >= last_knot.x:
+			v = last_knot.y
+		else:
+			for i: int in range(knot_count - 1):
+				var k0: Vector2 = Z_TO_V_KNOTS[i] as Vector2
+				var k1: Vector2 = Z_TO_V_KNOTS[i + 1] as Vector2
+				if z_clamped >= k0.x and z_clamped <= k1.x:
+					var span: float = maxf(0.001, k1.x - k0.x)
+					var t: float = (z_clamped - k0.x) / span
+					v = lerpf(k0.y, k1.y, t)
+					break
+
+	return Vector2(u, v)
+
+
+func _world_to_map(world_pos: Vector3, canvas_size: Vector2) -> Vector2:
+	return _uv_to_canvas(_world_to_uv(world_pos), canvas_size)
+
+
+func _get_district_canvas_pos(district_id: String, canvas_size: Vector2) -> Vector2:
+	if _district_by_id.has(district_id):
+		var entry: Dictionary = _district_by_id[district_id] as Dictionary
+		var uv_var: Variant = entry.get("uv", Vector2(0.5, 0.5))
+		if uv_var is Vector2:
+			return _uv_to_canvas(uv_var as Vector2, canvas_size)
+	return canvas_size * 0.5
 
 
 func _update_district_node_positions() -> void:
@@ -675,204 +938,199 @@ func _update_district_node_positions() -> void:
 
 	for d_id_var: Variant in _district_nodes.keys():
 		var d_id: String = str(d_id_var)
-		var entry_var: Variant = _district_by_id.get(d_id, {})
-		if not (entry_var is Dictionary):
-			continue
-		var entry: Dictionary = entry_var as Dictionary
-		var pos_var: Variant = entry.get("pos", Vector3.ZERO)
-		if not (pos_var is Vector3):
-			continue
-		var map_pt: Vector2 = _world_to_map(pos_var as Vector3, canvas_size)
+		var map_pt: Vector2 = _get_district_canvas_pos(d_id, canvas_size)
 		var wrapper: Control = _district_nodes[d_id] as Control
-		# Center the 28x28 button (at x=61..89, y=0..28 inside 150x48 wrapper) on map_pt
-		wrapper.position = Vector2(map_pt.x - 75.0, map_pt.y - 14.0)
+		# Center the 34x34 circular medallion (top-center of wrapper) directly on map_pt
+		wrapper.position = Vector2(map_pt.x - PIN_WRAPPER_W * 0.5, map_pt.y - PIN_RADIUS)
 
 
 func _update_district_button_styles() -> void:
-	var target_district: String = ""
+	var target_district: String = _active_target_district_id
 	var qm: Node = _get_quest_manager()
 	if qm != null:
 		target_district = str(qm.call("get_current_target_district"))
+		_active_target_district_id = target_district
 
 	for d_id_var: Variant in _district_buttons.keys():
 		var d_id: String = str(d_id_var)
 		var btn: Button = _district_buttons[d_id] as Button
+		var entry: Dictionary = _district_by_id.get(d_id, {}) as Dictionary
+		var default_icon: String = str(entry.get("icon", "◈"))
 		var is_target: bool = (d_id == target_district)
-		var border_col: Color = COLOR_GOLD_BRIGHT if is_target else COLOR_GOLD
-		var fill_col: Color = Color(0.24, 0.20, 0.09, 0.96) if is_target else COLOR_SAPPHIRE_CARD
-		var hover_fill: Color = Color(0.32, 0.26, 0.11, 0.98) if is_target else Color(0.15, 0.25, 0.45, 0.98)
 
-		btn.text = "✦" if is_target else "◈"
-		btn.add_theme_color_override("font_color", COLOR_GOLD_BRIGHT if is_target else COLOR_IVORY)
-		btn.add_theme_color_override("font_hover_color", COLOR_GOLD_BRIGHT)
-		btn.add_theme_stylebox_override("normal", _make_panel_style(fill_col, border_col, 2 if is_target else 1, 14))
-		btn.add_theme_stylebox_override("hover", _make_panel_style(hover_fill, COLOR_GOLD_BRIGHT, 2, 14))
-		btn.add_theme_stylebox_override("pressed", _make_panel_style(COLOR_SAPPHIRE_DEEP, COLOR_GOLD_BRIGHT, 2, 14))
+		if is_target:
+			btn.text = "✦"
+			btn.add_theme_color_override("font_color", COLOR_INK_PRIMARY)
+			btn.add_theme_color_override("font_hover_color", COLOR_INK_PRIMARY)
+			btn.add_theme_color_override("font_pressed_color", COLOR_IVORY_PIN)
+			btn.add_theme_stylebox_override(
+				"normal",
+				_make_panel_style(COLOR_QUEST_PIN_FILL, COLOR_IVORY_PIN, 2, 17, Color(0.55, 0.36, 0.05, 0.55), 8)
+			)
+			btn.add_theme_stylebox_override(
+				"hover",
+				_make_panel_style(Color(1.0, 0.85, 0.38, 1.0), COLOR_IVORY_PIN, 3, 17, Color(0.75, 0.52, 0.10, 0.65), 10)
+			)
+			btn.add_theme_stylebox_override(
+				"pressed",
+				_make_panel_style(COLOR_GOLD_DEEP, COLOR_GOLD_BRIGHT, 2, 17, Color(0.20, 0.14, 0.04, 0.45), 4)
+			)
+		else:
+			btn.text = default_icon
+			btn.add_theme_color_override("font_color", COLOR_GOLD_DEEP)
+			btn.add_theme_color_override("font_hover_color", COLOR_INK_PRIMARY)
+			btn.add_theme_color_override("font_pressed_color", COLOR_IVORY_PIN)
+			btn.add_theme_stylebox_override(
+				"normal",
+				_make_panel_style(COLOR_IVORY_PIN, COLOR_GOLD_ANTIQUE, 2, 17, Color(0.18, 0.12, 0.04, 0.42), 5)
+			)
+			btn.add_theme_stylebox_override(
+				"hover",
+				_make_panel_style(COLOR_IVORY_PIN_HOVER, COLOR_GOLD_BRIGHT, 3, 17, Color(0.50, 0.35, 0.08, 0.52), 8)
+			)
+			btn.add_theme_stylebox_override(
+				"pressed",
+				_make_panel_style(COLOR_GOLD_ANTIQUE, COLOR_IVORY_PIN, 2, 17, Color(0.18, 0.12, 0.04, 0.35), 3)
+			)
 
+		if _district_nameplates.has(d_id):
+			var nameplate: PanelContainer = _district_nameplates[d_id] as PanelContainer
+			if is_target:
+				nameplate.add_theme_stylebox_override(
+					"panel",
+					_make_panel_style(Color(1.0, 0.962, 0.835, 0.96), COLOR_GOLD_DEEP, 1, 7, Color(0.28, 0.18, 0.04, 0.38), 5)
+				)
+			else:
+				nameplate.add_theme_stylebox_override(
+					"panel",
+					_make_panel_style(Color(0.985, 0.955, 0.885, 0.92), Color(0.788, 0.627, 0.282, 0.85), 1, 7, Color(0.12, 0.08, 0.03, 0.30), 4)
+				)
+
+
+# ---------------------------------------------------------------------------
+# Live Custom Overlay Drawing (Vignette, Quest Beacon, Soul Marker)
+# ---------------------------------------------------------------------------
 
 func _on_map_canvas_draw() -> void:
 	var s: Vector2 = _map_canvas.size
 	if s.x < 10.0 or s.y < 10.0:
 		return
 
-	var center: Vector2 = s * 0.5
-	var font: Font = ThemeDB.fallback_font
+	# 1. Delicate warm sepia edge vignette & antique-gold inner filigree corners
+	_draw_soft_vignette(_map_canvas, s)
+	_draw_corner_filigree(_map_canvas, s)
 
-	# 1. Soft celestial glow halos behind Temple (north) and Boulevard (center)
-	var temple_pt: Vector2 = _world_to_map(Vector3(0.0, 8.0, -280.0), s)
-	var center_pt: Vector2 = _world_to_map(Vector3(0.0, 0.0, -32.0), s)
-	_map_canvas.draw_circle(temple_pt, 96.0, Color(0.875, 0.725, 0.376, 0.055))
-	_map_canvas.draw_circle(temple_pt, 52.0, Color(0.875, 0.725, 0.376, 0.08))
-	_map_canvas.draw_circle(center_pt, 128.0, Color(0.28, 0.52, 0.88, 0.055))
+	# 2. Pulsing Golden Quest Halo around the active quest target pin
+	var quest_pt: Vector2 = Vector2(-1000.0, -1000.0)
+	var has_quest_pt: bool = false
+	if not _active_target_district_id.is_empty() and _district_by_id.has(_active_target_district_id):
+		quest_pt = _get_district_canvas_pos(_active_target_district_id, s)
+		has_quest_pt = true
+	else:
+		var qm: Node = _get_quest_manager()
+		if qm != null:
+			var target_pos_var: Variant = qm.call("get_current_target_pos")
+			if target_pos_var is Vector3:
+				quest_pt = _world_to_map(target_pos_var as Vector3, s)
+				has_quest_pt = true
 
-	# 2. Fine antique-gold compass grid (lines & concentric astrolabe circles)
-	var grid_step: float = 56.0
-	var gx: float = grid_step
-	while gx < s.x:
-		_map_canvas.draw_line(Vector2(gx, 0.0), Vector2(gx, s.y), COLOR_GOLD_GRID, 1.0)
-		gx += grid_step
-	var gy: float = grid_step
-	while gy < s.y:
-		_map_canvas.draw_line(Vector2(0.0, gy), Vector2(s.x, gy), COLOR_GOLD_GRID, 1.0)
-		gy += grid_step
+	if has_quest_pt:
+		var pulse_a: float = fmod(_time * 0.72, 1.0)
+		var pulse_b: float = fmod(_time * 0.72 + 0.5, 1.0)
+		var rad_a: float = lerpf(18.0, 46.0, pulse_a)
+		var rad_b: float = lerpf(18.0, 46.0, pulse_b)
+		var alpha_a: float = (1.0 - pulse_a) * 0.85
+		var alpha_b: float = (1.0 - pulse_b) * 0.65
 
-	var max_r: float = minf(s.x, s.y) * 0.44
-	_map_canvas.draw_arc(center, max_r * 0.42, 0.0, TAU, 64, COLOR_GOLD_GRID, 1.0, true)
-	_map_canvas.draw_arc(center, max_r * 0.75, 0.0, TAU, 64, COLOR_GOLD_GRID, 1.0, true)
-	_map_canvas.draw_arc(center, max_r, 0.0, TAU, 72, Color(0.875, 0.725, 0.376, 0.16), 1.0, true)
+		_map_canvas.draw_circle(quest_pt, 26.0, Color(0.96, 0.80, 0.30, 0.22))
+		_map_canvas.draw_arc(quest_pt, rad_a, 0.0, TAU, 40, Color(0.98, 0.84, 0.38, alpha_a), 2.6, true)
+		_map_canvas.draw_arc(quest_pt, rad_b, 0.0, TAU, 40, Color(1.0, 0.92, 0.60, alpha_b), 1.8, true)
 
-	# 3. Painted Shining Canal (west-to-east along Z = -32.0 under Memory Bridge) & Lake of Stillness
-	var canal_world: Array = [
-		Vector3(-64.0, 0.0, -34.0),
-		Vector3(-42.0, 0.0, -30.5),
-		Vector3(-20.0, 0.0, -33.0),
-		Vector3(0.0, 0.0, -32.0),
-		Vector3(20.0, 0.0, -30.5),
-		Vector3(42.0, 0.0, -33.5),
-		Vector3(64.0, 0.0, -32.0),
-	]
-	var canal_pts: PackedVector2Array = PackedVector2Array()
-	for wp_var: Variant in canal_world:
-		if wp_var is Vector3:
-			canal_pts.append(_world_to_map(wp_var as Vector3, s))
-	if canal_pts.size() >= 2:
-		_map_canvas.draw_polyline(canal_pts, COLOR_WATER_CANAL, 10.0, true)
-		_map_canvas.draw_polyline(canal_pts, COLOR_WATER_SHIMMER, 3.0, true)
+	# 3. Crisp golden hover highlight ring around hovered pin
+	if not _hovered_district_id.is_empty() and _district_by_id.has(_hovered_district_id):
+		var h_pt: Vector2 = _get_district_canvas_pos(_hovered_district_id, s)
+		_map_canvas.draw_circle(h_pt, 24.0, Color(1.0, 0.92, 0.62, 0.22))
+		_map_canvas.draw_arc(h_pt, 24.0, 0.0, TAU, 36, Color(0.96, 0.82, 0.38, 0.82), 2.0, true)
 
-	# Lake of Stillness near quiet_lakes_park (44, 0, 10)
-	var lake_pt: Vector2 = _world_to_map(Vector3(44.0, 0.0, 10.0), s)
-	_draw_ellipse(_map_canvas, lake_pt + Vector2(6.0, 4.0), 42.0, 24.0, Color(0.16, 0.42, 0.66, 0.56))
-	_draw_ellipse_outline(_map_canvas, lake_pt + Vector2(6.0, 4.0), 44.0, 26.0, COLOR_WATER_SHIMMER, 1.2)
-	_draw_ellipse_outline(_map_canvas, lake_pt + Vector2(6.0, 4.0), 30.0, 16.0, Color(0.875, 0.725, 0.376, 0.22), 1.0)
-
-	# 4. Golden Street Network connecting all 9 districts
-	for pair_var: Variant in ROAD_CONNECTIONS:
-		if not (pair_var is Array):
-			continue
-		var pair: Array = pair_var as Array
-		if pair.size() < 2:
-			continue
-		var p1: Vector2 = _get_district_map_pos(str(pair[0]), s)
-		var p2: Vector2 = _get_district_map_pos(str(pair[1]), s)
-		var is_spine: bool = (str(pair[0]) == "awakening_plaza" and str(pair[1]) == "central_boulevard") \
-			or (str(pair[0]) == "central_boulevard" and str(pair[1]) == "earth_mirror_temple")
-		var road_w: float = 3.2 if is_spine else 1.8
-		_map_canvas.draw_line(p1, p2, COLOR_ROAD_HIGHLIGHT, road_w + 3.0, true)
-		_map_canvas.draw_line(p1, p2, COLOR_ROAD_GOLD, road_w, true)
-
-	# 5. Compass Rose in top-right corner of the map canvas
-	_draw_compass_rose(_map_canvas, Vector2(s.x - 48.0, 48.0), 22.0, font)
-
-	# 6. Pulsing Active Quest Beacon
-	var qm: Node = _get_quest_manager()
-	if qm != null:
-		var target_pos_var: Variant = qm.call("get_current_target_pos")
-		if target_pos_var is Vector3:
-			var q_pt: Vector2 = _world_to_map(target_pos_var as Vector3, s)
-			var pulse_a: float = fmod(_time * 0.85, 1.0)
-			var pulse_b: float = fmod(_time * 0.85 + 0.5, 1.0)
-			var rad_a: float = lerpf(12.0, 38.0, pulse_a)
-			var rad_b: float = lerpf(12.0, 38.0, pulse_b)
-			_map_canvas.draw_arc(q_pt, rad_a, 0.0, TAU, 36, Color(0.969, 0.855, 0.525, (1.0 - pulse_a) * 0.72), 2.0, true)
-			_map_canvas.draw_arc(q_pt, rad_b, 0.0, TAU, 36, Color(0.969, 0.855, 0.525, (1.0 - pulse_b) * 0.55), 1.5, true)
-			_map_canvas.draw_circle(q_pt, 18.0, Color(0.969, 0.855, 0.525, 0.14))
-
-	# 7. Player (Soul) Current Position Marker
+	# 4. Luminous Turquoise-White Player Soul Marker
 	var p_pt: Vector2 = _world_to_map(_player_pos, s)
-	var player_pulse: float = 0.5 + 0.5 * sin(_time * 3.4)
-	var halo_r: float = lerpf(10.0, 16.0, player_pulse)
-	_map_canvas.draw_circle(p_pt, halo_r, Color(0.455, 0.847, 1.0, 0.22))
-	_map_canvas.draw_arc(p_pt, halo_r, 0.0, TAU, 28, Color(0.455, 0.847, 1.0, 0.65), 1.5, true)
-	var diamond_r: float = 6.5
-	var diamond: PackedVector2Array = PackedVector2Array([
-		p_pt + Vector2(0.0, -diamond_r),
-		p_pt + Vector2(diamond_r, 0.0),
-		p_pt + Vector2(0.0, diamond_r),
-		p_pt + Vector2(-diamond_r, 0.0),
+	var soul_pulse: float = 0.5 + 0.5 * sin(_time * 3.2)
+	var ripple_t: float = fmod(_time * 0.9, 1.0)
+	var ripple_r: float = lerpf(9.0, 24.0, ripple_t)
+	var halo_r: float = lerpf(11.0, 15.5, soul_pulse)
+
+	# Outer turquoise ripple + soft luminous aura
+	_map_canvas.draw_arc(p_pt, ripple_r, 0.0, TAU, 32, Color(0.28, 0.90, 0.98, (1.0 - ripple_t) * 0.72), 1.8, true)
+	_map_canvas.draw_circle(p_pt, halo_r, Color(0.22, 0.84, 0.96, 0.26))
+
+	# High-contrast sapphire shadow backing so marker reads clearly on both parchment & turquoise river
+	var outer_r: float = 8.5
+	var outer_diamond: PackedVector2Array = PackedVector2Array([
+		p_pt + Vector2(0.0, -outer_r),
+		p_pt + Vector2(outer_r, 0.0),
+		p_pt + Vector2(0.0, outer_r),
+		p_pt + Vector2(-outer_r, 0.0),
 	])
-	_map_canvas.draw_colored_polygon(diamond, COLOR_PLAYER_CYAN)
-	_map_canvas.draw_polyline(PackedVector2Array([diamond[0], diamond[1], diamond[2], diamond[3], diamond[0]]), COLOR_IVORY, 1.2, true)
+	_map_canvas.draw_colored_polygon(outer_diamond, Color(0.09, 0.20, 0.34, 0.88))
 
-	# 8. Subtle corner filigree on map canvas
-	_draw_corner_ornaments(_map_canvas, s)
-
-
-func _draw_compass_rose(canvas: Control, center: Vector2, radius: float, font: Font) -> void:
-	canvas.draw_arc(center, radius, 0.0, TAU, 32, COLOR_GOLD_SOFT, 1.2, true)
-	canvas.draw_arc(center, radius * 0.65, 0.0, TAU, 24, COLOR_GOLD_GRID, 1.0, true)
-	canvas.draw_line(center + Vector2(0.0, -radius - 4.0), center + Vector2(0.0, radius + 4.0), COLOR_GOLD, 1.2, true)
-	canvas.draw_line(center + Vector2(-radius - 4.0, 0.0), center + Vector2(radius + 4.0, 0.0), COLOR_GOLD_SOFT, 1.0, true)
-	var north_tip: PackedVector2Array = PackedVector2Array([
-		center + Vector2(0.0, -radius - 5.0),
-		center + Vector2(4.0, -4.0),
-		center + Vector2(-4.0, -4.0),
+	var mid_r: float = 6.6
+	var mid_diamond: PackedVector2Array = PackedVector2Array([
+		p_pt + Vector2(0.0, -mid_r),
+		p_pt + Vector2(mid_r, 0.0),
+		p_pt + Vector2(0.0, mid_r),
+		p_pt + Vector2(-mid_r, 0.0),
 	])
-	canvas.draw_colored_polygon(north_tip, COLOR_GOLD_BRIGHT)
-	if font != null:
-		canvas.draw_string(font, center + Vector2(-4.0, -radius - 8.0), "С", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, COLOR_GOLD_BRIGHT)
-		canvas.draw_string(font, center + Vector2(-4.0, radius + 16.0), "Ю", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, COLOR_IVORY_MUTED)
-		canvas.draw_string(font, center + Vector2(-radius - 14.0, 4.0), "З", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, COLOR_IVORY_MUTED)
-		canvas.draw_string(font, center + Vector2(radius + 6.0, 4.0), "В", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, COLOR_IVORY_MUTED)
+	_map_canvas.draw_colored_polygon(mid_diamond, COLOR_PLAYER_TURQUOISE)
+	_map_canvas.draw_circle(p_pt, 3.0, COLOR_PLAYER_CORE)
+	_map_canvas.draw_polyline(
+		PackedVector2Array([outer_diamond[0], outer_diamond[1], outer_diamond[2], outer_diamond[3], outer_diamond[0]]),
+		COLOR_PLAYER_CORE,
+		1.3,
+		true
+	)
 
 
-func _draw_corner_ornaments(canvas: Control, s: Vector2) -> void:
-	var m: float = 10.0
-	var arm: float = 18.0
-	var c: Color = Color(0.875, 0.725, 0.376, 0.42)
-	# Top-left
-	canvas.draw_line(Vector2(m, m), Vector2(m + arm, m), c, 1.4)
-	canvas.draw_line(Vector2(m, m), Vector2(m, m + arm), c, 1.4)
-	# Top-right
-	canvas.draw_line(Vector2(s.x - m, m), Vector2(s.x - m - arm, m), c, 1.4)
-	canvas.draw_line(Vector2(s.x - m, m), Vector2(s.x - m, m + arm), c, 1.4)
-	# Bottom-left
-	canvas.draw_line(Vector2(m, s.y - m), Vector2(m + arm, s.y - m), c, 1.4)
-	canvas.draw_line(Vector2(m, s.y - m), Vector2(m, s.y - m - arm), c, 1.4)
-	# Bottom-right
-	canvas.draw_line(Vector2(s.x - m, s.y - m), Vector2(s.x - m - arm, s.y - m), c, 1.4)
-	canvas.draw_line(Vector2(s.x - m, s.y - m), Vector2(s.x - m, s.y - m - arm), c, 1.4)
-
-
-func _draw_ellipse(canvas: Control, center: Vector2, rx: float, ry: float, color: Color) -> void:
-	var pts: PackedVector2Array = PackedVector2Array()
-	var steps: int = 32
+func _draw_soft_vignette(canvas: Control, s: Vector2) -> void:
+	var steps: int = 8
+	var edge_depth: float = 28.0
 	for i: int in range(steps):
-		var angle: float = TAU * float(i) / float(steps)
-		pts.append(center + Vector2(cos(angle) * rx, sin(angle) * ry))
-	canvas.draw_colored_polygon(pts, color)
+		var frac: float = 1.0 - (float(i) / float(steps))
+		var alpha: float = frac * frac * 0.16
+		var col: Color = Color(0.16, 0.10, 0.04, alpha)
+		var inset: float = (float(i) / float(steps)) * edge_depth
+		var band: float = (edge_depth / float(steps)) + 0.5
+		# Top, bottom, left, right subtle warm strips
+		canvas.draw_rect(Rect2(Vector2(0.0, inset), Vector2(s.x, band)), col, true)
+		canvas.draw_rect(Rect2(Vector2(0.0, s.y - inset - band), Vector2(s.x, band)), col, true)
+		canvas.draw_rect(Rect2(Vector2(inset, 0.0), Vector2(band, s.y)), col, true)
+		canvas.draw_rect(Rect2(Vector2(s.x - inset - band, 0.0), Vector2(band, s.y)), col, true)
 
 
-func _draw_ellipse_outline(canvas: Control, center: Vector2, rx: float, ry: float, color: Color, width: float) -> void:
-	var pts: PackedVector2Array = PackedVector2Array()
-	var steps: int = 32
-	for i: int in range(steps + 1):
-		var angle: float = TAU * float(i) / float(steps)
-		pts.append(center + Vector2(cos(angle) * rx, sin(angle) * ry))
-	canvas.draw_polyline(pts, color, width, true)
+func _draw_corner_filigree(canvas: Control, s: Vector2) -> void:
+	var m: float = 8.0
+	var arm: float = 20.0
+	var gold: Color = Color(0.788, 0.627, 0.282, 0.68)
+	var gold_soft: Color = Color(0.788, 0.627, 0.282, 0.28)
+
+	# Delicate inner antique-gold hairline border
+	canvas.draw_rect(Rect2(Vector2(m, m), Vector2(s.x - m * 2.0, s.y - m * 2.0)), gold_soft, false, 1.0)
+
+	# Four corner brackets
+	canvas.draw_line(Vector2(m, m), Vector2(m + arm, m), gold, 2.0)
+	canvas.draw_line(Vector2(m, m), Vector2(m, m + arm), gold, 2.0)
+
+	canvas.draw_line(Vector2(s.x - m, m), Vector2(s.x - m - arm, m), gold, 2.0)
+	canvas.draw_line(Vector2(s.x - m, m), Vector2(s.x - m, m + arm), gold, 2.0)
+
+	canvas.draw_line(Vector2(m, s.y - m), Vector2(m + arm, s.y - m), gold, 2.0)
+	canvas.draw_line(Vector2(m, s.y - m), Vector2(m, s.y - m - arm), gold, 2.0)
+
+	canvas.draw_line(Vector2(s.x - m, s.y - m), Vector2(s.x - m - arm, s.y - m), gold, 2.0)
+	canvas.draw_line(Vector2(s.x - m, s.y - m), Vector2(s.x - m, s.y - m - arm), gold, 2.0)
 
 
 # ---------------------------------------------------------------------------
-# Interaction & Signal Wiring
+# Interaction, Hover Animations & Signal Wiring
 # ---------------------------------------------------------------------------
 
 func _on_district_clicked(district_id: String) -> void:
@@ -880,21 +1138,54 @@ func _on_district_clicked(district_id: String) -> void:
 	close_map()
 
 
+func _on_district_mouse_entered(district_id: String) -> void:
+	_animate_pin_scale(district_id, 1.16)
+	_set_hovered_district(district_id)
+
+
+func _on_district_mouse_exited(district_id: String) -> void:
+	_animate_pin_scale(district_id, 1.0)
+	if _hovered_district_id == district_id:
+		_set_hovered_district("")
+
+
+func _animate_pin_scale(district_id: String, target_scale: float) -> void:
+	if not _district_buttons.has(district_id):
+		return
+	var btn: Button = _district_buttons[district_id] as Button
+	if _pin_scale_tweens.has(district_id):
+		var prev_tw: Tween = _pin_scale_tweens[district_id] as Tween
+		if prev_tw != null and prev_tw.is_running():
+			prev_tw.kill()
+	var tw: Tween = create_tween()
+	tw.tween_property(btn, "scale", Vector2(target_scale, target_scale), 0.14) \
+		.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	_pin_scale_tweens[district_id] = tw
+
+
 func _set_hovered_district(district_id: String) -> void:
 	_hovered_district_id = district_id
+	if _tooltip_tween != null and _tooltip_tween.is_running():
+		_tooltip_tween.kill()
+
 	if district_id.is_empty() or not _district_by_id.has(district_id):
 		_tooltip_panel.visible = false
+		_tooltip_panel.modulate.a = 0.0
+		if _map_canvas != null:
+			_map_canvas.queue_redraw()
 		return
 
 	var entry: Dictionary = _district_by_id[district_id] as Dictionary
 	_tooltip_title.text = str(entry.get("name", district_id))
 	_tooltip_desc.text = str(entry.get("description", ""))
 	_tooltip_panel.visible = true
+	_tooltip_panel.modulate.a = 0.0
+	_tooltip_tween = create_tween()
+	_tooltip_tween.tween_property(_tooltip_panel, "modulate:a", 1.0, 0.14) \
+		.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 
-
-func _on_district_mouse_exited(district_id: String) -> void:
-	if _hovered_district_id == district_id:
-		_set_hovered_district("")
+	if _map_canvas != null:
+		_map_canvas.queue_redraw()
 
 
 func _connect_quest_manager() -> void:
@@ -928,33 +1219,14 @@ func _get_district_name(district_id: String) -> String:
 	return district_id
 
 
-func _get_district_map_pos(district_id: String, canvas_size: Vector2) -> Vector2:
-	if _district_by_id.has(district_id):
-		var entry: Dictionary = _district_by_id[district_id] as Dictionary
-		var pos_var: Variant = entry.get("pos", Vector3.ZERO)
-		if pos_var is Vector3:
-			return _world_to_map(pos_var as Vector3, canvas_size)
-	return canvas_size * 0.5
-
-
-func _make_legend_pill(text: String, text_color: Color) -> PanelContainer:
-	var pill: PanelContainer = PanelContainer.new()
-	pill.add_theme_stylebox_override("panel", _make_panel_style(Color(0.08, 0.145, 0.285, 0.85), COLOR_GOLD_GRID, 1, 10))
-	var m: MarginContainer = MarginContainer.new()
-	m.add_theme_constant_override("margin_left", 9)
-	m.add_theme_constant_override("margin_right", 9)
-	m.add_theme_constant_override("margin_top", 3)
-	m.add_theme_constant_override("margin_bottom", 3)
-	pill.add_child(m)
-	var lbl: Label = Label.new()
-	lbl.text = text
-	lbl.add_theme_font_size_override("font_size", 11)
-	lbl.add_theme_color_override("font_color", text_color)
-	m.add_child(lbl)
-	return pill
-
-
-func _make_panel_style(bg_color: Color, border_color: Color, border_w: int, radius: int) -> StyleBoxFlat:
+func _make_panel_style(
+	bg_color: Color,
+	border_color: Color,
+	border_w: int,
+	radius: int,
+	shadow_col: Color = Color(0.0, 0.0, 0.0, 0.0),
+	shadow_sz: int = 0
+) -> StyleBoxFlat:
 	var sb: StyleBoxFlat = StyleBoxFlat.new()
 	sb.bg_color = bg_color
 	sb.border_color = border_color
@@ -966,4 +1238,8 @@ func _make_panel_style(bg_color: Color, border_color: Color, border_w: int, radi
 	sb.corner_radius_top_right = radius
 	sb.corner_radius_bottom_left = radius
 	sb.corner_radius_bottom_right = radius
+	if shadow_sz > 0 and shadow_col.a > 0.0:
+		sb.shadow_color = shadow_col
+		sb.shadow_size = shadow_sz
+		sb.shadow_offset = Vector2(0.0, 2.0)
 	return sb

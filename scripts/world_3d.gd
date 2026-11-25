@@ -1301,6 +1301,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		if _try_interact_city_quest_target(player.global_position):
 			get_viewport().set_input_as_handled()
 			return
+		if _try_interact_city_venue(player.global_position):
+			get_viewport().set_input_as_handled()
+			return
 		if _castle_interactables != null and is_instance_valid(_castle_interactables):
 			var relic_seq: String = _castle_interactables.interact_nearest(player.global_position)
 			if not relic_seq.is_empty():
@@ -1440,6 +1443,47 @@ func _get_city_quest_prompt(p_pos: Vector3) -> String:
 			best_prompt = "✦  [E]  Собрать Каплю Памяти (Парк Тишины)"
 
 	return best_prompt
+
+
+func _try_interact_city_venue(p_pos: Vector3) -> bool:
+	if _city_builder == null or not is_instance_valid(_city_builder):
+		return false
+	if not _city_builder.has_method("get_nearest_venue_in_range"):
+		return false
+	var venue_var: Variant = _city_builder.call("get_nearest_venue_in_range", p_pos, 6.0)
+	if not (venue_var is Dictionary):
+		return false
+	var venue: Dictionary = venue_var as Dictionary
+	if venue.is_empty():
+		return false
+	var dialogue_id: String = str(venue.get("dialogue_id", ""))
+	if dialogue_id.is_empty():
+		return false
+
+	var venue_pos_var: Variant = venue.get("pos", p_pos)
+	var venue_pos: Vector3 = venue_pos_var as Vector3 if venue_pos_var is Vector3 else p_pos
+	var venue_id: String = str(venue.get("id", dialogue_id))
+
+	if audio_manager and audio_manager.has_method("play_lantern_chime"):
+		audio_manager.call("play_lantern_chime", posmod(venue_id.hash(), 5))
+
+	_set_dialogue_context("npc", venue_id, null, venue_pos, 1.85, 5.8)
+	_start_dialogue_sequence(dialogue_id)
+	return true
+
+
+func _get_city_venue_prompt(p_pos: Vector3) -> String:
+	if _city_builder == null or not is_instance_valid(_city_builder):
+		return ""
+	if not _city_builder.has_method("get_nearest_venue_in_range"):
+		return ""
+	var venue_var: Variant = _city_builder.call("get_nearest_venue_in_range", p_pos, 6.0)
+	if not (venue_var is Dictionary):
+		return ""
+	var venue: Dictionary = venue_var as Dictionary
+	if venue.is_empty():
+		return ""
+	return str(venue.get("prompt", ""))
 
 
 # ---------------------------------------------------------------------------
@@ -2036,6 +2080,58 @@ func _on_dialogue_ended(sequence_id: String) -> void:
 			qm.call("consume_blueprint_pieces")
 			if SaveManager != null:
 				SaveManager.save_game()
+	elif sequence_id == "city_venue_cafe":
+		if player != null:
+			if player.has_method("recharge_wing_energy"):
+				player.call("recharge_wing_energy", 5.0)
+			else:
+				player.set("wing_energy", 5.0)
+		if qm != null and qm.has_method("add_item"):
+			qm.call(
+				"add_item",
+				"starlight_cocoa",
+				"Чашка звёздного какао",
+				"Тёплое эхо из Кафе «Тёплая Чашка» — пахнет корицей и домом."
+			)
+		if audio_manager and audio_manager.has_method("play_comfort_sign_found"):
+			audio_manager.call("play_comfort_sign_found")
+		if SaveManager != null:
+			SaveManager.save_game()
+	elif sequence_id == "city_venue_shop":
+		if qm != null and qm.has_method("add_item"):
+			qm.call(
+				"add_item",
+				"glass_marble_charm",
+				"Стеклянный талисман",
+				"Подарок из Лавки Воспоминаний — хранит солнечный блик."
+			)
+		if audio_manager and audio_manager.has_method("play_comfort_sign_found"):
+			audio_manager.call("play_comfort_sign_found")
+		if SaveManager != null:
+			SaveManager.save_game()
+	elif sequence_id == "city_venue_gym":
+		if player != null:
+			if player.has_method("recharge_wing_energy"):
+				player.call("recharge_wing_energy", 5.0)
+			else:
+				player.set("wing_energy", 5.0)
+		if audio_manager:
+			if audio_manager.has_method("play_wind_ring_note"):
+				audio_manager.call("play_wind_ring_note", 4)
+			elif audio_manager.has_method("play_soul_call"):
+				audio_manager.call("play_soul_call")
+	elif sequence_id == "city_venue_mall":
+		if qm != null and qm.has_method("add_item"):
+			qm.call(
+				"add_item",
+				"gallery_melody",
+				"Пластинка Галереи Миров",
+				"Тихая мелодия из Торгового Пассажа, которую напевают души разных эпох."
+			)
+		if audio_manager and audio_manager.has_method("play_comfort_sign_found"):
+			audio_manager.call("play_comfort_sign_found")
+		if SaveManager != null:
+			SaveManager.save_game()
 	elif sequence_id == "first_contract":
 		if qm != null:
 			qm.call("set_quest", "q6_awaken_mirror")
@@ -2325,6 +2421,7 @@ func _update_interaction_prompt(p_pos: Vector3, stage: String) -> void:
 		_update_prompt("")
 		return
 	var city_prompt: String = _get_city_quest_prompt(p_pos)
+	var venue_prompt: String = _get_city_venue_prompt(p_pos)
 
 	var relic_prompt: String = ""
 	if _castle_interactables != null and is_instance_valid(_castle_interactables):
@@ -2359,6 +2456,8 @@ func _update_interaction_prompt(p_pos: Vector3, stage: String) -> void:
 			prompt = sign_prompt
 		elif not city_prompt.is_empty():
 			prompt = city_prompt
+		elif not venue_prompt.is_empty():
+			prompt = venue_prompt
 		elif not npc_prompt.is_empty():
 			prompt = npc_prompt
 		elif not relic_prompt.is_empty():
@@ -2372,6 +2471,8 @@ func _update_interaction_prompt(p_pos: Vector3, stage: String) -> void:
 				prompt = "✦  [Q]  Поговорить с Мирой"
 		if prompt.is_empty() and not city_prompt.is_empty():
 			prompt = city_prompt
+		elif prompt.is_empty() and not venue_prompt.is_empty():
+			prompt = venue_prompt
 		elif prompt.is_empty() and not npc_prompt.is_empty():
 			prompt = npc_prompt
 		elif prompt.is_empty() and not relic_prompt.is_empty():
@@ -2381,6 +2482,10 @@ func _update_interaction_prompt(p_pos: Vector3, stage: String) -> void:
 
 	if not city_prompt.is_empty():
 		_update_prompt(city_prompt)
+		return
+
+	if not venue_prompt.is_empty():
+		_update_prompt(venue_prompt)
 		return
 
 	if stage == "contract_spoken":

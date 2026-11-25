@@ -43,14 +43,19 @@ const PIXAR_CLIFF_ROCK_PATH: String = "res://assets/models/city/pixar/cliff_terr
 const PIXAR_TREE_LUSH_PATH: String = "res://assets/models/city/pixar/pixar_tree_lush.glb"
 const PIXAR_BOAT_PATH: String = "res://assets/models/city/pixar/pixar_boat.glb"
 
+const VENUE_CAFE_PATH: String = "res://assets/models/city/venues/venue_starlight_cafe.glb"
+const VENUE_SHOP_PATH: String = "res://assets/models/city/venues/venue_memory_shop.glb"
+const VENUE_GYM_PATH: String = "res://assets/models/city/venues/venue_soul_gym.glb"
+const VENUE_MALL_PATH: String = "res://assets/models/city/venues/venue_grand_mall.glb"
+
 const PROP_SAKURA_PATH: String = "res://assets/models/props/sakura_tree.glb"
 const PROP_BUSH_PATH: String = "res://assets/models/props/lush_bush_hedge.glb"
 const PROP_PLANTER_PATH: String = "res://assets/models/props/garden_planter.glb"
 const PROP_LANTERN_PATH: String = "res://assets/models/props/stone_lantern.glb"
 
 const VALLEY_CENTER_Z: float = -100.0
-const VALLEY_WIDTH: float = 460.0
-const VALLEY_DEPTH: float = 560.0
+const VALLEY_WIDTH: float = 560.0
+const VALLEY_DEPTH: float = 780.0
 
 const CANAL_Z: float = -32.0
 const CANAL_LENGTH: float = 360.0
@@ -107,12 +112,7 @@ var _mat_roof_ochre: Material = null
 var _mat_boat_hull: StandardMaterial3D = null
 var _mat_boat_trim: StandardMaterial3D = null
 
-# v4 Megapolis materials (souls, garlands, delicate star sparks, benches & pots)
-var _mat_soul_body: StandardMaterial3D = null
-var _mat_soul_halo: StandardMaterial3D = null
-var _mat_garland_lantern: StandardMaterial3D = null
-var _mat_garland_cable: StandardMaterial3D = null
-var _mat_spark_star: StandardMaterial3D = null
+# Street furniture materials (grounded benches & terracotta flower pots)
 var _mat_bench_wood: StandardMaterial3D = null
 var _mat_flower_pot: StandardMaterial3D = null
 
@@ -135,23 +135,18 @@ var _scene_boat: PackedScene = null
 var _city_house_batches: Dictionary = {}
 var _placed_inner_houses: Array[Vector2] = []
 
-# District registry (contract with all tracks)
+# District & interactive venue registries (contract with all tracks)
 var _districts: Array[Dictionary] = []
 var _district_spawns: Dictionary = {}
+var _venues: Array[Dictionary] = []
 
-# Quest items, beacon, boats, landmarks, living souls & delicate golden star-sparks
+# Quest items, beacon, boats & landmarks
 var _quest_items: Dictionary = {}
 var _quest_item_floaters: Array[Dictionary] = []
 var _boat_floaters: Array[Dictionary] = []
 var _orrery_rotator: Node3D = null
 var _balloon_floater: Node3D = null
 var _balloon_base_y: float = 0.0
-var _souls_body_mm: MultiMesh = null
-var _souls_halo_mm: MultiMesh = null
-var _walking_souls: Array[Dictionary] = []
-var _sky_souls: Array[Dictionary] = []
-var _akasha_sparks_mm: MultiMesh = null
-var _akasha_sparks_data: Array[Dictionary] = []
 var _quest_beacon_root: Node3D = null
 var _quest_beacon_crystal: MeshInstance3D = null
 var _quest_beacon_beam: MeshInstance3D = null
@@ -172,6 +167,7 @@ func build_city() -> void:
 	_built = true
 
 	_init_district_registry()
+	_init_venue_registry()
 	_init_materials()
 	_preload_prop_scenes()
 	_init_house_batches()
@@ -186,7 +182,6 @@ func build_city() -> void:
 	_build_terraced_endless_city()
 	_build_city_props_and_flora()
 	_build_street_life_and_akasha_magic()
-	_build_living_souls_crowd()
 	_build_lantern_garden_particles()
 	_build_quest_artifacts()
 	_build_quest_beacon()
@@ -227,9 +222,6 @@ func _process(delta: float) -> void:
 	if _balloon_floater != null:
 		_balloon_floater.position.y = _balloon_base_y + sin(_anim_time * 1.05) * 0.36
 		_balloon_floater.rotation.y = sin(_anim_time * 0.38) * 0.12
-
-	_update_living_souls()
-	_update_akasha_sparks()
 
 	if _quest_beacon_active and _quest_beacon_root != null and _quest_beacon_root.visible:
 		if _quest_beacon_crystal != null:
@@ -310,6 +302,33 @@ func get_all_districts() -> Array[Dictionary]:
 	return result
 
 
+## Returns {"id": String, "name": String, "prompt": String, "pos": Vector3, "dialogue_id": String}
+## for the nearest interactive city venue within radius (with |dy| <= 2.5), or {}.
+func get_nearest_venue_in_range(player_pos: Vector3, radius: float = 6.0) -> Dictionary:
+	if _venues.is_empty():
+		_init_venue_registry()
+	var best_dist_sq: float = radius * radius
+	var best_venue: Dictionary = {}
+	for v_var in _venues:
+		var v: Dictionary = v_var as Dictionary
+		var v_pos: Vector3 = v["pos"] as Vector3
+		if absf(player_pos.y - v_pos.y) > 2.5:
+			continue
+		var dx: float = player_pos.x - v_pos.x
+		var dz: float = player_pos.z - v_pos.z
+		var dist_sq: float = dx * dx + dz * dz
+		if dist_sq <= best_dist_sq:
+			best_dist_sq = dist_sq
+			best_venue = {
+				"id": String(v["id"]),
+				"name": String(v["name"]),
+				"prompt": String(v["prompt"]),
+				"pos": v_pos,
+				"dialogue_id": String(v["dialogue_id"]),
+			}
+	return best_venue
+
+
 # ===========================================================================
 # 1. DISTRICT REGISTRY & SHARED MATERIALS
 # ===========================================================================
@@ -383,6 +402,43 @@ func _init_district_registry() -> void:
 		"mira_sanctuary": Vector3(28.0, TIER_1_Y + 0.1, -138.0),
 		"earth_mirror_temple": Vector3(0.0, TIER_0_Y + 0.1, -222.0),
 	}
+
+
+func _init_venue_registry() -> void:
+	_venues = [
+		{
+			"id": "cafe",
+			"name": "Кафе «Тёплая Чашка»",
+			"prompt": "✦  [E]  Зайти в Кафе «Тёплая Чашка»",
+			"pos": Vector3(11.5, TIER_0_Y, 28.0),
+			"building_pos": Vector3(17.5, TIER_0_Y, 28.0),
+			"dialogue_id": "city_venue_cafe",
+		},
+		{
+			"id": "shop",
+			"name": "Лавка Воспоминаний",
+			"prompt": "✦  [E]  Осмотреть Лавку Воспоминаний",
+			"pos": Vector3(-11.5, TIER_0_Y, 28.0),
+			"building_pos": Vector3(-17.5, TIER_0_Y, 28.0),
+			"dialogue_id": "city_venue_shop",
+		},
+		{
+			"id": "gym",
+			"name": "Спортзал «Павильон Полётной Подготовки»",
+			"prompt": "✦  [E]  Тренировка в Спортзале Душ",
+			"pos": Vector3(13.5, TIER_1_Y, -108.0),
+			"building_pos": Vector3(21.0, TIER_1_Y, -108.0),
+			"dialogue_id": "city_venue_gym",
+		},
+		{
+			"id": "mall",
+			"name": "Торговый Центр «Галерея Миров»",
+			"prompt": "✦  [E]  Пройтись по Галерее Миров",
+			"pos": Vector3(-13.5, TIER_1_Y, -108.0),
+			"building_pos": Vector3(-23.0, TIER_1_Y, -108.0),
+			"dialogue_id": "city_venue_mall",
+		},
+	]
 
 
 func _init_materials() -> void:
@@ -642,43 +698,6 @@ func _init_materials() -> void:
 	_mat_waterfall_foam.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	_mat_waterfall_foam.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	_mat_waterfall_foam.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED
-
-	# Luminous Souls (per-instance color via MultiMesh.use_colors = true)
-	_mat_soul_body = StandardMaterial3D.new()
-	_mat_soul_body.albedo_color = Color(1.0, 1.0, 1.0, 0.90)
-	_mat_soul_body.vertex_color_use_as_albedo = true
-	_mat_soul_body.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	_mat_soul_body.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	_mat_soul_body.cull_mode = BaseMaterial3D.CULL_BACK
-
-	_mat_soul_halo = StandardMaterial3D.new()
-	_mat_soul_halo.albedo_color = Color(1.0, 1.0, 1.0, 0.85)
-	_mat_soul_halo.vertex_color_use_as_albedo = true
-	_mat_soul_halo.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	_mat_soul_halo.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
-	_mat_soul_halo.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	_mat_soul_halo.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED
-
-	# Overhead Golden Street Lantern Garlands
-	_mat_garland_lantern = StandardMaterial3D.new()
-	_mat_garland_lantern.albedo_color = Color("#FFE8A6")
-	_mat_garland_lantern.roughness = 0.25
-	_mat_garland_lantern.emission_enabled = true
-	_mat_garland_lantern.emission = Color("#FFC95C")
-	_mat_garland_lantern.emission_energy_multiplier = 2.1
-
-	_mat_garland_cable = StandardMaterial3D.new()
-	_mat_garland_cable.albedo_color = Color("#4A3B30")
-	_mat_garland_cable.roughness = 0.80
-	_mat_garland_cable.metallic = 0.25
-
-	# Delicate Golden Star-Sparks (replaces floating square pages — 0 floating blocks!)
-	_mat_spark_star = StandardMaterial3D.new()
-	_mat_spark_star.albedo_color = Color(1.0, 0.92, 0.62, 0.90)
-	_mat_spark_star.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	_mat_spark_star.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
-	_mat_spark_star.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	_mat_spark_star.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED
 
 	# Grounded Street Benches & Terracotta Flower Pots
 	_mat_bench_wood = StandardMaterial3D.new()
@@ -1089,14 +1108,22 @@ func _build_mountain_horizon_ring() -> void:
 	horizon_root.name = "HorizonMountainRing"
 	add_child(horizon_root)
 
+	# Center around (0.0, -90.0) and push both rings well past outermost terraces (X = +/-158..168, Z = -190..+137)
+	var ring_center_z: float = -90.0
+	var inner_r_min: float = 215.0
+	var inner_base_r: float = 44.0
+	var inner_radius_x: float = maxf(inner_r_min + inner_base_r * 1.48, 280.0)
+	var inner_radius_z: float = maxf(260.0 + inner_base_r * 2.38, 365.0)
+
 	# Inner Ring: lush emerald-azure rolling Pixar valley hills
 	var hills_mesh: ArrayMesh = _create_mountain_ring_mesh(
-		34,
-		206.0,
-		256.0,
+		38,
+		inner_radius_x,
+		inner_radius_z,
+		ring_center_z,
 		24.0,
 		42.0,
-		46.0,
+		inner_base_r,
 		Color("#3A8F56"),
 		Color("#5BB87A"),
 		Color("#96DAB0"),
@@ -1115,13 +1142,19 @@ func _build_mountain_horizon_ring() -> void:
 	horizon_root.add_child(hills_inst)
 
 	# Outer Ring: luminous azure-lavender sunlit alpine peaks
+	var outer_r_min: float = 290.0
+	var outer_base_r: float = 64.0
+	var outer_radius_x: float = maxf(outer_r_min + outer_base_r * 1.06, 358.0)
+	var outer_radius_z: float = maxf(340.0 + outer_base_r * 1.64, 445.0)
+
 	var peaks_mesh: ArrayMesh = _create_mountain_ring_mesh(
-		40,
-		244.0,
-		302.0,
-		52.0,
-		102.0,
-		66.0,
+		44,
+		outer_radius_x,
+		outer_radius_z,
+		ring_center_z,
+		54.0,
+		106.0,
+		outer_base_r,
 		Color("#5C7EC2"),
 		Color("#8AAEE6"),
 		Color("#E8F2FF"),
@@ -1147,6 +1180,7 @@ func _create_mountain_ring_mesh(
 	peak_count: int,
 	radius_x: float,
 	radius_z: float,
+	center_z: float,
 	min_height: float,
 	max_height: float,
 	base_radius: float,
@@ -1164,11 +1198,11 @@ func _create_mountain_ring_mesh(
 	var sides: int = 7
 	for i in range(peak_count):
 		var angle: float = (TAU * float(i)) / float(peak_count) + rng.randf_range(-0.04, 0.04)
-		var radial_jitter: float = rng.randf_range(0.95, 1.07)
+		var radial_jitter: float = rng.randf_range(0.97, 1.07)
 		var cx: float = cos(angle) * radius_x * radial_jitter
-		var cz: float = VALLEY_CENTER_Z + sin(angle) * radius_z * radial_jitter
+		var cz: float = center_z + sin(angle) * radius_z * radial_jitter
 		var h: float = rng.randf_range(min_height, max_height)
-		var r_base: float = base_radius * rng.randf_range(0.85, 1.25)
+		var r_base: float = base_radius * rng.randf_range(0.85, 1.15)
 		var r_mid: float = r_base * 0.48
 		var h_mid: float = h * 0.56
 		var apex_offset: Vector3 = Vector3(rng.randf_range(-6.0, 6.0), h, rng.randf_range(-6.0, 6.0))
@@ -1179,7 +1213,7 @@ func _create_mountain_ring_mesh(
 		var rot_offset: float = rng.randf_range(0.0, TAU)
 		for s in range(sides):
 			var a: float = rot_offset + (TAU * float(s)) / float(sides)
-			var w: float = rng.randf_range(0.84, 1.16)
+			var w: float = rng.randf_range(0.85, 1.12)
 			ring_base.append(Vector3(cx + cos(a) * r_base * w, -2.0, cz + sin(a) * r_base * w))
 			ring_mid.append(Vector3(cx + cos(a + 0.15) * r_mid * w, h_mid, cz + sin(a + 0.15) * r_mid * w))
 
@@ -2320,12 +2354,65 @@ func _build_city_buildings() -> void:
 	# 5. Four Iconic City Landmarks across all 3 tiers (GLB + rich procedural fallbacks)
 	_build_four_iconic_landmarks(bld_root)
 
+	# 5B. Four Interactive City Venues (Cafe, Memory Shop, Soul Gym, Grand Mall)
+	_build_interactive_city_venues(bld_root)
+
 	# 6. Bridge of Memory at (0.0, 0.0, -32.0) + walkable ramp/deck collision
 	_build_bridge_of_memory(bld_root)
 
 	# 7. Wall-to-wall dense Pixar residential blocks filling all inner quarters
 	#    (grounded to their exact tier elevation + 1 shared StaticBody3D)
 	_build_wall_to_wall_inner_quarters(bld_root)
+
+
+func _build_interactive_city_venues(parent: Node3D) -> void:
+	var venues_root: Node3D = Node3D.new()
+	venues_root.name = "InteractiveCityVenues"
+	parent.add_child(venues_root)
+
+	# 1. Кафе «Тёплая Чашка» — Tier 0 (Y=0.0), right side of Boulevard, facade facing -X
+	_place_landmark_building(
+		venues_root,
+		"VenueStarlightCafe",
+		VENUE_CAFE_PATH,
+		Vector3(17.5, TIER_0_Y, 28.0),
+		-PI * 0.5,
+		Vector3(10.8, 8.9, 9.7),
+		"venue_cafe"
+	)
+
+	# 2. Лавка Воспоминаний — Tier 0 (Y=0.0), left side of Boulevard, facade facing +X
+	_place_landmark_building(
+		venues_root,
+		"VenueMemoryShop",
+		VENUE_SHOP_PATH,
+		Vector3(-17.5, TIER_0_Y, 28.0),
+		PI * 0.5,
+		Vector3(9.8, 8.3, 8.6),
+		"venue_shop"
+	)
+
+	# 3. Спортзал «Павильон Полётной Подготовки» — Tier 1 (Y=3.2), east side of North Boulevard, facade facing -X
+	_place_landmark_building(
+		venues_root,
+		"VenueSoulGym",
+		VENUE_GYM_PATH,
+		Vector3(21.0, TIER_1_Y, -108.0),
+		-PI * 0.5,
+		Vector3(12.8, 9.6, 10.1),
+		"venue_gym"
+	)
+
+	# 4. Торговый Центр «Галерея Миров» — Tier 1 (Y=3.2), west side of North Boulevard, facade facing +X
+	_place_landmark_building(
+		venues_root,
+		"VenueGrandMall",
+		VENUE_MALL_PATH,
+		Vector3(-23.0, TIER_1_Y, -108.0),
+		PI * 0.5,
+		Vector3(18.5, 13.5, 13.1),
+		"venue_mall"
+	)
 
 
 func _build_four_iconic_landmarks(parent: Node3D) -> void:
@@ -2717,6 +2804,20 @@ func _is_point_clear_for_house(x: float, z: float, half_r: float) -> bool:
 	if bdx * bdx + bdz * bdz < 84.0 * 84.0:
 		return false
 
+	# 14. Four Interactive City Venues + open front courtyards to the Boulevard
+	# Cafe (17.5, 28.0), footprint [13.5..21.5] x [23.5..32.5] + approach from Boulevard
+	if x >= 6.5 - half_r and x <= 24.5 + half_r and absf(z - 28.0) < 7.5 + half_r:
+		return false
+	# Memory Shop (-17.5, 28.0), footprint [-21.5..-13.5] x [23.5..32.5] + approach from Boulevard
+	if x >= -24.5 - half_r and x <= -6.5 + half_r and absf(z - 28.0) < 7.5 + half_r:
+		return false
+	# Soul Gym (21.0, -108.0), footprint [16.0..26.0] x [-113.5..-102.5] + approach from North Boulevard
+	if x >= 6.5 - half_r and x <= 29.5 + half_r and absf(z + 108.0) < 8.5 + half_r:
+		return false
+	# Grand Mall (-23.0, -108.0), footprint [-29.6..-16.4] x [-117.3..-98.7] + approach from North Boulevard
+	if x >= -32.5 - half_r and x <= -6.5 + half_r and absf(z + 108.0) < 12.0 + half_r:
+		return false
+
 	return true
 
 
@@ -2990,6 +3091,45 @@ func _build_procedural_landmark(parent: Node3D, kind: String) -> void:
 		spire.material_override = _mat_blue_roof
 		parent.add_child(spire)
 		_add_box_part(parent, Vector3(2.4, 3.6, 0.3), Vector3(0.0, 2.8, 3.85), _mat_warm_window)
+	elif kind == "venue_cafe":
+		_add_box_part(parent, Vector3(9.0, 0.45, 8.0), Vector3(0.0, 0.225, 0.0), _mat_stone_quay)
+		_add_box_part(parent, Vector3(8.2, 4.4, 7.2), Vector3(0.0, 2.65, 0.0), _mat_wall_cream)
+		_add_prism_roof(parent, Vector3(9.0, 2.5, 8.0), Vector3(0.0, 6.1, 0.0), _mat_roof_terracotta)
+		_add_box_part(parent, Vector3(6.8, 0.35, 1.8), Vector3(0.0, 3.35, 4.15), _mat_roof_red)
+		_add_box_part(parent, Vector3(2.2, 2.8, 0.25), Vector3(0.0, 1.85, 3.65), _mat_warm_window)
+		for sx in [-2.6, 2.6]:
+			_add_box_part(parent, Vector3(1.6, 1.8, 0.25), Vector3(sx, 2.3, 3.65), _mat_warm_window)
+	elif kind == "venue_shop":
+		_add_box_part(parent, Vector3(9.0, 0.45, 8.0), Vector3(0.0, 0.225, 0.0), _mat_stone_quay)
+		_add_box_part(parent, Vector3(8.2, 4.6, 7.2), Vector3(0.0, 2.75, 0.0), _mat_wall_ochre)
+		_add_prism_roof(parent, Vector3(9.0, 2.6, 8.0), Vector3(0.0, 6.35, 0.0), _mat_blue_roof)
+		_add_box_part(parent, Vector3(7.2, 0.45, 0.45), Vector3(0.0, 4.9, 3.7), _mat_gold_trim)
+		_add_box_part(parent, Vector3(2.4, 2.9, 0.25), Vector3(0.0, 1.9, 3.65), _mat_warm_window)
+		for sx in [-2.7, 2.7]:
+			_add_box_part(parent, Vector3(1.8, 2.1, 0.25), Vector3(sx, 2.15, 3.65), _mat_warm_window)
+	elif kind == "venue_gym":
+		_add_box_part(parent, Vector3(11.0, 0.55, 10.0), Vector3(0.0, 0.275, 0.0), _mat_stone_quay)
+		_add_box_part(parent, Vector3(10.0, 5.4, 9.0), Vector3(0.0, 3.25, 0.0), _mat_marble_wall)
+		_add_box_part(parent, Vector3(10.6, 0.5, 9.6), Vector3(0.0, 6.2, 0.0), _mat_gold_trim)
+		_add_prism_roof(parent, Vector3(10.8, 2.6, 9.8), Vector3(0.0, 7.75, 0.0), _mat_roof_ochre)
+		_add_box_part(parent, Vector3(3.0, 3.4, 0.3), Vector3(0.0, 2.25, 4.55), _mat_warm_window)
+		for sx in [-3.4, 3.4]:
+			_add_cylinder_part(parent, 0.38, 5.4, Vector3(sx, 3.25, 4.85), _mat_marble_plaza)
+	elif kind == "venue_mall":
+		_add_box_part(parent, Vector3(14.0, 0.6, 12.0), Vector3(0.0, 0.3, 0.0), _mat_stone_quay)
+		_add_box_part(parent, Vector3(12.8, 6.4, 10.8), Vector3(0.0, 3.8, 0.0), _mat_wall_peach)
+		_add_box_part(parent, Vector3(13.4, 0.55, 11.4), Vector3(0.0, 7.25, 0.0), _mat_gold_trim)
+		var mall_dome: MeshInstance3D = MeshInstance3D.new()
+		var m_sp: SphereMesh = SphereMesh.new()
+		m_sp.radius = 4.6
+		m_sp.height = 5.2
+		mall_dome.mesh = m_sp
+		mall_dome.position = Vector3(0.0, 7.8, 0.0)
+		mall_dome.material_override = _mat_blue_roof
+		parent.add_child(mall_dome)
+		_add_box_part(parent, Vector3(3.8, 4.0, 0.3), Vector3(0.0, 2.6, 5.45), _mat_warm_window)
+		for sx in [-4.4, 4.4]:
+			_add_box_part(parent, Vector3(2.2, 3.2, 0.25), Vector3(sx, 3.2, 5.45), _mat_warm_window)
 	else:
 		_add_box_part(parent, Vector3(11.0, 0.5, 11.5), Vector3(0.0, 0.25, 0.0), _mat_stone_quay)
 		_add_box_part(parent, Vector3(9.4, 5.2, 9.8), Vector3(0.0, 3.1, 0.0), _mat_marble_wall)
@@ -3719,117 +3859,11 @@ func _build_street_life_and_akasha_magic() -> void:
 	street_root.name = "StreetLifeAndAkashaMagic"
 	add_child(street_root)
 
-	var rng: RandomNumberGenerator = RandomNumberGenerator.new()
-	rng.seed = 202688
-
-	# --- 1. Overhead Warm Golden Lantern Garlands (elevated to exact tier Y + 7.2) ---
-	var garland_spans: Array[Dictionary] = [
-		# Main Boulevard South (Tier 0, Y = 0.0)
-		{"a": Vector3(-6.2, TIER_0_Y + 7.2, 27.0), "b": Vector3(6.2, TIER_0_Y + 7.2, 27.0), "sag": 1.05, "count": 8},
-		{"a": Vector3(-6.2, TIER_0_Y + 7.1, 17.5), "b": Vector3(6.2, TIER_0_Y + 7.1, 17.5), "sag": 1.00, "count": 8},
-		{"a": Vector3(-6.2, TIER_0_Y + 7.2, -2.5), "b": Vector3(6.2, TIER_0_Y + 7.2, -2.5), "sag": 1.05, "count": 8},
-		{"a": Vector3(-6.2, TIER_0_Y + 7.1, -10.5), "b": Vector3(6.2, TIER_0_Y + 7.1, -10.5), "sag": 1.00, "count": 8},
-		# Main Boulevard North (Tier 1, Y = 3.2)
-		{"a": Vector3(-7.2, TIER_1_Y + 7.2, -62.0), "b": Vector3(7.2, TIER_1_Y + 7.2, -62.0), "sag": 1.05, "count": 8},
-		{"a": Vector3(-7.2, TIER_1_Y + 7.2, -92.0), "b": Vector3(7.2, TIER_1_Y + 7.2, -92.0), "sag": 1.05, "count": 8},
-		{"a": Vector3(-7.2, TIER_1_Y + 7.2, -108.0), "b": Vector3(7.2, TIER_1_Y + 7.2, -108.0), "sag": 1.05, "count": 8},
-		{"a": Vector3(-7.2, TIER_1_Y + 7.2, -124.0), "b": Vector3(7.2, TIER_1_Y + 7.2, -124.0), "sag": 1.05, "count": 8},
-		# Cross Streets (Park Tier 0, Orion/Kronos Tier 1)
-		{"a": Vector3(14.5, TIER_0_Y + 6.8, 5.8), "b": Vector3(14.5, TIER_0_Y + 6.8, 14.2), "sag": 0.78, "count": 7},
-		{"a": Vector3(-16.0, TIER_1_Y + 6.9, -82.2), "b": Vector3(-16.0, TIER_1_Y + 6.9, -73.8), "sag": 0.80, "count": 7},
-		{"a": Vector3(16.0, TIER_1_Y + 6.9, -82.2), "b": Vector3(16.0, TIER_1_Y + 6.9, -73.8), "sag": 0.80, "count": 7},
-		# Shining Canal South Embankment Promenade (Tier 0)
-		{"a": Vector3(-34.0, TIER_0_Y + 6.9, -23.5), "b": Vector3(-16.0, TIER_0_Y + 6.9, -23.5), "sag": 0.95, "count": 8},
-		{"a": Vector3(16.0, TIER_0_Y + 6.9, -23.5), "b": Vector3(34.0, TIER_0_Y + 6.9, -23.5), "sag": 0.95, "count": 8},
-	]
-
-	var lantern_xforms: Array[Transform3D] = []
-	var cable_xforms: Array[Transform3D] = []
-
-	for span in garland_spans:
-		var pa: Vector3 = span["a"] as Vector3
-		var pb: Vector3 = span["b"] as Vector3
-		var sag: float = float(span["sag"])
-		var cnt: int = int(span["count"])
-		var prev_pt: Vector3 = pa
-		for k in range(1, cnt + 2):
-			var t: float = float(k) / float(cnt + 1)
-			var cur_pt: Vector3 = pa.lerp(pb, t)
-			cur_pt.y -= sag * 4.0 * t * (1.0 - t)
-
-			var seg_vec: Vector3 = cur_pt - prev_pt
-			var seg_len: float = seg_vec.length()
-			if seg_len > 0.05:
-				var seg_mid: Vector3 = (prev_pt + cur_pt) * 0.5
-				var seg_dir: Vector3 = seg_vec / seg_len
-				var up_ref: Vector3 = Vector3.UP if absf(seg_dir.y) < 0.95 else Vector3.RIGHT
-				var seg_rot: Basis = Basis.looking_at(seg_dir, up_ref)
-				cable_xforms.append(Transform3D(seg_rot.scaled(Vector3(0.035, 0.035, seg_len)), seg_mid))
-
-			if k <= cnt:
-				var l_sc: float = rng.randf_range(0.88, 1.16)
-				lantern_xforms.append(Transform3D(
-					Basis.from_scale(Vector3(l_sc, l_sc * 1.15, l_sc)),
-					cur_pt + Vector3(0.0, -0.22, 0.0)
-				))
-			prev_pt = cur_pt
-
-	var garland_sphere: SphereMesh = SphereMesh.new()
-	garland_sphere.radius = 0.21
-	garland_sphere.height = 0.42
-	garland_sphere.radial_segments = 10
-	garland_sphere.rings = 6
-	_create_simple_multimesh(street_root, "StreetGarlandLanterns", garland_sphere, _mat_garland_lantern, lantern_xforms)
-
-	var cable_box: BoxMesh = BoxMesh.new()
-	cable_box.size = Vector3(1.0, 1.0, 1.0)
-	_create_simple_multimesh(street_root, "StreetGarlandCables", cable_box, _mat_garland_cable, cable_xforms)
-
-	# --- 2. Delicate Golden Star-Sparks (36 tiny diamonds around Orrery, Fountain & Lantern Garden) ---
-	_akasha_sparks_data.clear()
-	var spark_hubs: Array[Dictionary] = [
-		{"center": Vector3(0.0, TIER_1_Y + 5.8, -78.0), "r_min": 2.4, "r_max": 5.8, "y_span": 3.4, "count": 14}, # Akashic Orrery
-		{"center": Vector3(0.0, TIER_0_Y + 4.4, 48.0), "r_min": 2.2, "r_max": 5.2, "y_span": 2.6, "count": 12},  # Grand Fountain
-		{"center": Vector3(-34.0, TIER_1_Y + 4.8, -138.0), "r_min": 3.0, "r_max": 7.5, "y_span": 3.2, "count": 10}, # Lantern Garden
-	]
-	for hub in spark_hubs:
-		var hc: Vector3 = hub["center"] as Vector3
-		var rmin: float = float(hub["r_min"])
-		var rmax: float = float(hub["r_max"])
-		var yspan: float = float(hub["y_span"])
-		var pcount: int = int(hub["count"])
-		for idx in range(pcount):
-			_akasha_sparks_data.append({
-				"center": hc,
-				"radius": rng.randf_range(rmin, rmax),
-				"angle0": rng.randf_range(0.0, TAU),
-				"ang_speed": rng.randf_range(0.24, 0.52) * (1.0 if (idx % 2 == 0) else -1.0),
-				"y_off": rng.randf_range(-yspan * 0.4, yspan * 0.6),
-				"bob_amp": rng.randf_range(0.25, 0.60),
-				"phase": rng.randf_range(0.0, TAU),
-				"scale": rng.randf_range(0.75, 1.25),
-			})
-
-	var spark_mesh: ArrayMesh = _create_diamond_mesh(0.055, 0.11)
-	_akasha_sparks_mm = MultiMesh.new()
-	_akasha_sparks_mm.transform_format = MultiMesh.TRANSFORM_3D
-	_akasha_sparks_mm.mesh = spark_mesh
-	_akasha_sparks_mm.instance_count = _akasha_sparks_data.size()
-
-	var sparks_mmi: MultiMeshInstance3D = MultiMeshInstance3D.new()
-	sparks_mmi.name = "GoldenAkashaSparks"
-	sparks_mmi.multimesh = _akasha_sparks_mm
-	sparks_mmi.material_override = _mat_spark_star
-	sparks_mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	sparks_mmi.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
-	street_root.add_child(sparks_mmi)
-	_update_akasha_sparks()
-
-	# --- 3. Grounded Street Benches & Terracotta Flower Pots (0 floating awnings!) ---
+	# Grounded Street Benches & Terracotta Flower Pots (0 floating lanterns, cables, or sparks!)
 	var bench_xforms: Array[Transform3D] = []
 	var pot_xforms: Array[Transform3D] = []
 
-	var blvd_zs: Array[float] = [26.0, 20.0, -3.0, -9.0, -61.0, -65.0, -92.0, -106.0, -120.0]
+	var blvd_zs: Array[float] = [20.0, -3.0, -9.0, -61.0, -65.0, -92.0, -120.0]
 	for b_idx in range(blvd_zs.size()):
 		var bz: float = blvd_zs[b_idx]
 		var bx_off: float = 6.05 if bz > -30.0 else 6.85
@@ -3885,306 +3919,6 @@ func _build_street_life_and_akasha_magic() -> void:
 	pot_mesh.height = 0.68
 	pot_mesh.radial_segments = 10
 	_create_simple_multimesh(street_root, "StreetFlowerPotsMM", pot_mesh, _mat_flower_pot, pot_xforms)
-
-
-func _update_akasha_sparks() -> void:
-	if _akasha_sparks_mm == null or _akasha_sparks_data.is_empty():
-		return
-	var count: int = _akasha_sparks_data.size()
-	for i in range(count):
-		var p: Dictionary = _akasha_sparks_data[i]
-		var hc: Vector3 = p["center"] as Vector3
-		var r: float = float(p["radius"])
-		var ang: float = float(p["angle0"]) + _anim_time * float(p["ang_speed"])
-		var ph: float = float(p["phase"])
-		var sc: float = float(p["scale"]) * (0.78 + 0.28 * sin(_anim_time * 3.4 + ph))
-
-		var px: float = hc.x + cos(ang) * r
-		var pz: float = hc.z + sin(ang) * r
-		var py: float = hc.y + float(p["y_off"]) + sin(_anim_time * 1.85 + ph) * float(p["bob_amp"])
-
-		var rot_b: Basis = Basis.from_euler(Vector3(0.0, _anim_time * 1.4 + ph, 0.0)).scaled(Vector3(sc, sc, sc))
-		_akasha_sparks_mm.set_instance_transform(i, Transform3D(rot_b, Vector3(px, py, pz)))
-
-
-# ===========================================================================
-# 8C. LIVING SOULS CROWD (136 Luminous Souls traversing all 3 City Tiers!)
-#     Rendered in just 2 ultra-light MultiMeshInstance3Ds (60 FPS on Metal!)
-# ===========================================================================
-
-func _build_living_souls_crowd() -> void:
-	var souls_root: Node3D = Node3D.new()
-	souls_root.name = "LivingSoulsCrowd"
-	add_child(souls_root)
-
-	var rng: RandomNumberGenerator = RandomNumberGenerator.new()
-	rng.seed = 202699
-
-	_walking_souls.clear()
-	_sky_souls.clear()
-
-	# Luminous Akasha soul palette (turquoise, golden, pearl-white, lavender, peach-rose)
-	var soul_palette: Array[Color] = [
-		Color(0.54, 1.32, 1.44, 0.90),
-		Color(1.44, 1.22, 0.58, 0.90),
-		Color(1.30, 1.35, 1.42, 0.90),
-		Color(1.18, 0.90, 1.46, 0.90),
-		Color(1.44, 0.96, 1.08, 0.90),
-	]
-
-	# --- A. 80 STROLLING SOULS climbing & descending all 3 tiers & 4 staircases ---
-	var walk_routes: Array[Dictionary] = [
-		# Main Boulevard South -> Bridge of Memory -> Grand North Staircase -> Orrery Approach
-		{"type": "line", "a": Vector3(-3.0, 0.0, 36.0), "b": Vector3(-3.0, 0.0, -68.0), "count": 10},
-		{"type": "line", "a": Vector3(3.0, 0.0, -68.0), "b": Vector3(3.0, 0.0, 36.0), "count": 10},
-		# Main Boulevard North (Tier 1) -> Tier 2 Ascent -> Overlook -> Imperial Descent -> Palace Forecourt
-		{"type": "line", "a": Vector3(-3.8, 0.0, -88.0), "b": Vector3(-3.8, 0.0, -218.0), "count": 8},
-		{"type": "line", "a": Vector3(3.8, 0.0, -218.0), "b": Vector3(3.8, 0.0, -88.0), "count": 8},
-		# Cross Streets: West School Staircase (Y 0 -> 3.2), Quiet Lakes, Orion, Kronos, Lantern, Mira
-		{"type": "line", "a": Vector3(-4.0, 0.0, 7.6), "b": Vector3(-35.0, 0.0, 7.6), "count": 5},
-		{"type": "line", "a": Vector3(4.0, 0.0, 10.6), "b": Vector3(34.0, 0.0, 10.6), "count": 5},
-		{"type": "line", "a": Vector3(-8.5, 0.0, -77.2), "b": Vector3(-40.0, 0.0, -77.2), "count": 5},
-		{"type": "line", "a": Vector3(8.5, 0.0, -78.8), "b": Vector3(40.0, 0.0, -78.8), "count": 5},
-		{"type": "line", "a": Vector3(-4.0, 0.0, -138.0), "b": Vector3(-32.0, 0.0, -138.0), "count": 4},
-		{"type": "line", "a": Vector3(4.0, 0.0, -138.0), "b": Vector3(28.0, 0.0, -138.0), "count": 4},
-		# Circular strolls around Grand Fountain, Akashic Orrery, Orion, Kronos & Lantern Garden
-		{"type": "circle", "center": Vector3(0.0, 0.0, 48.0), "radius": 8.8, "count": 5},
-		{"type": "circle", "center": Vector3(0.0, 0.0, -78.0), "radius": 6.6, "count": 4},
-		{"type": "circle", "center": Vector3(-42.0, 0.0, -78.0), "radius": 6.8, "count": 2},
-		{"type": "circle", "center": Vector3(42.0, 0.0, -78.0), "radius": 6.8, "count": 2},
-		{"type": "circle", "center": Vector3(-34.0, 0.0, -138.0), "radius": 7.6, "count": 3},
-	]
-
-	for route in walk_routes:
-		var rtype: String = String(route["type"])
-		var rcnt: int = int(route["count"])
-		for k in range(rcnt):
-			var col: Color = soul_palette[_walking_souls.size() % soul_palette.size()]
-			if rtype == "line":
-				var pa: Vector3 = route["a"] as Vector3
-				var pb: Vector3 = route["b"] as Vector3
-				var dist_ab: float = pa.distance_to(pb)
-				var speed_mps: float = rng.randf_range(1.65, 2.75)
-				_walking_souls.append({
-					"type": "line",
-					"a": pa + Vector3(rng.randf_range(-0.55, 0.55), 0.0, rng.randf_range(-0.55, 0.55)),
-					"b": pb + Vector3(rng.randf_range(-0.55, 0.55), 0.0, rng.randf_range(-0.55, 0.55)),
-					"rate": speed_mps / maxf(dist_ab, 1.0),
-					"offset": float(k) / float(rcnt) + rng.randf_range(0.0, 0.05),
-					"phase": rng.randf_range(0.0, TAU),
-					"scale": rng.randf_range(0.84, 1.14),
-					"color": col,
-				})
-			else:
-				var c_pt: Vector3 = route["center"] as Vector3
-				var c_r: float = float(route["radius"]) + rng.randf_range(-0.8, 0.8)
-				var dir_sign: float = 1.0 if (k % 2 == 0) else -1.0
-				_walking_souls.append({
-					"type": "circle",
-					"center": c_pt,
-					"radius": c_r,
-					"ang_speed": dir_sign * rng.randf_range(0.22, 0.38),
-					"angle0": (TAU * float(k)) / float(rcnt),
-					"phase": rng.randf_range(0.0, TAU),
-					"scale": rng.randf_range(0.84, 1.14),
-					"color": col,
-				})
-
-	# --- B. 56 CELESTIAL SKY SOULS soaring in luminous arcs between landmarks & Palace ---
-	var sky_arcs: Array[Dictionary] = [
-		{"p0": Vector3(-54.0, 17.0, -78.0), "ctrl": Vector3(0.0, 31.0, -82.0), "p1": Vector3(54.0, 21.0, -78.0), "count": 10},
-		{"p0": Vector3(-54.0, 18.0, -78.0), "ctrl": Vector3(-34.0, 34.0, -175.0), "p1": Vector3(0.0, 24.0, -250.0), "count": 10},
-		{"p0": Vector3(54.0, 22.0, -78.0), "ctrl": Vector3(34.0, 35.0, -175.0), "p1": Vector3(0.0, 24.0, -250.0), "count": 10},
-		{"p0": Vector3(-48.0, 16.0, 8.0), "ctrl": Vector3(0.0, 26.0, -32.0), "p1": Vector3(66.0, 18.0, 26.0), "count": 8},
-		{"p0": Vector3(0.0, 14.0, 48.0), "ctrl": Vector3(-26.0, 28.0, -32.0), "p1": Vector3(-34.0, 19.0, -138.0), "count": 9},
-		{"p0": Vector3(0.0, 14.0, 48.0), "ctrl": Vector3(26.0, 28.0, -32.0), "p1": Vector3(40.0, 19.0, -138.0), "count": 9},
-	]
-
-	for arc in sky_arcs:
-		var p0: Vector3 = arc["p0"] as Vector3
-		var ctrl: Vector3 = arc["ctrl"] as Vector3
-		var p1: Vector3 = arc["p1"] as Vector3
-		var acnt: int = int(arc["count"])
-		for k in range(acnt):
-			var col: Color = soul_palette[(k + _sky_souls.size()) % soul_palette.size()]
-			_sky_souls.append({
-				"p0": p0 + Vector3(rng.randf_range(-3.0, 3.0), rng.randf_range(-1.5, 2.0), rng.randf_range(-3.0, 3.0)),
-				"ctrl": ctrl + Vector3(rng.randf_range(-5.0, 5.0), rng.randf_range(-2.5, 4.5), rng.randf_range(-4.0, 4.0)),
-				"p1": p1 + Vector3(rng.randf_range(-3.0, 3.0), rng.randf_range(-1.5, 2.0), rng.randf_range(-3.0, 3.0)),
-				"rate": rng.randf_range(0.032, 0.058),
-				"offset": float(k) / float(acnt),
-				"phase": rng.randf_range(0.0, TAU),
-				"scale": rng.randf_range(0.95, 1.35),
-				"color": col,
-			})
-
-	var total_souls: int = _walking_souls.size() + _sky_souls.size()
-
-	# MultiMesh 1: Luminous Spirit Drop Silhouettes
-	var body_mesh: ArrayMesh = _create_soul_silhouette_mesh()
-	_souls_body_mm = MultiMesh.new()
-	_souls_body_mm.transform_format = MultiMesh.TRANSFORM_3D
-	_souls_body_mm.use_colors = true
-	_souls_body_mm.mesh = body_mesh
-	_souls_body_mm.instance_count = total_souls
-
-	# MultiMesh 2: Soft Glowing Halos above every Soul
-	var halo_mesh: TorusMesh = TorusMesh.new()
-	halo_mesh.inner_radius = 0.21
-	halo_mesh.outer_radius = 0.29
-	halo_mesh.rings = 16
-	halo_mesh.ring_segments = 6
-
-	_souls_halo_mm = MultiMesh.new()
-	_souls_halo_mm.transform_format = MultiMesh.TRANSFORM_3D
-	_souls_halo_mm.use_colors = true
-	_souls_halo_mm.mesh = halo_mesh
-	_souls_halo_mm.instance_count = total_souls
-
-	# Assign per-instance pastel-HDR soul colors
-	var idx: int = 0
-	for ws in _walking_souls:
-		var c: Color = ws["color"] as Color
-		_souls_body_mm.set_instance_color(idx, c)
-		_souls_halo_mm.set_instance_color(idx, Color(c.r * 1.15, c.g * 1.15, c.b * 1.15, 0.85))
-		idx += 1
-	for ss in _sky_souls:
-		var sc: Color = ss["color"] as Color
-		_souls_body_mm.set_instance_color(idx, sc)
-		_souls_halo_mm.set_instance_color(idx, Color(sc.r * 1.2, sc.g * 1.2, sc.b * 1.2, 0.90))
-		idx += 1
-
-	var body_mmi: MultiMeshInstance3D = MultiMeshInstance3D.new()
-	body_mmi.name = "CitySoulsBodies"
-	body_mmi.multimesh = _souls_body_mm
-	body_mmi.material_override = _mat_soul_body
-	body_mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	body_mmi.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
-	souls_root.add_child(body_mmi)
-
-	var halo_mmi: MultiMeshInstance3D = MultiMeshInstance3D.new()
-	halo_mmi.name = "CitySoulsHalos"
-	halo_mmi.multimesh = _souls_halo_mm
-	halo_mmi.material_override = _mat_soul_halo
-	halo_mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	halo_mmi.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
-	souls_root.add_child(halo_mmi)
-
-	_update_living_souls()
-
-
-func _update_living_souls() -> void:
-	if _souls_body_mm == null or _souls_halo_mm == null:
-		return
-
-	var idx: int = 0
-	# 1. Update 80 strolling ground souls (smoothly traversing all 3 tiers & 4 staircases!)
-	for ws in _walking_souls:
-		var pos: Vector3 = Vector3.ZERO
-		var yaw: float = 0.0
-		var ph: float = float(ws["phase"])
-		var sc: float = float(ws["scale"])
-
-		if String(ws["type"]) == "line":
-			var pa: Vector3 = ws["a"] as Vector3
-			var pb: Vector3 = ws["b"] as Vector3
-			var cyc: float = fposmod(float(ws["offset"]) + _anim_time * float(ws["rate"]), 2.0)
-			var t: float = cyc if cyc <= 1.0 else (2.0 - cyc)
-			var forward: bool = cyc <= 1.0
-			pos = pa.lerp(pb, t)
-			var dir_v: Vector3 = (pb - pa) if forward else (pa - pb)
-			yaw = atan2(dir_v.x, dir_v.z)
-		else:
-			var c_pt: Vector3 = ws["center"] as Vector3
-			var c_r: float = float(ws["radius"])
-			var a_spd: float = float(ws["ang_speed"])
-			var ang: float = float(ws["angle0"]) + _anim_time * a_spd
-			pos = Vector3(c_pt.x + cos(ang) * c_r, 0.0, c_pt.z + sin(ang) * c_r)
-			var tx: float = -sin(ang) * a_spd
-			var tz: float = cos(ang) * a_spd
-			yaw = atan2(tx, tz)
-
-		var ground_y: float = _get_city_walk_y(pos.x, pos.z)
-		var hover_y: float = ground_y + 0.30 + sin(_anim_time * 2.5 + ph) * 0.14
-		var sway_z: float = sin(_anim_time * 1.9 + ph) * 0.08
-		var body_rot: Basis = Basis.from_euler(Vector3(0.06, yaw, sway_z)).scaled(Vector3(sc, sc, sc))
-		_souls_body_mm.set_instance_transform(idx, Transform3D(body_rot, Vector3(pos.x, hover_y, pos.z)))
-
-		var halo_y: float = hover_y + 1.62 * sc + cos(_anim_time * 2.5 + ph) * 0.06
-		var halo_rot: Basis = Basis.from_euler(Vector3(0.18, yaw + _anim_time * 0.8, 0.0)).scaled(Vector3(sc, sc, sc))
-		_souls_halo_mm.set_instance_transform(idx, Transform3D(halo_rot, Vector3(pos.x, halo_y, pos.z)))
-		idx += 1
-
-	# 2. Update 56 soaring celestial sky souls
-	for ss in _sky_souls:
-		var p0: Vector3 = ss["p0"] as Vector3
-		var ctrl: Vector3 = ss["ctrl"] as Vector3
-		var p1: Vector3 = ss["p1"] as Vector3
-		var ph: float = float(ss["phase"])
-		var sc: float = float(ss["scale"])
-
-		var cyc: float = fposmod(float(ss["offset"]) + _anim_time * float(ss["rate"]), 2.0)
-		var t: float = cyc if cyc <= 1.0 else (2.0 - cyc)
-		var inv_t: float = 1.0 - t
-		var pos: Vector3 = (inv_t * inv_t) * p0 + (2.0 * inv_t * t) * ctrl + (t * t) * p1
-		pos.y += sin(_anim_time * 1.8 + ph) * 0.65
-
-		var tang: Vector3 = 2.0 * inv_t * (ctrl - p0) + 2.0 * t * (p1 - ctrl)
-		if cyc > 1.0:
-			tang = -tang
-		var yaw: float = atan2(tang.x, tang.z)
-		var body_rot: Basis = Basis.from_euler(Vector3(0.32, yaw, sin(_anim_time * 2.0 + ph) * 0.14)).scaled(Vector3(sc, sc * 1.12, sc))
-		_souls_body_mm.set_instance_transform(idx, Transform3D(body_rot, pos))
-
-		var halo_rot: Basis = Basis.from_euler(Vector3(0.25, yaw + _anim_time * 1.2, 0.0)).scaled(Vector3(sc * 1.15, sc * 1.15, sc * 1.15))
-		_souls_halo_mm.set_instance_transform(idx, Transform3D(halo_rot, pos + Vector3(0.0, 1.72 * sc, 0.0)))
-		idx += 1
-
-
-func _create_soul_silhouette_mesh() -> ArrayMesh:
-	var st: SurfaceTool = SurfaceTool.new()
-	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-
-	# Graceful luminous teardrop/robed spirit profile (height ~1.48m, 10 radial segments)
-	var rings_y: Array[float] = [0.0, 0.28, 0.68, 1.04, 1.24, 1.44]
-	var rings_r: Array[float] = [0.06, 0.25, 0.30, 0.20, 0.24, 0.12]
-	var segs: int = 10
-	var ring_cnt: int = rings_y.size()
-
-	for r_idx in range(ring_cnt - 1):
-		var y0: float = rings_y[r_idx]
-		var y1: float = rings_y[r_idx + 1]
-		var rad0: float = rings_r[r_idx]
-		var rad1: float = rings_r[r_idx + 1]
-		for s in range(segs):
-			var a0: float = (TAU * float(s)) / float(segs)
-			var a1: float = (TAU * float(s + 1)) / float(segs)
-			var v00: Vector3 = Vector3(cos(a0) * rad0, y0, sin(a0) * rad0)
-			var v10: Vector3 = Vector3(cos(a1) * rad0, y0, sin(a1) * rad0)
-			var v01: Vector3 = Vector3(cos(a0) * rad1, y1, sin(a0) * rad1)
-			var v11: Vector3 = Vector3(cos(a1) * rad1, y1, sin(a1) * rad1)
-
-			st.add_vertex(v00)
-			st.add_vertex(v10)
-			st.add_vertex(v11)
-
-			st.add_vertex(v00)
-			st.add_vertex(v11)
-			st.add_vertex(v01)
-
-	# Soft crown cap
-	var apex: Vector3 = Vector3(0.0, 1.54, 0.0)
-	var top_y: float = rings_y[ring_cnt - 1]
-	var top_r: float = rings_r[ring_cnt - 1]
-	for s in range(segs):
-		var a0: float = (TAU * float(s)) / float(segs)
-		var a1: float = (TAU * float(s + 1)) / float(segs)
-		st.add_vertex(Vector3(cos(a0) * top_r, top_y, sin(a0) * top_r))
-		st.add_vertex(Vector3(cos(a1) * top_r, top_y, sin(a1) * top_r))
-		st.add_vertex(apex)
-
-	st.generate_normals()
-	return st.commit()
 
 
 func _create_colored_multimesh(
