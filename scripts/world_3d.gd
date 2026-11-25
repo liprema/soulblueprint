@@ -12,6 +12,7 @@ const START_PLAYER_POS: Vector3 = Vector3(0.0, 0.25, 52.0)
 const DAIS_RETURN_POS: Vector3 = Vector3(0.0, 9.2, -268.0)
 
 const CITY_NPC_INTERACT_RANGE: float = 4.8
+const LIVING_WORLD_INTERACT_RANGE: float = 5.5
 const CITY_MEMORY_DROP_POS: Vector3 = Vector3(42.0, 0.0, 10.0)
 const CITY_LUMI_MODEL_PATH: String = "res://assets/models/characters/spark.glb"
 const CITY_ALATEA_MODEL_PATH: String = "res://assets/models/characters/mentor_alatea.glb"
@@ -56,6 +57,7 @@ var _city_builder: AkashaCityBuilder = null
 var _city_map_ui: CityMapUI = null
 var _city_quest_npcs_root: Node3D = null
 var _city_quest_npcs: Dictionary = {}
+var _living_world_spots: Array[Dictionary] = []
 var _current_district_id: String = ""
 var _city_npc_anim_time: float = 0.0
 
@@ -91,6 +93,7 @@ func _ready() -> void:
 	_setup_city_builder()
 	_setup_city_map_ui()
 	_setup_city_quest_npcs()
+	_init_living_world_spots()
 	_spawn_lanterns()
 	_setup_garden_decorator()
 	_setup_castle_interactables()
@@ -1275,6 +1278,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		if _try_interact_city_venue(player.global_position):
 			get_viewport().set_input_as_handled()
 			return
+		if _try_interact_living_world_spot(player.global_position):
+			get_viewport().set_input_as_handled()
+			return
 		if _castle_interactables != null and is_instance_valid(_castle_interactables):
 			var relic_seq: String = _castle_interactables.interact_nearest(player.global_position)
 			if not relic_seq.is_empty():
@@ -1455,6 +1461,123 @@ func _get_city_venue_prompt(p_pos: Vector3) -> String:
 	if venue.is_empty():
 		return ""
 	return str(venue.get("prompt", ""))
+
+
+func _init_living_world_spots() -> void:
+	_living_world_spots = [
+		{
+			"id": "city_npc_teacher",
+			"dialogue_id": "city_npc_teacher",
+			"pos": Vector3(-31.5, 3.2, 11.5),
+			"prompt": "✦  [E]  Поговорить с Душой-Учителем Элианом",
+			"eye_height": 1.65,
+			"cam_dist": 5.2,
+		},
+		{
+			"id": "city_npc_celestial",
+			"dialogue_id": "city_npc_celestial",
+			"pos": Vector3(0.0, 3.2, -138.0),
+			"prompt": "✦  [E]  Поговорить с Сириэль (Душа с Плеяд)",
+			"eye_height": 1.75,
+			"cam_dist": 5.4,
+		},
+		{
+			"id": "city_npc_gondolier",
+			"dialogue_id": "city_npc_gondolier",
+			"pos": Vector3(11.0, 0.0, -23.5),
+			"prompt": "✦  [E]  Поговорить с Душой-Гондольером Лукой",
+			"eye_height": 1.6,
+			"cam_dist": 5.4,
+		},
+		{
+			"id": "city_npc_animals",
+			"dialogue_id": "city_npc_animals",
+			"pos": Vector3(16.5, 0.0, 21.0),
+			"prompt": "✦  [E]  Погладить Душу-Кошку",
+			"eye_height": 0.9,
+			"cam_dist": 4.4,
+		},
+		{
+			"id": "city_portal_earth",
+			"dialogue_id": "city_portal_earth",
+			"pos": Vector3(-22.0, 3.2, -148.0),
+			"prompt": "✦  [E]  Осмотреть Портал Земли",
+			"eye_height": 2.4,
+			"cam_dist": 6.8,
+		},
+		{
+			"id": "city_portal_pleiades",
+			"dialogue_id": "city_portal_pleiades",
+			"pos": Vector3(-12.5, 3.2, -148.0),
+			"prompt": "✦  [E]  Осмотреть Портал Плеяд",
+			"eye_height": 2.4,
+			"cam_dist": 6.8,
+		},
+		{
+			"id": "city_portal_lyra",
+			"dialogue_id": "city_portal_lyra",
+			"pos": Vector3(12.5, 3.2, -148.0),
+			"prompt": "✦  [E]  Осмотреть Портал Лиры",
+			"eye_height": 2.4,
+			"cam_dist": 6.8,
+		},
+		{
+			"id": "city_portal_oceania",
+			"dialogue_id": "city_portal_oceania",
+			"pos": Vector3(22.0, 3.2, -148.0),
+			"prompt": "✦  [E]  Осмотреть Портал Океании",
+			"eye_height": 2.4,
+			"cam_dist": 6.8,
+		},
+	]
+
+
+func _get_nearest_living_world_spot(p_pos: Vector3, radius: float = LIVING_WORLD_INTERACT_RANGE) -> Dictionary:
+	if _living_world_spots.is_empty():
+		_init_living_world_spots()
+	var best_dist_sq: float = radius * radius
+	var best_spot: Dictionary = {}
+	for spot_var: Variant in _living_world_spots:
+		var spot: Dictionary = spot_var as Dictionary
+		var spot_pos: Vector3 = spot["pos"] as Vector3
+		if absf(p_pos.y - spot_pos.y) > 2.8:
+			continue
+		var dx: float = p_pos.x - spot_pos.x
+		var dz: float = p_pos.z - spot_pos.z
+		var dist_sq: float = dx * dx + dz * dz
+		if dist_sq <= best_dist_sq:
+			best_dist_sq = dist_sq
+			best_spot = spot
+	return best_spot
+
+
+func _try_interact_living_world_spot(p_pos: Vector3) -> bool:
+	var spot: Dictionary = _get_nearest_living_world_spot(p_pos, LIVING_WORLD_INTERACT_RANGE)
+	if spot.is_empty():
+		return false
+	var dialogue_id: String = str(spot.get("dialogue_id", ""))
+	if dialogue_id.is_empty():
+		return false
+
+	var spot_pos_var: Variant = spot.get("pos", p_pos)
+	var spot_pos: Vector3 = spot_pos_var as Vector3 if spot_pos_var is Vector3 else p_pos
+	var spot_id: String = str(spot.get("id", dialogue_id))
+	var eye_height: float = float(spot.get("eye_height", 1.75))
+	var cam_dist: float = float(spot.get("cam_dist", 5.5))
+
+	if audio_manager and audio_manager.has_method("play_lantern_chime"):
+		audio_manager.call("play_lantern_chime", posmod(spot_id.hash(), 5))
+
+	_set_dialogue_context("npc", spot_id, null, spot_pos, eye_height, cam_dist)
+	_start_dialogue_sequence(dialogue_id)
+	return true
+
+
+func _get_living_world_prompt(p_pos: Vector3) -> String:
+	var spot: Dictionary = _get_nearest_living_world_spot(p_pos, LIVING_WORLD_INTERACT_RANGE)
+	if spot.is_empty():
+		return ""
+	return str(spot.get("prompt", ""))
 
 
 # ---------------------------------------------------------------------------
@@ -2393,6 +2516,7 @@ func _update_interaction_prompt(p_pos: Vector3, stage: String) -> void:
 		return
 	var city_prompt: String = _get_city_quest_prompt(p_pos)
 	var venue_prompt: String = _get_city_venue_prompt(p_pos)
+	var living_prompt: String = _get_living_world_prompt(p_pos)
 
 	var relic_prompt: String = ""
 	if _castle_interactables != null and is_instance_valid(_castle_interactables):
@@ -2429,6 +2553,8 @@ func _update_interaction_prompt(p_pos: Vector3, stage: String) -> void:
 			prompt = city_prompt
 		elif not venue_prompt.is_empty():
 			prompt = venue_prompt
+		elif not living_prompt.is_empty():
+			prompt = living_prompt
 		elif not npc_prompt.is_empty():
 			prompt = npc_prompt
 		elif not relic_prompt.is_empty():
@@ -2444,6 +2570,8 @@ func _update_interaction_prompt(p_pos: Vector3, stage: String) -> void:
 			prompt = city_prompt
 		elif prompt.is_empty() and not venue_prompt.is_empty():
 			prompt = venue_prompt
+		elif prompt.is_empty() and not living_prompt.is_empty():
+			prompt = living_prompt
 		elif prompt.is_empty() and not npc_prompt.is_empty():
 			prompt = npc_prompt
 		elif prompt.is_empty() and not relic_prompt.is_empty():
@@ -2457,6 +2585,10 @@ func _update_interaction_prompt(p_pos: Vector3, stage: String) -> void:
 
 	if not venue_prompt.is_empty():
 		_update_prompt(venue_prompt)
+		return
+
+	if not living_prompt.is_empty():
+		_update_prompt(living_prompt)
 		return
 
 	if stage == "contract_spoken":

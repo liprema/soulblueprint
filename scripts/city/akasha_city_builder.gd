@@ -19,6 +19,7 @@ const PIXAR_WATERFALL_SHADER_PATH: String = "res://shaders/pixar_waterfall.gdsha
 const PIXAR_BUILDING_FACADE_SHADER_PATH: String = "res://shaders/pixar_building_facade.gdshader"
 const PIXAR_WINDOW_GLOW_SHADER_PATH: String = "res://shaders/pixar_window_glow.gdshader"
 const STYLIZED_TREE_FOLIAGE_SHADER_PATH: String = "res://shaders/stylized_tree_foliage.gdshader"
+const WORLD_PORTAL_VORTEX_SHADER_PATH: String = "res://shaders/world_portal_vortex.gdshader"
 
 const MODEL_SCHOOL_PATH: String = "res://assets/models/city/school_of_souls.glb"
 const MODEL_LIBRARY_PATH: String = "res://assets/models/city/orion_library.glb"
@@ -35,6 +36,7 @@ const LANDMARK_ORRERY_PATH: String = "res://assets/models/city/landmarks/landmar
 const LANDMARK_ORRERY_ALT_PATH: String = "res://assets/models/city/landmark_akashic_orrery.glb"
 const LANDMARK_MEMORY_ARCH_PATH: String = "res://assets/models/city/landmarks/landmark_memory_arch.glb"
 const LANDMARK_MEMORY_ARCH_ALT_PATH: String = "res://assets/models/city/landmark_memory_arch.glb"
+const LANDMARK_WORLD_PORTAL_PATH: String = "res://assets/models/city/landmarks/landmark_world_portal.glb"
 
 const PIXAR_HOUSE_RED_PATH: String = "res://assets/models/city/pixar/house_red_gable.glb"
 const PIXAR_HOUSE_BLUE_PATH: String = "res://assets/models/city/pixar/house_blue_balcony.glb"
@@ -67,6 +69,16 @@ const PROP_CAFE_BISTRO_PATH: String = "res://assets/models/city/props/prop_cafe_
 const PROP_GARDEN_URN_PATH: String = "res://assets/models/city/props/prop_garden_urn.glb"
 const PROP_GRASS_DAISY_PATH: String = "res://assets/models/city/props/prop_grass_daisy_cluster.glb"
 const PROP_SKY_LANTERN_PATH: String = "res://assets/models/city/props/prop_sky_lantern.glb"
+const PROP_STUDY_TABLE_PATH: String = "res://assets/models/city/props/prop_study_table.glb"
+const PROP_MARKET_BOOKSTALL_PATH: String = "res://assets/models/city/props/prop_market_bookstall.glb"
+
+const NPC_SOUL_TEACHER_PATH: String = "res://assets/models/city/npcs/npc_soul_teacher.glb"
+const NPC_SOUL_CELESTIAL_PATH: String = "res://assets/models/city/npcs/npc_soul_celestial.glb"
+const NPC_SOUL_CITIZEN_PATH: String = "res://assets/models/city/npcs/npc_soul_citizen.glb"
+const NPC_SOUL_GONDOLIER_PATH: String = "res://assets/models/city/npcs/npc_soul_gondolier.glb"
+const NPC_ANIMAL_CAT_PATH: String = "res://assets/models/city/npcs/npc_animal_cat.glb"
+const NPC_ANIMAL_FOX_PATH: String = "res://assets/models/city/npcs/npc_animal_fox.glb"
+const NPC_ANIMAL_OWL_PATH: String = "res://assets/models/city/npcs/npc_animal_owl.glb"
 
 const VALLEY_CENTER_Z: float = -100.0
 const VALLEY_WIDTH: float = 560.0
@@ -98,6 +110,7 @@ const DISTRICT_QUERY_RADIUS: float = 28.0
 var _facade_shader: Shader = null
 var _window_glow_shader: Shader = null
 var _tree_foliage_shader: Shader = null
+var _portal_vortex_shader: Shader = null
 var _facade_mat_cache: Dictionary = {}
 var _mat_meadow: Material = null
 var _mat_park_lawn: Material = null
@@ -167,6 +180,16 @@ var _scene_prop_cafe_bistro: PackedScene = null
 var _scene_prop_garden_urn: PackedScene = null
 var _scene_prop_grass_daisy: PackedScene = null
 var _scene_sky_lantern: PackedScene = null
+var _scene_world_portal: PackedScene = null
+var _scene_prop_study_table: PackedScene = null
+var _scene_prop_market_bookstall: PackedScene = null
+var _scene_npc_teacher: PackedScene = null
+var _scene_npc_celestial: PackedScene = null
+var _scene_npc_citizen: PackedScene = null
+var _scene_npc_gondolier: PackedScene = null
+var _scene_animal_cat: PackedScene = null
+var _scene_animal_fox: PackedScene = null
+var _scene_animal_owl: PackedScene = null
 
 # Split 5-type house batches: Inner City (cast_shadows=ON) vs Outer Hillside (cast_shadows=OFF)
 var _city_inner_house_batches: Dictionary = {}
@@ -536,6 +559,12 @@ func _init_materials() -> void:
 		var tree_sh_res: Resource = load(STYLIZED_TREE_FOLIAGE_SHADER_PATH)
 		if tree_sh_res is Shader:
 			_tree_foliage_shader = tree_sh_res as Shader
+
+	_portal_vortex_shader = null
+	if ResourceLoader.exists(WORLD_PORTAL_VORTEX_SHADER_PATH):
+		var portal_sh_res: Resource = load(WORLD_PORTAL_VORTEX_SHADER_PATH)
+		if portal_sh_res is Shader:
+			_portal_vortex_shader = portal_sh_res as Shader
 
 	# Meadow ground shader (with safe lush green StandardMaterial3D fallback)
 	var meadow_shader: Shader = null
@@ -1170,6 +1199,16 @@ func _preload_prop_scenes() -> void:
 	_scene_prop_garden_urn = _safe_load_scene(PROP_GARDEN_URN_PATH)
 	_scene_prop_grass_daisy = _safe_load_scene(PROP_GRASS_DAISY_PATH)
 	_scene_sky_lantern = _safe_load_scene(PROP_SKY_LANTERN_PATH)
+	_scene_world_portal = _safe_load_scene(LANDMARK_WORLD_PORTAL_PATH)
+	_scene_prop_study_table = _safe_load_scene(PROP_STUDY_TABLE_PATH)
+	_scene_prop_market_bookstall = _safe_load_scene(PROP_MARKET_BOOKSTALL_PATH)
+	_scene_npc_teacher = _safe_load_scene(NPC_SOUL_TEACHER_PATH)
+	_scene_npc_celestial = _safe_load_scene(NPC_SOUL_CELESTIAL_PATH)
+	_scene_npc_citizen = _safe_load_scene(NPC_SOUL_CITIZEN_PATH)
+	_scene_npc_gondolier = _safe_load_scene(NPC_SOUL_GONDOLIER_PATH)
+	_scene_animal_cat = _safe_load_scene(NPC_ANIMAL_CAT_PATH)
+	_scene_animal_fox = _safe_load_scene(NPC_ANIMAL_FOX_PATH)
+	_scene_animal_owl = _safe_load_scene(NPC_ANIMAL_OWL_PATH)
 
 
 func _init_house_batches() -> void:
@@ -1286,6 +1325,12 @@ func _get_prop_surface_y(x: float, z: float) -> float:
 	# 3. Check Upper Overlook Terrace stone paving (+0.025)
 	if x >= -23.7 and x <= 23.7 and z >= -197.7 and z <= -170.3:
 		return TIER_2_Y + SIDE_STREET_TOP_Y
+
+	# 4. Check Main Boulevards (+ROAD_TOP_Y = +0.055) so NPCs/props on boulevards are never buried 5.5cm
+	if absf(x) <= 6.0 and z >= -158.2 and z <= -54.8:
+		return TIER_1_Y + ROAD_TOP_Y
+	if absf(x) <= 5.0 and z >= -20.75 and z <= 56.0:
+		return TIER_0_Y + ROAD_TOP_Y
 
 	return base_y
 
@@ -2044,6 +2089,19 @@ func _place_animated_boat(
 		lantern_orb.material_override = _mat_warm_window
 		lantern_orb.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		holder.add_child(lantern_orb)
+
+	# Attach sculpted Gondolier Soul standing cleanly on the stern deck (bobs & drifts with the boat!)
+	if _scene_npc_gondolier != null:
+		var g_inst: Node = _scene_npc_gondolier.instantiate()
+		if g_inst is Node3D:
+			var g_node: Node3D = g_inst as Node3D
+			g_node.name = "%s_Gondolier" % boat_name
+			g_node.position = Vector3(0.0, 0.36, -1.35)
+			g_node.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
+			_set_shadow_casting_recursive(g_node, GeometryInstance3D.SHADOW_CASTING_SETTING_ON)
+			holder.add_child(g_node)
+		else:
+			g_inst.queue_free()
 
 	_boat_floaters.append({
 		"node": holder,
@@ -2817,6 +2875,9 @@ func _build_city_buildings() -> void:
 	# 5. Four Iconic City Landmarks across all 3 tiers (GLB + rich procedural fallbacks)
 	_build_four_iconic_landmarks(bld_root)
 
+	# 5A. Four Monumental Interdimensional World Portals («Аллея Миров») on North Mid Terrace
+	_build_four_world_portals(bld_root)
+
 	# 5B. Four Interactive City Venues (Cafe, Memory Shop, Soul Gym, Grand Mall)
 	_build_interactive_city_venues(bld_root)
 
@@ -3018,6 +3079,125 @@ func _build_four_iconic_landmarks(parent: Node3D) -> void:
 		a_body.add_child(p_col)
 
 	_set_shadow_casting_recursive(lm_root, GeometryInstance3D.SHADOW_CASTING_SETTING_ON)
+
+
+func _build_four_world_portals(parent: Node3D) -> void:
+	var portals_root: Node3D = Node3D.new()
+	portals_root.name = "WorldPortalsAvenue"
+	parent.add_child(portals_root)
+
+	# 4 Monumental Interdimensional World Portals («Аллея Миров») along North Mid Terrace (Z = -148.0, yaw = 0.0)
+	var portal_specs: Array[Dictionary] = [
+		{
+			"name": "Portal_Earth",
+			"x": -22.0,
+			"z": -148.0,
+			"core": Color(0.98, 0.96, 0.82),
+			"mid": Color(0.24, 0.78, 0.52),
+			"outer": Color(0.10, 0.24, 0.42),
+			"swirl_speed": 0.72,
+			"glow_strength": 2.1,
+		},
+		{
+			"name": "Portal_Pleiades",
+			"x": -12.5,
+			"z": -148.0,
+			"core": Color(0.94, 0.98, 1.0),
+			"mid": Color(0.28, 0.76, 0.98),
+			"outer": Color(0.10, 0.18, 0.46),
+			"swirl_speed": 0.82,
+			"glow_strength": 2.25,
+		},
+		{
+			"name": "Portal_Lyra",
+			"x": 12.5,
+			"z": -148.0,
+			"core": Color(1.0, 0.92, 0.80),
+			"mid": Color(0.76, 0.36, 0.92),
+			"outer": Color(0.22, 0.10, 0.38),
+			"swirl_speed": 0.78,
+			"glow_strength": 2.2,
+		},
+		{
+			"name": "Portal_Oceania",
+			"x": 22.0,
+			"z": -148.0,
+			"core": Color(0.95, 0.98, 0.94),
+			"mid": Color(0.16, 0.78, 0.76),
+			"outer": Color(0.08, 0.26, 0.36),
+			"swirl_speed": 0.68,
+			"glow_strength": 2.15,
+		},
+	]
+
+	for spec in portal_specs:
+		var p_name: String = String(spec["name"])
+		var px: float = float(spec["x"])
+		var pz: float = float(spec["z"])
+		var py: float = _get_prop_surface_y(px, pz)
+
+		var holder: Node3D = Node3D.new()
+		holder.name = p_name
+		holder.position = Vector3(px, py, pz)
+		holder.rotation.y = 0.0
+		portals_root.add_child(holder)
+
+		# 1. Sculpted stone & gold portal arch GLB with matte harmonization & cast shadows
+		if _scene_world_portal != null:
+			var p_inst: Node = _scene_world_portal.instantiate()
+			if p_inst is Node3D:
+				var p_model: Node3D = p_inst as Node3D
+				holder.add_child(p_model)
+				_ground_node_to_zero(p_model)
+				_harmonize_building_materials_recursive(p_model)
+				_set_shadow_casting_recursive(p_model, GeometryInstance3D.SHADOW_CASTING_SETTING_ON)
+			else:
+				p_inst.queue_free()
+		else:
+			# Minimal stone arch fallback if GLB missing
+			_add_box_part(holder, Vector3(1.2, 6.2, 1.6), Vector3(-2.15, 3.1, 0.0), _mat_marble_wall)
+			_add_box_part(holder, Vector3(1.2, 6.2, 1.6), Vector3(2.15, 3.1, 0.0), _mat_marble_wall)
+			_add_box_part(holder, Vector3(5.6, 1.1, 1.8), Vector3(0.0, 6.2, 0.0), _mat_marble_wall)
+
+		# 2. Fitted luminous swirling interdimensional vortex inside the inner arch opening (3.10m x 4.60m at Y = 2.62m)
+		var vortex_mesh: QuadMesh = QuadMesh.new()
+		vortex_mesh.size = Vector2(3.05, 4.55)
+		var vortex_mi: MeshInstance3D = MeshInstance3D.new()
+		vortex_mi.name = "%s_Vortex" % p_name
+		vortex_mi.mesh = vortex_mesh
+		vortex_mi.position = Vector3(0.0, 2.62, 0.0)
+		vortex_mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		if _portal_vortex_shader != null:
+			var v_mat: ShaderMaterial = ShaderMaterial.new()
+			v_mat.shader = _portal_vortex_shader
+			v_mat.set_shader_parameter("core_color", spec["core"] as Color)
+			v_mat.set_shader_parameter("mid_color", spec["mid"] as Color)
+			v_mat.set_shader_parameter("outer_color", spec["outer"] as Color)
+			v_mat.set_shader_parameter("swirl_speed", float(spec["swirl_speed"]))
+			v_mat.set_shader_parameter("glow_strength", float(spec["glow_strength"]))
+			vortex_mi.material_override = v_mat
+		else:
+			var fb_mat: StandardMaterial3D = StandardMaterial3D.new()
+			fb_mat.albedo_color = spec["mid"] as Color
+			fb_mat.emission_enabled = true
+			fb_mat.emission = spec["core"] as Color
+			fb_mat.emission_energy_multiplier = 1.6
+			fb_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+			vortex_mi.material_override = fb_mat
+		holder.add_child(vortex_mi)
+
+		# 3. Twin left & right stone pillar colliders (X = +/-2.15) leaving central vortex approachable
+		var p_body: StaticBody3D = StaticBody3D.new()
+		p_body.name = "%s_PillarCollision" % p_name
+		holder.add_child(p_body)
+		for side_val in [-1.0, 1.0]:
+			var side: float = float(side_val)
+			var col_shape: CollisionShape3D = CollisionShape3D.new()
+			var col_box: BoxShape3D = BoxShape3D.new()
+			col_box.size = Vector3(1.25, 6.4, 1.85)
+			col_shape.shape = col_box
+			col_shape.position = Vector3(side * 2.15, 3.2, 0.0)
+			p_body.add_child(col_shape)
 
 
 func _build_procedural_grand_fountain(parent: Node3D) -> void:
@@ -3326,6 +3506,10 @@ func _is_point_clear_for_house(x: float, z: float, half_r: float) -> bool:
 		if pk_dx * pk_dx + pk_dz * pk_dz < pk_min_r * pk_min_r:
 			return false
 
+	# 16. World Portals Avenue («Аллея Миров», 4 portals at X = +/-12.5, +/-22.0, Z = -148.0)
+	if z >= -153.0 - half_r and z <= -143.0 + half_r and absf(x) >= 8.0 - half_r and absf(x) <= 27.0 + half_r:
+		return false
+
 	return true
 
 
@@ -3507,6 +3691,10 @@ func _is_pure_grass_spot(x: float, z: float, clearance_r: float) -> bool:
 	if x >= 15.0 - clearance_r and x <= 27.5 + clearance_r and absf(z + 108.0) < 7.2 + clearance_r:
 		return false
 	if x >= -30.5 - clearance_r and x <= -15.5 + clearance_r and absf(z + 108.0) < 10.6 + clearance_r:
+		return false
+
+	# 7B. NO World Portals Avenue («Аллея Миров», 4 portals at X = +/-12.5, +/-22.0, Z = -148.0)
+	if z >= -153.0 - clearance_r and z <= -143.0 + clearance_r and absf(x) >= 8.0 - clearance_r and absf(x) <= 27.0 + clearance_r:
 		return false
 
 	# 8. Strictly clear of EVERY placed inner house (rec.z = actual enlarged half_r 6.2..7.03m + clearance_r!)
@@ -4828,7 +5016,7 @@ func _build_street_life_and_akasha_magic() -> void:
 	var bistro_specs: Array[Dictionary] = [
 		# 3 sets on sunlit courtyard outside Starlight Cafe (building X in [12.65..22.35], Z in [22.6..33.4])
 		{"pos": Vector3(14.0, TIER_0_Y, 20.8), "yaw": 0.25},
-		{"pos": Vector3(17.8, TIER_0_Y, 20.5), "yaw": -0.15},
+		{"pos": Vector3(18.1, TIER_0_Y, 20.4), "yaw": -0.15},
 		{"pos": Vector3(21.6, TIER_0_Y, 20.8), "yaw": -0.40},
 		# 3 sets along scenic Canal South Promenade (clear of lamps at +/-22,-23.6, benches at -23.4 & railing at -25)
 		{"pos": Vector3(-12.5, TIER_0_Y, -22.4), "yaw": 0.18},
@@ -4992,6 +5180,238 @@ func _build_street_life_and_akasha_magic() -> void:
 		_create_fallback_grass_daisy_parts(),
 		null,
 		false
+	)
+
+	# --- 8. LIVING SOUL NPCS (Gondolier Luka, 6 Teachers, 6 Celestials, 14 Citizens — cast_shadows = ON!) ---
+	# 8A. Gondolier Luka standing on Canal South Promenade (exact V12-C [E] spot, facing -Z)
+	if _scene_npc_gondolier != null:
+		var luka_inst: Node = _scene_npc_gondolier.instantiate()
+		if luka_inst is Node3D:
+			var luka_node: Node3D = luka_inst as Node3D
+			luka_node.name = "CityGondolierQuay"
+			luka_node.position = Vector3(11.0, _get_prop_surface_y(11.0, -23.5), -23.5)
+			luka_node.rotation.y = PI
+			luka_node.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
+			_set_shadow_casting_recursive(luka_node, GeometryInstance3D.SHADOW_CASTING_SETTING_ON)
+			street_root.add_child(luka_node)
+		else:
+			luka_inst.queue_free()
+
+	# 8B. 6 Teacher Souls (including Elian at exact V12-C [E] spot on School of Souls Plaza)
+	var teacher_specs: Array[Dictionary] = [
+		{"pos": Vector2(-31.5, 11.5), "yaw": 0.72},    # 1. Elian — School of Souls Plaza (exact V12-C [E] spot)
+		{"pos": Vector2(-36.5, -75.0), "yaw": 0.65},   # 2. Orion Library Plaza
+		{"pos": Vector2(39.5, -75.5), "yaw": -0.65},   # 3. Kronos Tower Plaza
+		{"pos": Vector2(-7.8, 49.5), "yaw": 1.25},     # 4. Awakening Plaza
+		{"pos": Vector2(-36.2, -102.6), "yaw": -0.85}, # 5. Pocket Park Orion
+		{"pos": Vector2(33.2, -102.6), "yaw": 0.85},   # 6. Pocket Park Time
+	]
+	var teacher_xforms: Array[Transform3D] = []
+	for t_spec in teacher_specs:
+		var tp: Vector2 = t_spec["pos"] as Vector2
+		teacher_xforms.append(Transform3D(
+			Basis.from_euler(Vector3(0.0, float(t_spec["yaw"]), 0.0)),
+			Vector3(tp.x, _get_prop_surface_y(tp.x, tp.y), tp.y)
+		))
+	_spawn_scene_multimesh_batch(
+		street_root,
+		"CitySoulTeachers_MM",
+		_scene_npc_teacher,
+		teacher_xforms,
+		[] as Array[Dictionary],
+		null,
+		false,
+		true
+	)
+
+	# 8C. 6 Star-Civilization Souls (including Siriel at exact V12-C [E] spot welcoming to Hall of Worlds)
+	var celestial_specs: Array[Dictionary] = [
+		{"pos": Vector2(0.0, -138.0), "yaw": 0.0},     # 1. Siriel — Hall of Worlds Promenade (exact V12-C [E] spot, facing +Z)
+		{"pos": Vector2(-17.2, -144.2), "yaw": PI},    # 2. Admiring Portal_Earth & Portal_Pleiades
+		{"pos": Vector2(17.2, -144.2), "yaw": PI},     # 3. Admiring Portal_Lyra & Portal_Oceania
+		{"pos": Vector2(-7.2, -82.5), "yaw": 0.78},    # 4. Orrery Plaza NW
+		{"pos": Vector2(7.2, -73.5), "yaw": -2.35},    # 5. Orrery Plaza SE
+		{"pos": Vector2(-30.0, -133.0), "yaw": -0.55}, # 6. Lantern Garden
+	]
+	var celestial_xforms: Array[Transform3D] = []
+	for cel_spec in celestial_specs:
+		var cp2: Vector2 = cel_spec["pos"] as Vector2
+		celestial_xforms.append(Transform3D(
+			Basis.from_euler(Vector3(0.0, float(cel_spec["yaw"]), 0.0)),
+			Vector3(cp2.x, _get_prop_surface_y(cp2.x, cp2.y), cp2.y)
+		))
+	_spawn_scene_multimesh_batch(
+		street_root,
+		"CitySoulCelestials_MM",
+		_scene_npc_celestial,
+		celestial_xforms,
+		[] as Array[Dictionary],
+		null,
+		false,
+		true
+	)
+
+	# 8D. 14 Citizen Souls conversing across Starlight Cafe, Memory Shop, Grand Mall, Soul Gym, Plazas & Canal
+	var citizen_specs: Array[Dictionary] = [
+		{"pos": Vector2(10.2, 26.8), "yaw": 0.35},     # 1. Starlight Cafe courtyard A
+		{"pos": Vector2(10.8, 28.8), "yaw": -2.75},    # 2. Starlight Cafe courtyard B
+		{"pos": Vector2(-10.2, 26.8), "yaw": -0.35},   # 3. Memory Shop courtyard A
+		{"pos": Vector2(-10.8, 28.8), "yaw": 2.75},    # 4. Memory Shop courtyard B
+		{"pos": Vector2(-11.5, -106.5), "yaw": -0.42}, # 5. Grand Mall terrace A
+		{"pos": Vector2(-12.4, -108.8), "yaw": 2.65},  # 6. Grand Mall terrace B
+		{"pos": Vector2(13.0, -106.8), "yaw": 0.40},   # 7. Soul Gym terrace A
+		{"pos": Vector2(13.8, -109.2), "yaw": -2.70},  # 8. Soul Gym terrace B
+		{"pos": Vector2(6.2, 46.2), "yaw": -0.95},     # 9. Awakening Plaza East
+		{"pos": Vector2(-5.8, 44.8), "yaw": 0.85},     # 10. Awakening Plaza West
+		{"pos": Vector2(-15.2, -22.2), "yaw": 2.85},   # 11. Canal South Promenade West
+		{"pos": Vector2(15.2, -22.2), "yaw": -2.85},   # 12. Canal South Promenade East
+		{"pos": Vector2(38.2, 12.2), "yaw": 1.40},     # 13. Quiet Lakes Pier
+		{"pos": Vector2(-29.2, 6.2), "yaw": -0.60},    # 14. School of Souls Plaza
+	]
+	var citizen_xforms: Array[Transform3D] = []
+	for cit_spec in citizen_specs:
+		var ctp: Vector2 = cit_spec["pos"] as Vector2
+		citizen_xforms.append(Transform3D(
+			Basis.from_euler(Vector3(0.0, float(cit_spec["yaw"]), 0.0)),
+			Vector3(ctp.x, _get_prop_surface_y(ctp.x, ctp.y), ctp.y)
+		))
+	_spawn_scene_multimesh_batch(
+		street_root,
+		"CitySoulCitizens_MM",
+		_scene_npc_citizen,
+		citizen_xforms,
+		[] as Array[Dictionary],
+		null,
+		false,
+		true
+	)
+
+	# --- 9. 16 ADORABLE ANIMAL SOULS (6 Cats, 5 Akashic Foxes, 5 Archivist Owls — cast_shadows = ON!) ---
+	var cat_specs: Array[Dictionary] = [
+		{"pos": Vector2(16.5, 21.0), "yaw": -0.35},    # 1. Interactive Starlight Cafe Cat (exact V12-C [E] spot)
+		{"pos": Vector2(6.8, 49.5), "yaw": -1.10},     # 2. Awakening Plaza
+		{"pos": Vector2(-10.5, -22.2), "yaw": 2.60},   # 3. Canal South Promenade
+		{"pos": Vector2(-33.5, 4.5), "yaw": 0.45},     # 4. School of Souls Plaza
+		{"pos": Vector2(-32.2, 49.4), "yaw": -2.20},   # 5. Sakura Alley Pocket Park
+		{"pos": Vector2(32.2, 43.4), "yaw": 2.20},     # 6. Golden Willows Pocket Park
+	]
+	var cat_xforms: Array[Transform3D] = []
+	for cat_spec in cat_specs:
+		var cat_p: Vector2 = cat_spec["pos"] as Vector2
+		cat_xforms.append(Transform3D(
+			Basis.from_euler(Vector3(0.0, float(cat_spec["yaw"]), 0.0)),
+			Vector3(cat_p.x, _get_prop_surface_y(cat_p.x, cat_p.y), cat_p.y)
+		))
+	_spawn_scene_multimesh_batch(
+		street_root,
+		"CityAnimalCats_MM",
+		_scene_animal_cat,
+		cat_xforms,
+		[] as Array[Dictionary],
+		null,
+		false,
+		true
+	)
+
+	var fox_specs: Array[Dictionary] = [
+		{"pos": Vector2(44.0, 22.0), "yaw": 0.80},     # 1. Quiet Lakes Meadow West
+		{"pos": Vector2(58.5, 26.2), "yaw": -1.35},    # 2. Quiet Lakes Meadow East
+		{"pos": Vector2(-26.5, -135.0), "yaw": -0.75}, # 3. Lantern Garden Edge
+		{"pos": Vector2(-38.0, -110.5), "yaw": 1.15},  # 4. Orion Pocket Park
+		{"pos": Vector2(35.0, -110.5), "yaw": -1.15},  # 5. Time Pocket Park
+	]
+	var fox_xforms: Array[Transform3D] = []
+	for fox_spec in fox_specs:
+		var fox_p: Vector2 = fox_spec["pos"] as Vector2
+		fox_xforms.append(Transform3D(
+			Basis.from_euler(Vector3(0.0, float(fox_spec["yaw"]), 0.0)),
+			Vector3(fox_p.x, _get_prop_surface_y(fox_p.x, fox_p.y), fox_p.y)
+		))
+	_spawn_scene_multimesh_batch(
+		street_root,
+		"CityAnimalFoxes_MM",
+		_scene_animal_fox,
+		fox_xforms,
+		[] as Array[Dictionary],
+		null,
+		false,
+		true
+	)
+
+	var owl_specs: Array[Dictionary] = [
+		{"pos": Vector2(-38.0, -82.2), "yaw": 0.30},   # 1. Orion Library Plaza
+		{"pos": Vector2(-38.8, 12.2), "yaw": 0.95},    # 2. School of Souls Plaza
+		{"pos": Vector2(44.8, -82.2), "yaw": -0.45},   # 3. Kronos Tower Plaza
+		{"pos": Vector2(32.5, -134.5), "yaw": -0.80},  # 4. Mira's Sanctuary Plaza
+		{"pos": Vector2(-14.8, -109.5), "yaw": 1.30},  # 5. Grand Mall Terrace
+	]
+	var owl_xforms: Array[Transform3D] = []
+	for owl_spec in owl_specs:
+		var owl_p: Vector2 = owl_spec["pos"] as Vector2
+		owl_xforms.append(Transform3D(
+			Basis.from_euler(Vector3(0.0, float(owl_spec["yaw"]), 0.0)),
+			Vector3(owl_p.x, _get_prop_surface_y(owl_p.x, owl_p.y), owl_p.y)
+		))
+	_spawn_scene_multimesh_batch(
+		street_root,
+		"CityAnimalOwls_MM",
+		_scene_animal_owl,
+		owl_xforms,
+		[] as Array[Dictionary],
+		null,
+		false,
+		true
+	)
+
+	# --- 10. MICRO-STORYTELLING PROPS (6 Study Tables & 4 Cozy Market Bookstalls — cast_shadows = ON!) ---
+	var study_table_specs: Array[Dictionary] = [
+		{"pos": Vector2(-30.2, 9.6), "yaw": 0.45},     # 1. Outside School of Souls (clear of Elian & Bulletin_1)
+		{"pos": Vector2(-36.4, -72.6), "yaw": 0.20},   # 2. Orion Library Plaza
+		{"pos": Vector2(39.2, -73.4), "yaw": -0.25},   # 3. Kronos Tower Plaza
+		{"pos": Vector2(-30.5, -142.5), "yaw": 0.35},  # 4. Lantern Garden
+		{"pos": Vector2(-8.8, 48.0), "yaw": 1.20},     # 5. Awakening Plaza
+		{"pos": Vector2(-25.8, -22.2), "yaw": 0.0},    # 6. Canal South Promenade
+	]
+	var study_table_xforms: Array[Transform3D] = []
+	for st_spec in study_table_specs:
+		var st_p: Vector2 = st_spec["pos"] as Vector2
+		study_table_xforms.append(Transform3D(
+			Basis.from_euler(Vector3(0.0, float(st_spec["yaw"]), 0.0)),
+			Vector3(st_p.x, _get_prop_surface_y(st_p.x, st_p.y), st_p.y)
+		))
+	_spawn_scene_multimesh_batch(
+		street_root,
+		"CityStudyTables_MM",
+		_scene_prop_study_table,
+		study_table_xforms,
+		[] as Array[Dictionary],
+		null,
+		false,
+		true
+	)
+
+	var bookstall_specs: Array[Dictionary] = [
+		{"pos": Vector2(13.8, 43.2), "yaw": -0.65},      # 1. Awakening Plaza SE (cleanly outside plaza curb & SideStreet_SE)
+		{"pos": Vector2(-13.2, -103.5), "yaw": PI * 0.5},# 2. Grand Mall Terrace
+		{"pos": Vector2(13.2, -101.0), "yaw": -PI * 0.5},# 3. Soul Gym Terrace
+		{"pos": Vector2(-32.8, -85.2), "yaw": 0.45},     # 4. Orion Courtyard Edge (cleanly outside Plaza_OrionLibrary curb)
+	]
+	var bookstall_xforms: Array[Transform3D] = []
+	for bk_spec in bookstall_specs:
+		var bk_p: Vector2 = bk_spec["pos"] as Vector2
+		bookstall_xforms.append(Transform3D(
+			Basis.from_euler(Vector3(0.0, float(bk_spec["yaw"]), 0.0)),
+			Vector3(bk_p.x, _get_prop_surface_y(bk_p.x, bk_p.y), bk_p.y)
+		))
+	_spawn_scene_multimesh_batch(
+		street_root,
+		"CityBookstalls_MM",
+		_scene_prop_market_bookstall,
+		bookstall_xforms,
+		[] as Array[Dictionary],
+		null,
+		false,
+		true
 	)
 
 
@@ -5578,6 +5998,11 @@ func _collect_submesh_parts(
 								or s_name.contains("wood")
 								or s_name.contains("stem")
 							)
+							var is_blossom_or_fruit_accent: bool = (
+								s_name.contains("tree_canopy_blossom")
+								or s_name.contains("tree_canopy_fruit")
+								or s_name.contains("fruit")
+							)
 							var is_canopy: bool = (
 								s_name.contains("canopy")
 								or s_name.contains("leaf")
@@ -5590,6 +6015,8 @@ func _collect_submesh_parts(
 							)
 							if is_trunk:
 								dup_mesh.surface_set_material(s_idx, _mat_trunk_silver)
+							elif is_blossom_or_fruit_accent:
+								pass # Preserve sculpted V12 blossom & fruit accent materials intact!
 							elif is_canopy or s_idx > 0:
 								dup_mesh.surface_set_material(s_idx, canopy_tint_override)
 					final_mesh = dup_mesh
@@ -5615,6 +6042,11 @@ func _collect_submesh_parts(
 					or surf_mat_name.contains("bark")
 					or surf_mat_name.contains("wood")
 				)
+				var is_accent_single: bool = (
+					surf_mat_name.contains("tree_canopy_blossom")
+					or surf_mat_name.contains("tree_canopy_fruit")
+					or surf_mat_name.contains("fruit")
+				)
 				var is_canopy_single: bool = (
 					lower_name.contains("leaf")
 					or lower_name.contains("canopy")
@@ -5632,6 +6064,8 @@ func _collect_submesh_parts(
 				)
 				if is_trunk_single:
 					chosen_mat = _mat_trunk_silver
+				elif is_accent_single:
+					pass # Preserve sculpted V12 blossom & fruit accent materials intact!
 				elif is_canopy_single:
 					chosen_mat = canopy_tint_override
 
