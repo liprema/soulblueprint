@@ -9,20 +9,20 @@ render_mode cull_back;
 // - Pure PBR: metallic gold inlays, sunlit limestone/terracotta roughness, soft micro-relief via ALBEDO & AO
 
 group_uniforms plaza_colors;
-uniform vec3 stone_light : source_color = vec3(0.95, 0.91, 0.84);
-uniform vec3 stone_terracotta : source_color = vec3(0.84, 0.62, 0.48);
-uniform vec3 gold_inlay : source_color = vec3(0.88, 0.72, 0.36);
-uniform vec3 grout_color : source_color = vec3(0.64, 0.53, 0.42);
+uniform vec3 stone_light : source_color = vec3(0.84, 0.75, 0.62);
+uniform vec3 stone_terracotta : source_color = vec3(0.76, 0.48, 0.33);
+uniform vec3 gold_inlay : source_color = vec3(0.84, 0.64, 0.28);
+uniform vec3 grout_color : source_color = vec3(0.50, 0.39, 0.29);
 
 group_uniforms pattern_settings;
 uniform float pattern_scale : hint_range(1.0, 24.0) = 6.0;
 uniform float radial_mode : hint_range(0.0, 1.0) = 1.0;
 
 group_uniforms pbr_settings;
-uniform float stone_roughness : hint_range(0.25, 0.95) = 0.64;
-uniform float gold_metallic : hint_range(0.0, 1.0) = 0.82;
-uniform float gold_roughness : hint_range(0.08, 0.55) = 0.24;
-uniform float weathering_strength : hint_range(0.0, 1.0) = 0.32;
+uniform float stone_roughness : hint_range(0.25, 0.95) = 0.72;
+uniform float gold_metallic : hint_range(0.0, 1.0) = 0.80;
+uniform float gold_roughness : hint_range(0.08, 0.55) = 0.26;
+uniform float weathering_strength : hint_range(0.0, 1.0) = 0.44;
 
 varying vec3 v_world_pos;
 

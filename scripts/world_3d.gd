@@ -178,11 +178,11 @@ func _setup_city_quest_npcs() -> void:
 		0.0
 	)
 
-	# 2. Alatea at School of Young Souls (-36, 0, 8) facing east (+X) toward plaza
+	# 2. Alatea at School of Young Souls (-36, 3.2, 8) facing east (+X) toward plaza
 	_spawn_city_quest_npc(
 		"city_alatea",
 		"Алатея",
-		Vector3(-36.0, 0.0, 8.0),
+		Vector3(-36.0, 3.2, 8.0),
 		PI * 0.5,
 		CITY_ALATEA_MODEL_PATH,
 		0.62,
@@ -194,11 +194,11 @@ func _setup_city_quest_npcs() -> void:
 		1.2
 	)
 
-	# 3. Orion at Library of Orion (-42, 0, -78) facing east (+X)
+	# 3. Orion at Library of Orion (-42, 3.2, -78) facing east (+X)
 	_spawn_city_quest_npc(
 		"city_orion",
 		"Орион",
-		Vector3(-42.0, 0.0, -78.0),
+		Vector3(-42.0, 3.2, -78.0),
 		PI * 0.5,
 		CITY_ORION_MODEL_PATH,
 		0.75,
@@ -210,11 +210,11 @@ func _setup_city_quest_npcs() -> void:
 		2.4
 	)
 
-	# 4. Kronos at Tower of Time (42, 0, -78) facing west (-X)
+	# 4. Kronos at Tower of Time (42, 3.2, -78) facing west (-X)
 	_spawn_city_quest_npc(
 		"city_kronos",
 		"Кронос",
-		Vector3(42.0, 0.0, -78.0),
+		Vector3(42.0, 3.2, -78.0),
 		-PI * 0.5,
 		CITY_KRONOS_MODEL_PATH,
 		0.75,

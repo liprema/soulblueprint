@@ -26,14 +26,14 @@ const BLUEPRINT_PIECE_META: Dictionary = {
 		"description": "Светлый лист из Библиотеки Ориона — начало книги, которую будут перечитывать вновь.",
 		"place": "Библиотека Ориона",
 		"district": "orion_library",
-		"pos": Vector3(-42.0, 0.0, -78.0),
+		"pos": Vector3(-42.0, 3.2, -78.0),
 	},
 	"seven_springs_sand": {
 		"title": "Песок Семи Вёсен",
 		"description": "Горсть золотого песка из Башни Кроноса — мера короткой, но бесценной земной жизни.",
 		"place": "Башня Времени Кроноса",
 		"district": "kronos_tower",
-		"pos": Vector3(42.0, 0.0, -78.0),
+		"pos": Vector3(42.0, 3.2, -78.0),
 	},
 }
 
@@ -62,7 +62,7 @@ const QUEST_DATA: Dictionary = {
 	"q2_find_school": {
 		"title": "Школа Юных Душ",
 		"objective": "Найдите Наставницу Алатею в Школе Юных Душ (западнее площади, карта [M])",
-		"target_pos": Vector3(-36.0, 0.0, 8.0),
+		"target_pos": Vector3(-36.0, 3.2, 8.0),
 		"district": "school_of_souls",
 	},
 	"q3_gather_blueprint": {
@@ -74,7 +74,7 @@ const QUEST_DATA: Dictionary = {
 	"q4_return_to_school": {
 		"title": "Сплетение Чертежа",
 		"objective": "Вернитесь в Школу Юных Душ к Алатее и передайте три основы",
-		"target_pos": Vector3(-36.0, 0.0, 8.0),
+		"target_pos": Vector3(-36.0, 3.2, 8.0),
 		"district": "school_of_souls",
 	},
 	"q5_go_to_mirror": {
@@ -92,7 +92,7 @@ const QUEST_DATA: Dictionary = {
 	"q7_sunset_comfort": {
 		"title": "Знаки Утешения (Золотой закат)",
 		"objective": "Найдите и отправьте родителям Знаки Утешения (найдено 0 / 3, отправлено 0 / 3)",
-		"target_pos": Vector3(34.0, 0.0, -138.0),
+		"target_pos": Vector3(34.0, 3.2, -138.0),
 		"district": "mira_sanctuary",
 	},
 	"q8_complete": {
@@ -166,7 +166,7 @@ func get_current_target_pos() -> Vector3:
 	if _current_quest_id == "q7_sunset_comfort":
 		if _comfort_signs_found >= 3 and _comfort_signs_sent < 3:
 			return Vector3(0.0, 8.0, -286.0)
-		return Vector3(34.0, 0.0, -138.0)
+		return Vector3(34.0, 3.2, -138.0)
 
 	var def: Dictionary = _get_quest_def(_current_quest_id)
 	var pos_var: Variant = def.get("target_pos", Vector3.ZERO)
